@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elemental</title>
+<style>
+:root{
+  --bench:#dde3df;--panel:#f6f8f5;--band:#eaefeb;--ink:#17211e;--ink-2:#46534f;--soft:#c3ccc7;--tile:#cfd7d2;
+  --readout:#18231f;--hazard:#f0c419;--red:#b93a1e;--green:#2a6b4f;
+  --alkali:#eb9f8a;--alkaline:#efc77f;--transition:#a3c0dc;--post:#b7c2bd;--metalloid:#8ccbb9;--nonmetal:#c5dc8f;
+  --halogen:#e9a9c0;--noble:#c1b1e1;--lanth:#7fc9d6;--actin:#d8a0d0;--unknown:#d9dcda;
+  --head:"Bahnschrift","DIN Alternate","DIN 1451 Std","Avenir Next Condensed","Franklin Gothic Medium","Arial Narrow",Arial,sans-serif;
+  --text:"Charter","Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+}
+*{box-sizing:border-box}
+html{background:var(--bench)}
+body{margin:0;min-height:100vh;background:var(--bench);color:var(--ink);font-family:var(--text);font-size:16px;line-height:1.55}
+button,input,select{font:inherit;color:inherit;border-radius:0}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+h1,h2,h3{font-family:var(--head);margin:0;line-height:1.15}
+p{margin:0}
+.muted{color:var(--ink-2)}
+
+/* header band */
+.topband{background:var(--ink);color:#eef3ef}
+.topband-in{max-width:1120px;margin:0 auto;padding:10px 28px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;color:inherit}
+.mark{width:34px;height:34px;display:grid;place-items:center;background:var(--hazard);color:var(--ink);font-family:var(--head);font-weight:700;font-size:17px}
+.wordmark{font-family:var(--head);font-weight:700;font-size:22px;letter-spacing:.02em}
+.link-btn{background:none;border:0;padding:6px 0;color:#eef3ef;font-family:var(--head);font-size:16px;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.link-btn:hover{color:var(--hazard)}
+.link-btn:focus-visible,.brand:focus-visible{outline-color:var(--hazard)}
+.app{max-width:1120px;margin:0 auto;padding:28px 28px 64px}
+.screen{display:none}.screen.active{display:block}
+
+/* buttons */
+.ghost,.primary{padding:8px 16px;border:2px solid var(--ink);background:transparent;color:var(--ink);font-family:var(--head);font-weight:600;font-size:16px;line-height:1.2}
+.ghost:hover{background:var(--ink);color:var(--bench)}
+.primary{background:var(--hazard);font-weight:700;font-size:20px;padding:12px 28px}
+.primary:hover{background:var(--ink);color:var(--hazard)}
+.ghost:disabled,.primary:disabled{background:transparent;color:#66736e;border:2px dashed #8b9893;cursor:not-allowed}
+
+/* page heads */
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:26px}
+.page-head h1{font-size:38px;font-weight:700;letter-spacing:.005em}
+.sub{color:var(--ink-2);font-size:16px;margin-top:4px}
+.side-h{font-size:19px;font-weight:700;margin:26px 0 8px}
+.stats{margin:0}.stats>div{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--soft)}
+.stats dt{color:var(--ink-2)}.stats dd{margin:0;font-family:var(--head);font-weight:600;font-size:17px;font-variant-numeric:tabular-nums;text-align:right}
+
+/* home */
+.home{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:36px;align-items:start}
+.map-caption{margin-top:12px;color:var(--ink-2)}
+.map-caption strong{color:var(--ink);font-family:var(--head);font-size:18px;margin-right:6px}
+.home-side .roll-cta{width:100%;font-size:34px;padding:16px 20px;text-align:left}
+.navlist{margin-top:10px}
+.nav-row{display:flex;justify-content:space-between;align-items:baseline;width:100%;padding:12px 6px;background:none;border:0;border-bottom:1px solid var(--soft);text-align:left;font-family:var(--head);font-size:21px;font-weight:600}
+.nav-row .val{font-size:16px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.nav-row:hover{background:var(--ink);color:var(--bench)}.nav-row:hover .val{color:var(--hazard)}
+.big-formula{font-family:var(--head);font-weight:700;font-size:52px;line-height:1;overflow-wrap:anywhere}
+.big-name{margin-top:6px;font-size:17px}
+.big-odds{font-family:var(--head);font-weight:600;font-size:17px;margin-top:4px;font-variant-numeric:tabular-nums}
+
+/* periodic table (home map and collection) */
+.periodic-wrap{overflow-x:auto;padding-bottom:4px}
+.periodic{display:grid;grid-template-columns:repeat(18,minmax(0,1fr));grid-template-rows:repeat(7,auto) 12px repeat(2,auto);gap:3px}
+.periodic.full{min-width:780px}
+.element-tile{aspect-ratio:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;border:0;background:var(--tile);color:var(--ink);font-family:var(--head);cursor:default;min-width:0}
+.periodic.compact .element-tile{aspect-ratio:1/.86}
+.element-tile.discovered,.periodic.full .element-tile{cursor:pointer}
+.element-tile .atomic{position:absolute;top:3px;left:4px;font-size:9px;line-height:1;color:var(--ink-2)}
+.element-tile .sym{font-weight:700;font-size:clamp(12px,1.5vw,19px);line-height:1}
+.periodic.compact .sym{font-size:clamp(9px,1.45vw,17px)}
+.element-tile .tiny{max-width:96%;margin-top:3px;font-size:8.5px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.element-tile.discovered:hover,.periodic.full .element-tile:hover{outline:2px solid var(--ink);outline-offset:0;z-index:2}
+.element-tile.selected{outline:3px solid var(--ink);outline-offset:1px;z-index:3}
+.fam-alkali{background:var(--alkali)}.fam-alkaline{background:var(--alkaline)}.fam-transition{background:var(--transition)}.fam-post{background:var(--post)}
+.fam-metalloid{background:var(--metalloid)}.fam-nonmetal{background:var(--nonmetal)}.fam-halogen{background:var(--halogen)}.fam-noble{background:var(--noble)}
+.fam-lanth{background:var(--lanth)}.fam-actin{background:var(--actin)}.fam-unknown{background:var(--unknown)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:16px 0 4px;font-size:14px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.dot{display:inline-block;width:13px;height:13px}
+.dot.none{background:var(--tile);box-shadow:inset 0 0 0 1px #aab5b0}
+
+/* roll */
+.roll-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:40px;align-items:start}
+.roll-results{display:grid;gap:14px}
+.roll-result-column{display:flex;flex-direction:column;min-width:0}
+.eyebrow{font-family:var(--head);font-weight:600;font-size:15px;color:var(--ink-2);margin-bottom:6px}
+.reel{position:relative;isolation:isolate;height:190px;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 50%,#24382f 0,var(--readout) 72%);overflow:hidden}
+.roll-result-column:only-child .reel{height:300px}
+.reel-symbol{max-width:100%;padding:0 14px;text-align:center;overflow-wrap:anywhere;line-height:1;font-family:var(--head);font-weight:700;font-size:clamp(40px,5.2vw,64px);color:#eef3ef}
+.roll-result-column:only-child .reel-symbol{font-size:clamp(56px,9vw,104px)}
+.reel.rolling .reel-symbol{opacity:0}
+.result-card{padding-top:12px;min-width:0}
+.result-name{font-size:26px;font-weight:700;overflow-wrap:anywhere}
+.rarity{font-family:var(--head);font-weight:600;font-size:19px;margin-top:2px;font-variant-numeric:tabular-nums}
+.result-card .sub{font-size:15px;margin-top:2px;min-height:1.5em}
+.roll-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:24px}
+#autoHint{margin-top:10px;font-size:15px;color:var(--ink-2)}
+.toast{min-height:20px}
+.roll-side{border-left:5px solid var(--ink);padding-left:22px}
+.roll-side .side-h:first-child{margin-top:0}
+.roll-side p{font-size:15px;color:var(--ink-2);margin-top:8px}
+
+/* collection */
+.tabs{display:flex;gap:26px;margin-bottom:20px;border-bottom:2px solid var(--ink)}
+.tab{padding:6px 0 8px;background:none;border:0;font-family:var(--head);font-size:19px;font-weight:600;color:var(--ink-2)}
+.tab.active{color:var(--ink);box-shadow:inset 0 -5px 0 var(--hazard)}
+.tab:hover{color:var(--ink)}
+.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.stat{color:var(--ink-2)}
+.search{flex:1;min-width:180px;padding:9px 12px;background:var(--panel);border:2px solid var(--ink);font-family:var(--text)}
+select{padding:9px 12px;background:var(--panel);border:2px solid var(--ink);font-family:var(--text)}
+.rank-list{display:flex;flex-direction:column}
+.rank-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;background:var(--panel)}
+.rank-row:nth-child(even){background:var(--band)}
+.rank-row:first-child{box-shadow:inset 6px 0 var(--hazard)}
+.rank-num{font-family:var(--head);font-weight:700;font-size:24px;color:var(--ink-2);text-align:center;font-variant-numeric:tabular-nums}
+.rank-formula{font-family:var(--head);font-weight:700;font-size:27px;line-height:1.1;overflow-wrap:anywhere}
+.rank-name{font-size:14px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-odds{text-align:right;font-variant-numeric:tabular-nums}
+.rank-odds b{display:block;font-family:var(--head);font-weight:700;font-size:19px}
+.rank-odds span{font-size:14px;color:var(--ink-2)}
+.empty{padding:28px 0}
+.empty strong{display:block;font-family:var(--head);font-size:22px;margin-bottom:4px}
+.empty p{color:var(--ink-2);margin-bottom:14px}
+.footnote{color:var(--ink-2);font-size:15px;margin-top:14px;max-width:70ch}
+#buffSummary{max-width:520px}
+.element-buff-panel{border-left:7px solid var(--hazard);padding:4px 0 4px 18px;margin-bottom:26px;max-width:70ch}
+.buff-panel-kicker{font-family:var(--head);font-weight:600;font-size:15px;color:var(--ink-2)}
+.element-buff-panel h3{font-size:28px;margin:2px 0 6px}
+.element-buff-panel p{font-size:17px}
+.buff-state{margin-top:10px;font-family:var(--head);font-weight:600;font-size:16px;color:var(--ink-2)}
+.buff-state.active{color:var(--green)}
+#elemCompounds .toolbar strong{font-family:var(--head);font-size:21px}
+
+/* achievements */
+.ach-summary{display:flex;align-items:center;gap:22px;margin-bottom:16px;flex-wrap:wrap}
+.ach-summary strong{font-family:var(--head);font-size:22px}
+.achievement-track{flex:1;min-width:140px;max-width:340px;height:12px;background:var(--soft)}
+.achievement-track span{display:block;height:100%;width:0;background:var(--ink)}
+.ach-list{display:flex;flex-direction:column}
+.ach-row{display:grid;grid-template-columns:22px 120px minmax(0,1fr) 110px;gap:16px;align-items:start;padding:12px 14px;background:var(--panel)}
+.ach-row:nth-child(even){background:var(--band)}
+.ach-row.missing{color:var(--ink-2)}
+.ach-mark{width:20px;height:20px;margin-top:3px;border:2px solid var(--ink)}
+.ach-row.found .ach-mark{background:var(--hazard)}
+.ach-formula{font-family:var(--head);font-weight:700;font-size:21px;line-height:1.25;overflow-wrap:anywhere}
+.ach-name{font-family:var(--head);font-weight:600;font-size:19px;line-height:1.25}
+.ach-flavor{font-size:15px;color:var(--ink-2);margin-top:2px}
+.ach-rarity{display:inline-flex;align-items:center;gap:8px;font-family:var(--head);font-weight:600;font-size:16px;margin-top:2px}
+.ach-rarity:before{content:"";width:11px;height:11px;background:var(--sw,#8a9893)}
+.rarity-common{--sw:#8a9893}.rarity-uncommon{--sw:#3f8a5f}.rarity-rare{--sw:#3a6ea5}.rarity-epic{--sw:#8a4a9e}.rarity-legendary{--sw:#e0a100}
+
+/* settings */
+.setting{display:grid;grid-template-columns:210px minmax(0,1fr);gap:8px 36px;padding:22px 0;border-top:3px solid var(--ink)}
+.setting:last-of-type{border-bottom:3px solid var(--ink)}
+.setting h3{font-size:22px}
+.setting .body>p{color:var(--ink-2);margin-bottom:12px;max-width:62ch}
+.setting select{min-width:240px}
+.check{display:flex;align-items:center;gap:10px;margin:6px 0 14px;font-family:var(--head);font-weight:600;font-size:17px}
+input[type=checkbox]{width:19px;height:19px;accent-color:var(--ink)}
+.tier-table{border-collapse:collapse;width:100%;max-width:560px}
+.tier-table th{font-family:var(--head);font-weight:700;font-size:16px;text-align:left;padding:6px 10px 8px}
+.tier-table th:not(:first-child),.tier-table td:not(:first-child){text-align:center;width:110px}
+.tier-table td{padding:8px 10px}
+.tier-table tbody tr:nth-child(odd){background:var(--panel)}
+.tier-table td:first-child{font-size:15px}
+.tier-table td:first-child b{font-family:var(--head);font-size:17px;margin-right:8px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+#resetBtn{border-color:var(--red);color:var(--red)}
+#resetBtn:hover{background:var(--red);color:#fff}
+
+/* achievement toast */
+.achievement-toast{position:fixed;left:20px;bottom:20px;z-index:20;width:min(380px,calc(100vw - 40px));padding:13px 18px 14px;background:var(--ink);color:#eef3ef;border-left:9px solid var(--hazard);transform:translateY(24px);opacity:0;transition:transform .2s ease,opacity .2s ease;pointer-events:none}
+.achievement-toast.show{transform:none;opacity:1}
+.achievement-toast small{display:block;font-family:var(--head);font-weight:600;font-size:14px;color:var(--hazard)}
+.achievement-toast strong{display:block;font-family:var(--head);font-size:22px;line-height:1.2;margin:1px 0 3px}
+.achievement-toast span{display:block;font-size:14px;line-height:1.4;color:#c9d3ce}
+
+
+/* reel: HUD frame + 3D field canvas */
+.reel{--b:linear-gradient(var(--hazard),var(--hazard))}
+.reel::before{content:"";position:absolute;inset:9px;z-index:3;pointer-events:none;background:var(--b) 0 0/20px 2px no-repeat,var(--b) 0 0/2px 20px no-repeat,var(--b) 100% 0/20px 2px no-repeat,var(--b) 100% 0/2px 20px no-repeat,var(--b) 0 100%/20px 2px no-repeat,var(--b) 0 100%/2px 20px no-repeat,var(--b) 100% 100%/20px 2px no-repeat,var(--b) 100% 100%/2px 20px no-repeat}
+.reel::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px)}
+.reel canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+.reel-symbol{position:relative;z-index:1;text-shadow:0 0 24px rgba(240,196,25,.25)}
+.reel.reveal{animation:reelHit .8s ease-out}
+.reel.reveal .reel-symbol{animation:symPop .5s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes reelHit{0%{box-shadow:inset 0 0 110px 40px rgba(240,196,25,.95)}100%{box-shadow:inset 0 0 0 0 rgba(240,196,25,0)}}
+@keyframes symPop{0%{transform:scale(1.07);filter:brightness(2.4)}100%{transform:none;filter:none}}
+/* rarity screen effects: neon, deliberately unlike the bench palette */
+.rarity-effect{position:fixed;inset:0;z-index:15;pointer-events:none;overflow:hidden;--fx1:#4df3ff;--fx2:#1a6bff;--d:2.2s}
+body.rarity-fx-2 .rarity-effect{--fx2:#ff4fd8;--d:2.6s}
+body.rarity-fx-3 .rarity-effect{--fx1:#ff4fd8;--fx2:#6a5cff;--d:3.2s}
+body.rarity-fx-4 .rarity-effect{--fx1:#ffe14a;--fx2:#ff3b1f;--d:4.1s}
+body.rarity-fx-5 .rarity-effect{--fx1:#fff;--fx2:#ff2bd6;--d:5.4s}
+.fx{position:absolute;display:block}
+.fx-edge{inset:0;box-shadow:inset 0 0 0 5px var(--fx1),inset 0 0 70px 12px var(--fx1),inset 0 0 200px 50px var(--fx2);animation:fxEdge var(--d) ease-out both}
+body.rarity-fx-5 .fx-edge{animation:fxEdge var(--d) ease-out both,fxHue 1.2s linear infinite}
+.fx-sweep{top:0;bottom:0;left:0;width:26%;background:linear-gradient(90deg,transparent,var(--fx1),#fff,var(--fx1),transparent);mix-blend-mode:screen;opacity:.75;animation:fxSweep .9s ease-in-out both}
+.fx-ring{left:var(--cx);top:var(--cy);width:18vmin;height:18vmin;margin:-9vmin 0 0 -9vmin;border-radius:50%;border:5px solid var(--fx1);box-shadow:0 0 40px var(--fx1),inset 0 0 40px var(--fx2);animation:fxRing 1.3s cubic-bezier(.1,.7,.2,1) both}
+.fx-ring.r2{animation-delay:.18s;border-color:var(--fx2)}.fx-ring.r3{animation-delay:.36s}
+.fx-rays{left:var(--cx);top:var(--cy);width:260vmax;height:260vmax;margin:-130vmax 0 0 -130vmax;background:conic-gradient(var(--fx1),var(--fx2),var(--fx1));-webkit-mask-image:repeating-conic-gradient(#000 0 4deg,transparent 4deg 14deg);mask-image:repeating-conic-gradient(#000 0 4deg,transparent 4deg 14deg);mix-blend-mode:screen;animation:fxRays var(--d) ease-out both}
+body.rarity-fx-5 .fx-rays{background:conic-gradient(#f22,#fd0,#3f6,#2ee,#66f,#f3f,#f22);animation:fxRays var(--d) ease-out both,fxHue 1.5s linear infinite}
+.fx-flash{inset:0;background:var(--fx1);animation:fxFlash .55s ease-out both}
+body.rarity-fx-5 .fx-flash{animation:fxStrobe 1.1s steps(1,end) both}
+.fx-bar{left:0;right:0;height:14vh;background:#000;display:flex;align-items:center;justify-content:center}
+.fx-bar.top{top:0;border-bottom:3px solid var(--fx1);animation:fxBarT var(--d) cubic-bezier(.2,.9,.2,1) both}
+.fx-bar.bot{bottom:0;border-top:3px solid var(--fx1);animation:fxBarB var(--d) cubic-bezier(.2,.9,.2,1) both}
+.fx-bar b{font-family:var(--head);font-weight:700;font-size:clamp(14px,3.4vw,32px);letter-spacing:.3em;text-align:center;color:var(--fx1);text-shadow:0 0 18px var(--fx2);animation:fxLetter var(--d) ease-out both}
+.fx-sparks{position:absolute;inset:0;width:100%;height:100%}
+body.rarity-fx-3 .app,body.rarity-fx-3 .topband{animation:fxHit3 .7s both}
+body.rarity-fx-4 .app,body.rarity-fx-4 .topband{animation:fxHit4 .9s both}
+body.rarity-fx-5 .app,body.rarity-fx-5 .topband{animation:fxHit5 1.6s both}
+@keyframes fxEdge{0%{opacity:0}6%{opacity:1}30%{opacity:.5}45%{opacity:1}100%{opacity:0}}
+@keyframes fxSweep{from{transform:translateX(-130%) skewX(-20deg)}to{transform:translateX(480%) skewX(-20deg)}}
+@keyframes fxRing{0%{transform:scale(.1);opacity:0}8%{opacity:1}100%{transform:scale(11);opacity:0}}
+@keyframes fxRays{0%{opacity:0;transform:rotate(0) scale(.3)}10%{opacity:.7}100%{opacity:0;transform:rotate(60deg) scale(1)}}
+@keyframes fxFlash{0%{opacity:.9}100%{opacity:0}}
+@keyframes fxStrobe{0%{opacity:1;background:#fff}10%{background:#000}20%{background:#fff}30%{background:var(--fx2)}40%{opacity:.8;background:#fff}55%{opacity:.5;background:#000}70%{opacity:.4;background:var(--fx2)}100%{opacity:0}}
+@keyframes fxBarT{0%{transform:translateY(-101%)}12%,85%{transform:none}100%{transform:translateY(-101%)}}
+@keyframes fxBarB{0%{transform:translateY(101%)}12%,85%{transform:none}100%{transform:translateY(101%)}}
+@keyframes fxLetter{0%{letter-spacing:1em;opacity:0}20%{letter-spacing:.3em;opacity:1}85%{opacity:1}100%{opacity:0}}
+@keyframes fxHue{to{filter:hue-rotate(360deg)}}
+@keyframes fxHit3{0%{transform:none}10%{transform:translate(-6px,3px);filter:hue-rotate(40deg) saturate(1.8)}20%{transform:translate(5px,-4px)}30%{transform:translate(-3px,2px);filter:none}45%,100%{transform:none;filter:none}}
+@keyframes fxHit4{0%{filter:invert(1) hue-rotate(180deg)}6%{transform:translate(-12px,6px);filter:invert(1)}12%{transform:translate(10px,-8px);filter:none}20%{transform:translate(-8px,5px);filter:invert(1) hue-rotate(90deg)}28%{transform:translate(6px,-4px);filter:none}40%{transform:translate(-3px,2px)}55%,100%{transform:none;filter:none}}
+@keyframes fxHit5{0%{filter:invert(1)}5%{transform:translate(-16px,8px) scale(1.02);filter:invert(1) hue-rotate(120deg)}10%{transform:translate(14px,-10px);filter:none}15%{transform:translate(-12px,6px);filter:invert(1)}20%{transform:translate(10px,-6px) scale(1.015);filter:hue-rotate(200deg) saturate(3)}28%{transform:translate(-8px,4px);filter:invert(1) hue-rotate(60deg)}36%{transform:translate(6px,-3px);filter:none}50%{transform:translate(-3px,2px);filter:hue-rotate(300deg) saturate(2)}70%,100%{transform:none;filter:none}}
+
+/* responsive */
+@media(max-width:860px){
+  .app{padding:20px 16px 48px}.topband-in{padding:10px 16px}
+  .home{grid-template-columns:1fr;gap:26px}
+  .roll-layout{grid-template-columns:1fr;gap:28px}
+  .roll-side{border-left:0;border-top:5px solid var(--ink);padding:16px 0 0}
+  .setting{grid-template-columns:1fr;gap:6px}
+  .page-head h1{font-size:32px}
+}
+@media(max-width:600px){
+  .periodic.compact .sym{display:none}
+  .periodic.compact{gap:2px}
+  .roll-results{grid-template-columns:1fr 1fr!important}
+  .roll-result-column:only-child{grid-column:1/-1}
+  .ach-row{grid-template-columns:22px 82px minmax(0,1fr);gap:10px}
+  .ach-rarity{grid-column:2/-1;margin-top:0}
+  .rank-row{grid-template-columns:30px minmax(0,1fr) auto;gap:10px;padding:10px}
+  .rank-num{font-size:20px}.rank-formula{font-size:23px}
+  .wordmark{font-size:20px}
+  .tabs{gap:18px}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="topband"><div class="topband-in">
+<button class="brand" data-go="menu" aria-label="Elemental home"><span class="mark">El</span><span class="wordmark">Elemental</span></button>
+<button class="link-btn" data-go="achievements">Achievements <span id="achievementHeaderCount">0/100</span></button>
+</div></div>
+<div class="app">
+
+<main id="menu" class="screen active">
+<div class="home">
+<section class="home-map">
+<div class="periodic-wrap"><div class="periodic compact" id="homeMap"></div></div>
+<p class="map-caption"><strong id="mapCount">0 of 118 elements found.</strong>Select a found element to see its bonus.</p>
+</section>
+<aside class="home-side">
+<button class="primary roll-cta" data-go="game">Roll</button>
+<nav class="navlist" aria-label="Sections">
+<button class="nav-row" data-go="inventory"><span>Collection</span><span class="val" id="homeUnique">0 formulas</span></button>
+<button class="nav-row" data-go="achievements"><span>Achievements</span><span class="val" id="homeAch">0 / 0</span></button>
+<button class="nav-row" data-go="settings"><span>Settings</span><span class="val">Sound, effects, save</span></button>
+</nav>
+<h2 class="side-h">Rarest find</h2>
+<div id="homeRarest"></div>
+<dl class="stats" style="margin-top:18px">
+<div><dt>Rolls logged</dt><dd id="homeRolls">0</dd></div>
+<div><dt>Chain chance</dt><dd id="homeChain">1 in 8</dd></div>
+<div><dt>Autoroll</dt><dd class="js-auto">Locked</dd></div>
+</dl>
+</aside>
+</div>
+</main>
+
+<main id="game" class="screen">
+<div class="page-head"><div><h1>Roll</h1><p class="sub">One element per roll, with a chance to chain into more.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<div class="roll-layout">
+<section class="roll-panel">
+<div class="roll-results" id="rollResults"><div class="roll-result-column"><div class="reel" id="reel"><div class="reel-symbol" id="reelSymbol">?</div></div><div class="result-card"><h2 class="result-name" id="resultName">No roll yet</h2><div class="rarity" id="resultRarity">Press Roll or the space bar</div><div id="resultExtra" class="sub"></div></div></div></div>
+<div class="roll-controls"><button class="primary" id="rollBtn">Roll</button><button class="ghost" id="autoRollBtn" aria-pressed="false" disabled>Autoroll locked</button><button class="ghost" data-go="inventory">Collection</button></div>
+<div id="autoHint"></div>
+<div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
+</section>
+<aside class="roll-side">
+<h2 class="side-h">Current bonuses</h2>
+<dl class="stats" id="rollStats"></dl>
+<h2 class="side-h">How a roll works</h2>
+<p>Each element has its own odds. Rarer elements come up less often, and luck bonuses nudge the weighting toward them.</p>
+<p>After every element there is a 1 in 8 chance of adding another, up to 30. Some rare elements improve that to 1 in 3.</p>
+<p>A chain is written as one formula in Hill order: carbon first, then hydrogen, then the rest alphabetically.</p>
+</aside>
+</div>
+</main>
+
+<main id="inventory" class="screen">
+<div class="page-head"><div><h1>Collection</h1><p class="sub">Every formula you have rolled, and the elements behind them.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<section class="inventory-panel">
+<div class="tabs"><button class="tab active" data-tab="compounds">Rarest ten</button><button class="tab" data-tab="completionist">All elements</button></div>
+<div id="compoundView"><div class="toolbar"><span class="stat" id="collectionStats">0 rolls logged</span></div><div id="compoundGrid" class="rank-list"></div></div>
+<div id="completionView" style="display:none">
+<div class="toolbar"><strong id="elementStats">0 / 118 elements found</strong></div>
+<div class="periodic-wrap"><div class="periodic full" id="periodic"></div></div>
+<div class="legend" id="legend"></div>
+<p class="footnote">Select any found element to open its page. Its bonus applies permanently from the first time you find it.</p>
+<div id="buffSummary"></div>
+</div>
+</section>
+</main>
+
+<main id="element" class="screen">
+<div class="page-head"><div><h1 id="elemTitle">Element</h1><p class="sub" id="elemSub"></p></div><button class="ghost" id="elemBack">Back</button></div>
+<section class="inventory-panel">
+<div class="element-buff-panel" id="elementBuffPanel"><div class="buff-panel-kicker">Bonus</div><h3 id="buffElementName">Select an element</h3><p id="buffElementDesc">Choose an element on the table to see its bonus.</p><div id="buffElementState" class="buff-state">Bonuses apply after the element is found.</div></div>
+<div id="elemCompounds"></div>
+</section>
+</main>
+
+<main id="settings" class="screen">
+<div class="page-head"><div><h1>Settings</h1><p class="sub">Display, sound and saved progress.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<section class="inventory-panel">
+<div class="setting"><h3>Chain details</h3><div class="body"><p>Show how many elements were chained under each result.</p><select id="chainSetting"><option value="on" selected>Show chain details</option><option value="off">Result only</option></select></div></div>
+<div class="setting"><h3>Sound</h3><div class="body"><p>A soft tick while the reel spins and a chime on the result. Rarer results get a fuller chime. Sound starts after you press Roll.</p>
+<label class="check"><input type="checkbox" id="audioEnabled" checked>Play roll sounds</label>
+<p>Choose which rarity tiers get a sound and a full-screen flash.</p>
+<table class="tier-table"><thead><tr><th>Rarity</th><th>Sound</th><th>Flash</th></tr></thead><tbody>
+<tr><td><b>Tier 1</b>1 in 10,000 to 1 in 100,000</td><td><input type="checkbox" data-sound-tier="1" checked aria-label="Tier 1 sound"></td><td><input type="checkbox" data-effect-tier="1" checked aria-label="Tier 1 flash"></td></tr>
+<tr><td><b>Tier 2</b>1 in 100,000 to 1 in 1,000,000</td><td><input type="checkbox" data-sound-tier="2" checked aria-label="Tier 2 sound"></td><td><input type="checkbox" data-effect-tier="2" checked aria-label="Tier 2 flash"></td></tr>
+<tr><td><b>Tier 3</b>1 in 1,000,000 to 1 in 10,000,000</td><td><input type="checkbox" data-sound-tier="3" checked aria-label="Tier 3 sound"></td><td><input type="checkbox" data-effect-tier="3" checked aria-label="Tier 3 flash"></td></tr>
+<tr><td><b>Tier 4</b>1 in 10,000,000 to 1 in 100,000,000</td><td><input type="checkbox" data-sound-tier="4" checked aria-label="Tier 4 sound"></td><td><input type="checkbox" data-effect-tier="4" checked aria-label="Tier 4 flash"></td></tr>
+<tr><td><b>Tier 5</b>1 in 100,000,000 and rarer</td><td><input type="checkbox" data-sound-tier="5" checked aria-label="Tier 5 sound"></td><td><input type="checkbox" data-effect-tier="5" checked aria-label="Tier 5 flash"></td></tr>
+</tbody></table></div></div>
+<div class="setting"><h3>Backup</h3><div class="body"><p>Save your progress to a file, or restore it from one.</p><div class="btn-row"><button class="ghost" id="exportBtn">Export save</button><button class="ghost" id="importBtn">Import save</button><input type="file" id="importFile" accept="application/json" hidden></div></div></div>
+<div class="setting"><h3>Start over</h3><div class="body"><p>Delete your collection, found elements and achievements. This cannot be undone.</p><button class="ghost" id="resetBtn">Reset all progress</button></div></div>
+<p class="footnote">The odds shown on a result combine the odds of each element with the chance of that exact chain length.</p>
+</section>
+</main>
+
+<main id="achievements" class="screen">
+<div class="page-head"><div><h1>Achievements</h1><p class="sub">Formulas to find.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<section class="inventory-panel">
+<div class="ach-summary"><strong id="achievementProgress">0 of 0 found</strong><div class="achievement-track"><span id="achievementBar"></span></div></div>
+<div class="toolbar"><input class="search" id="achievementSearch" placeholder="Search by formula or name" aria-label="Search achievements"><select id="achievementFilter" aria-label="Filter achievements"><option value="all">All</option><option value="unlocked">Found</option><option value="locked">Not found</option></select></div>
+<div id="achievementGrid" class="ach-list"></div>
+</section>
+</main>
+
+</div>
+<div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
+<div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
+<script>
+const E=[
+['H','Hydrogen',6],
+['He','Helium',42],
+['Li','Lithium',129],
+['Be','Beryllium',323],
+['B','Boron',402],
+['C','Carbon',23],
+['N','Nitrogen',42],
+['O','Oxygen',3],
+['F','Fluorine',251],
+['Ne','Neon',1796],
+['Na','Sodium',10823],
+['Mg','Magnesium',323],
+['Al','Aluminium',186],
+['Si','Silicon',5578],
+['P','Phosphorus',186],
+['S','Sulfur',81],
+['Cl','Chlorine',129],
+['Ar','Argon',1796],
+['K','Potassium',17321],
+['Ca','Calcium',251],
+['Sc','Scandium',24945],
+['Ti','Titanium',402],
+['V','Vanadium',10823],
+['Cr','Chromium',487],
+['Mn','Manganese',1247],
+['Fe','Iron',579],
+['Co','Cobalt',3485],
+['Ni','Nickel',1247],
+['Cu','Copper',186],
+['Zn','Zinc',323],
+['Ga','Gallium',10823],
+['Ge','Germanium',13924],
+['As','Arsenic',8033],
+['Se','Selenium',3485],
+['Br','Bromine',1796],
+['Kr','Krypton',24945],
+['Rb','Rubidium',53785],
+['Sr','Strontium',1796],
+['Y','Yttrium',17321],
+['Zr','Zirconium',10823],
+['Nb','Niobium',33607],
+['Mo','Molybdenum',5578],
+['Tc','Technetium',1075644],
+['Ru','Ruthenium',53785],
+['Rh','Rhodium',150289],
+['Pd','Palladium',17321],
+['Ag','Silver',129],
+['Cd','Cadmium',4696],
+['In','Indium',20999],
+['Sn','Tin',1247],
+['Sb','Antimony',8033],
+['Te','Tellurium',24945],
+['I','Iodine',1003],
+['Xe','Xenon',43237],
+['Cs','Caesium',65204],
+['Ba','Barium',1796],
+['La','Lanthanum',24945],
+['Ce','Cerium',10823],
+['Pr','Praseodymium',65204],
+['Nd','Neodymium',43237],
+['Pm','Promethium',2319207],
+['Sm','Samarium',65204],
+['Eu','Europium',33607],
+['Gd','Gadolinium',33607],
+['Tb','Terbium',104355],
+['Dy','Dysprosium',43237],
+['Ho','Holmium',104355],
+['Er','Erbium',43237],
+['Tm','Thulium',150289],
+['Yb','Ytterbium',24945],
+['Lu','Lutetium',65204],
+['Hf','Hafnium',24945],
+['Ta','Tantalum',43237],
+['W','Tungsten',2420],
+['Re','Rhenium',65204],
+['Os','Osmium',104355],
+['Ir','Iridium',65204],
+['Pt','Platinum',1796],
+['Au','Gold',251],
+['Hg','Mercury',1003],
+['Tl','Thallium',33607],
+['Pb','Lead',186],
+['Bi','Bismuth',1247],
+['Po','Polonium',2811626],
+['At','Astatine',6480513],
+['Rn','Radon',346402],
+['Fr','Francium',20123214],
+['Ra','Radium',240527],
+['Ac','Actinium',466677],
+['Th','Thorium',10823],
+['Pa','Protactinium',746881],
+['U','Uranium',2000000000],
+['Np','Neptunium',4499792],
+['Pu','Plutonium',2811626],
+['Am','Americium',3340076],
+['Cm','Curium',6480513],
+['Bk','Berkelium',20123214],
+['Cf','Californium',14936928],
+['Es','Einsteinium',46381974],
+['Fm','Fermium',46381974],
+['Md','Mendelevium',62486368],
+['No','Nobelium',80393681],
+['Lr','Lawrencium',100004659],
+['Rf','Rutherfordium',144024763],
+['Db','Dubnium',168306542],
+['Sg','Seaborgium',194031942],
+['Bh','Bohrium',221155720],
+['Hs','Hassium',249637520],
+['Mt','Meitnerium',279441024],
+['Ds','Darmstadtium',310533301],
+['Rg','Roentgenium',342884292],
+['Cn','Copernicium',376466403],
+['Nh','Nihonium',411254176],
+['Fl','Flerovium',447224014],
+['Mc','Moscovium',484353960],
+['Lv','Livermorium',522623509],
+['Ts','Tennessine',562013448],
+['Og','Oganesson',644083317]
+];
+E.forEach(e=>e[2]=e[0]==='U'?12000000:Math.max(2,Math.round(e[2]**0.82)));
+const bySym=Object.fromEntries(E.map(e=>[e[0],e])), layout={};
+function put(p,a){a.forEach(([s,c])=>layout[s]=[p,c])}
+put(1,[['H',1],['He',18]]);
+put(2,[['Li',1],['Be',2],['B',13],['C',14],['N',15],['O',16],['F',17],['Ne',18]]);
+put(3,[['Na',1],['Mg',2],['Al',13],['Si',14],['P',15],['S',16],['Cl',17],['Ar',18]]);
+put(4,[['K',1],['Ca',2],['Sc',3],['Ti',4],['V',5],['Cr',6],['Mn',7],['Fe',8],['Co',9],['Ni',10],['Cu',11],['Zn',12],['Ga',13],['Ge',14],['As',15],['Se',16],['Br',17],['Kr',18]]);
+put(5,[['Rb',1],['Sr',2],['Y',3],['Zr',4],['Nb',5],['Mo',6],['Tc',7],['Ru',8],['Rh',9],['Pd',10],['Ag',11],['Cd',12],['In',13],['Sn',14],['Sb',15],['Te',16],['I',17],['Xe',18]]);
+put(6,[['Cs',1],['Ba',2],['Hf',4],['Ta',5],['W',6],['Re',7],['Os',8],['Ir',9],['Pt',10],['Au',11],['Hg',12],['Tl',13],['Pb',14],['Bi',15],['Po',16],['At',17],['Rn',18]]);
+put(7,[['Fr',1],['Ra',2],['Rf',4],['Db',5],['Sg',6],['Bh',7],['Hs',8],['Mt',9],['Ds',10],['Rg',11],['Cn',12],['Nh',13],['Fl',14],['Mc',15],['Lv',16],['Ts',17],['Og',18]]);
+['La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu'].forEach((s,i)=>layout[s]=[9,i+4]);
+['Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr'].forEach((s,i)=>layout[s]=[10,i+4]);
+const ACHIEVEMENTS = [{"formula":"H2O","name":"Water","flavor":"A tiny, bent molecule that covers most of Earth and makes life as we know it possible.","rarity":"Common"},{"formula":"CO2","name":"Carbon dioxide","flavor":"Plants borrow this invisible gas to build sugars; too much in the atmosphere traps extra heat.","rarity":"Common"},{"formula":"ClNa","name":"Table salt","flavor":"Sodium and chlorine make the familiar crystals that season food and help nerves work.","rarity":"Rare"},{"formula":"O2","name":"Oxygen","flavor":"The reactive gas many organisms use to release energy from food.","rarity":"Common"},{"formula":"O3","name":"Ozone","flavor":"High in the atmosphere it shields Earth from ultraviolet light; near the ground it is a pollutant.","rarity":"Common"},{"formula":"NH3","name":"Ammonia","flavor":"Sharp-smelling and nitrogen-rich, ammonia is an important starting point for fertilisers.","rarity":"Rare"},{"formula":"CH4","name":"Methane","flavor":"A simple carbon fuel and a powerful greenhouse gas.","rarity":"Epic"},{"formula":"H2O2","name":"Hydrogen peroxide","flavor":"A reactive liquid used in bleaching and disinfection, breaking down into water and oxygen.","rarity":"Common"},{"formula":"C2H4","name":"Ethylene","flavor":"A plant hormone that helps fruit ripen and a key industrial chemical.","rarity":"Legendary"},{"formula":"C2H2","name":"Acetylene","flavor":"A highly combustible gas once used in bright lamps and now in metalworking.","rarity":"Rare"},{"formula":"HCl","name":"Hydrochloric acid","flavor":"In water, this strong acid is also part of the stomach’s digestive chemistry.","rarity":"Common"},{"formula":"H2SO4","name":"Sulfuric acid","flavor":"A major industrial chemical used in batteries, fertiliser production and refining.","rarity":"Epic"},{"formula":"HNO3","name":"Nitric acid","flavor":"A strong acid and important industrial ingredient in fertilisers.","rarity":"Uncommon"},{"formula":"NaOH","name":"Sodium hydroxide","flavor":"A caustic base used to make soap and clean industrial equipment.","rarity":"Rare"},{"formula":"KOH","name":"Potassium hydroxide","flavor":"A strong base used in soft soaps and alkaline batteries.","rarity":"Rare"},{"formula":"CaCO3","name":"Calcium carbonate","flavor":"Found in limestone, chalk, shells and many stalactites.","rarity":"Rare"},{"formula":"CaO","name":"Quicklime","flavor":"Made by heating limestone; it reacts strongly with water.","rarity":"Common"},{"formula":"Ca(OH)2","name":"Slaked lime","flavor":"Used in mortar and to reduce acidity in soil and water.","rarity":"Rare"},{"formula":"MgSO4","name":"Epsom salt","flavor":"A magnesium salt often sold for baths and used in gardening.","rarity":"Legendary"},{"formula":"CuSO4","name":"Copper sulfate","flavor":"Its vivid blue crystals make it a classic chemistry-lab compound.","rarity":"Legendary"},{"formula":"SiO2","name":"Silica","flavor":"The main ingredient in quartz and sand, and a key material in glass.","rarity":"Rare"},{"formula":"H2","name":"Hydrogen gas","flavor":"The lightest molecule, used in industry and explored as an energy carrier.","rarity":"Common"},{"formula":"N2","name":"Nitrogen gas","flavor":"The quiet majority of the air, making up about four-fifths of the atmosphere.","rarity":"Uncommon"},{"formula":"Cl2","name":"Chlorine gas","flavor":"A reactive greenish gas whose chemistry helps disinfect water.","rarity":"Uncommon"},{"formula":"HF","name":"Hydrofluoric acid","flavor":"An unusually hazardous acid that can attack glass by reacting with silica.","rarity":"Common"},{"formula":"CO","name":"Carbon monoxide","flavor":"An odourless, poisonous gas formed by incomplete combustion.","rarity":"Common"},{"formula":"HCN","name":"Hydrogen cyanide","flavor":"A small, highly toxic molecule with a history in both chemistry and industry.","rarity":"Uncommon"},{"formula":"NO","name":"Nitric oxide","flavor":"A signalling molecule in the body and a reactive gas in the atmosphere.","rarity":"Common"},{"formula":"NO2","name":"Nitrogen dioxide","flavor":"A brownish air pollutant that contributes to smog and acid deposition.","rarity":"Common"},{"formula":"N2O","name":"Nitrous oxide","flavor":"Known as laughing gas, it is used medically and is also a greenhouse gas.","rarity":"Uncommon"},{"formula":"SO2","name":"Sulfur dioxide","flavor":"A pungent gas released by some volcanoes and burning sulfur-containing fuels.","rarity":"Common"},{"formula":"SO3","name":"Sulfur trioxide","flavor":"A reactive sulfur oxide that forms sulfuric acid when combined with water.","rarity":"Uncommon"},{"formula":"H2S","name":"Hydrogen sulfide","flavor":"A toxic gas known for its rotten-egg smell at low concentrations.","rarity":"Uncommon"},{"formula":"HBr","name":"Hydrobromic acid","flavor":"A strong acid used to introduce bromine into organic molecules.","rarity":"Uncommon"},{"formula":"HI","name":"Hydroiodic acid","flavor":"A strong hydrogen halide acid used in specialised chemical synthesis.","rarity":"Uncommon"},{"formula":"LiCl","name":"Lithium chloride","flavor":"A hygroscopic salt used in laboratories and some industrial processes.","rarity":"Uncommon"},{"formula":"KCl","name":"Potassium chloride","flavor":"A mineral salt used in fertilisers and as a substitute for table salt.","rarity":"Epic"},{"formula":"KI","name":"Potassium iodide","flavor":"A source of iodine used in medicine and laboratory chemistry.","rarity":"Epic"},{"formula":"NaF","name":"Sodium fluoride","flavor":"A fluoride salt used in carefully controlled amounts to help protect teeth.","rarity":"Epic"},{"formula":"CaF2","name":"Fluorite","flavor":"A colourful mineral and a major natural source of fluorine.","rarity":"Legendary"},{"formula":"AgCl","name":"Silver chloride","flavor":"A light-sensitive solid that helped make traditional photography possible.","rarity":"Uncommon"},{"formula":"AgNO3","name":"Silver nitrate","flavor":"A light-sensitive silver salt used in analytical chemistry and photography.","rarity":"Rare"},{"formula":"NaNO3","name":"Sodium nitrate","flavor":"A naturally occurring nitrate used as a fertiliser and industrial feedstock.","rarity":"Legendary"},{"formula":"ZnO","name":"Zinc oxide","flavor":"A white powder used in sunscreens, rubber and protective ointments.","rarity":"Common"},{"formula":"TiO2","name":"Titanium dioxide","flavor":"A bright white pigment used in paints and many everyday materials.","rarity":"Uncommon"},{"formula":"Al2O3","name":"Alumina","flavor":"A hard ceramic oxide and the key feedstock for aluminium production.","rarity":"Epic"},{"formula":"PbS","name":"Galena","flavor":"The principal ore of lead, recognised by its metallic grey appearance.","rarity":"Uncommon"},{"formula":"SnO2","name":"Cassiterite","flavor":"The main ore of tin, important to metalworking for thousands of years.","rarity":"Uncommon"},{"formula":"NaBr","name":"Sodium bromide","flavor":"A bromide salt used in laboratories and specialised chemical processes.","rarity":"Epic"},{"formula":"KBr","name":"Potassium bromide","flavor":"A salt once common in photographic materials and infrared spectroscopy.","rarity":"Epic"},{"formula":"MgO","name":"Magnesia","flavor":"A heat-resistant oxide used to line furnaces and make refractory ceramics.","rarity":"Common"},{"formula":"CaCl2","name":"Calcium chloride","flavor":"A moisture-loving salt used for de-icing roads and drying gases.","rarity":"Epic"},{"formula":"SiC","name":"Silicon carbide","flavor":"An extremely hard material used in abrasives and high-performance ceramics.","rarity":"Rare"},{"formula":"BN","name":"Boron nitride","flavor":"A boron-nitrogen material with forms that resemble graphite and diamond.","rarity":"Uncommon"},{"formula":"B2O3","name":"Boron trioxide","flavor":"A glass-forming oxide that helps make heat-resistant borosilicate glass.","rarity":"Legendary"},{"formula":"H3BO3","name":"Boric acid","flavor":"A mild acid used in glassmaking and some specialised applications.","rarity":"Legendary"},{"formula":"CH2O","name":"Formaldehyde","flavor":"A simple carbonyl compound used to make resins and preserve specimens.","rarity":"Uncommon"},{"formula":"CH2O2","name":"Formic acid","flavor":"The acid found in ant venom and nettles, with a sharp sting.","rarity":"Uncommon"},{"formula":"H2CO3","name":"Carbonic acid","flavor":"Formed when carbon dioxide dissolves in water, it helps give fizzy drinks their bite.","rarity":"Rare"},{"formula":"HClO","name":"Hypochlorous acid","flavor":"A weak, fast-acting disinfectant that your own white blood cells make.","rarity":"Common"},{"formula":"NaClO","name":"Sodium hypochlorite","flavor":"The active ingredient in household bleach.","rarity":"Epic"},{"formula":"CaSO4","name":"Calcium sulfate","flavor":"The mineral behind gypsum, plaster and drywall.","rarity":"Legendary"},{"formula":"MgCl2","name":"Magnesium chloride","flavor":"A salt found in seawater, used for de-icing and tofu making.","rarity":"Epic"},{"formula":"FeS2","name":"Pyrite","flavor":"Fool's gold: a brassy iron sulfide that sparks when struck.","rarity":"Epic"},{"formula":"Cu2O","name":"Cuprite","flavor":"A deep red copper ore with a mirror-like shine.","rarity":"Rare"},{"formula":"CuO","name":"Copper oxide","flavor":"A black oxide that tints glazes and glass blue-green.","rarity":"Common"},{"formula":"ZnS","name":"Zinc sulfide","flavor":"A glow-in-the-dark phosphor and the main ore of zinc.","rarity":"Uncommon"},{"formula":"HgS","name":"Cinnabar","flavor":"A vivid red mercury ore once ground into pigment.","rarity":"Uncommon"},{"formula":"Ag2S","name":"Silver sulfide","flavor":"The dark tarnish that forms on silver.","rarity":"Epic"},{"formula":"AgBr","name":"Silver bromide","flavor":"A light-sensitive crystal used in classic photographic film.","rarity":"Rare"},{"formula":"Li2O","name":"Lithium oxide","flavor":"A lithium compound used in specialised ceramics and glass.","rarity":"Rare"},{"formula":"LiOH","name":"Lithium hydroxide","flavor":"A strong base used in batteries and to scrub CO2 in spacecraft.","rarity":"Common"},{"formula":"MnO2","name":"Manganese dioxide","flavor":"A dark mineral used in dry-cell batteries.","rarity":"Uncommon"},{"formula":"WO3","name":"Tungsten trioxide","flavor":"A yellow oxide used in smart-glass coatings.","rarity":"Rare"},{"formula":"ZrO2","name":"Zirconia","flavor":"The tough ceramic behind cubic zirconia gemstones.","rarity":"Rare"},{"formula":"CS2","name":"Carbon disulfide","flavor":"A smelly, volatile solvent used in making rayon.","rarity":"Rare"},{"formula":"CH4O","name":"Methanol","flavor":"The simplest alcohol, used as a solvent and fuel.","rarity":"Epic"},{"formula":"PH3","name":"Phosphine","flavor":"A toxic, garlicky-smelling gas of phosphorus and hydrogen.","rarity":"Rare"},{"formula":"PbO","name":"Lead oxide","flavor":"Litharge: a yellow oxide used in glass and old batteries.","rarity":"Common"},{"formula":"SnCl2","name":"Tin(II) chloride","flavor":"A reducing agent used in labs and mirror making.","rarity":"Legendary"},{"formula":"CdS","name":"Cadmium sulfide","flavor":"A bright yellow pigment famous in artists' paint.","rarity":"Rare"},{"formula":"BaO","name":"Barium oxide","flavor":"A reactive oxide used in glass and cathode coatings.","rarity":"Uncommon"},{"formula":"SrO","name":"Strontium oxide","flavor":"A strontium compound used in specialised glass and ceramics.","rarity":"Uncommon"},{"formula":"CsCl","name":"Caesium chloride","flavor":"A dense salt used to separate DNA by centrifuge.","rarity":"Epic"},{"formula":"NaI","name":"Sodium iodide","flavor":"A salt used in iodised supplements and radiation detectors.","rarity":"Epic"},{"formula":"KF","name":"Potassium fluoride","flavor":"A fluoride salt used in chemical synthesis.","rarity":"Epic"},{"formula":"GeO2","name":"Germanium dioxide","flavor":"A clear oxide used in optical fibres.","rarity":"Rare"},{"formula":"NiO","name":"Nickel oxide","flavor":"A green-grey oxide used in batteries and ceramics.","rarity":"Common"},{"formula":"CoO","name":"Cobalt oxide","flavor":"The classic source of cobalt blue in glass and glazes.","rarity":"Uncommon"},{"formula":"LiF","name":"Lithium fluoride","flavor":"A crystal that is transparent to ultraviolet light.","rarity":"Uncommon"},{"formula":"AgI","name":"Silver iodide","flavor":"A crystal used in cloud-seeding experiments.","rarity":"Rare"},{"formula":"PtO2","name":"Platinum dioxide","flavor":"Adams' catalyst, used for hydrogenation reactions.","rarity":"Uncommon"},{"formula":"ThO2","name":"Thorium dioxide","flavor":"One of the most heat-resistant oxides known.","rarity":"Rare"},{"formula":"IrO2","name":"Iridium dioxide","flavor":"A durable catalyst used in electrolysis.","rarity":"Rare"},{"formula":"NaH","name":"Sodium hydride","flavor":"A reactive hydride used as a strong base in synthesis.","rarity":"Uncommon"},{"formula":"CaH2","name":"Calcium hydride","flavor":"A drying agent that reacts vigorously with water.","rarity":"Uncommon"},{"formula":"LiH","name":"Lithium hydride","flavor":"A compact hydrogen store used in specialised chemistry.","rarity":"Common"},{"formula":"MgF2","name":"Magnesium fluoride","flavor":"A crystal used in lens coatings and ultraviolet optics.","rarity":"Legendary"},{"formula":"CaC2","name":"Calcium carbide","flavor":"Reacts with water to release acetylene gas.","rarity":"Rare"},{"formula":"FeO","name":"Wustite","flavor":"A black iron oxide found in steelmaking.","rarity":"Common"}];
+let unlockedAchievements=[];try{unlockedAchievements=JSON.parse(localStorage.getItem("elementalAchievements")||"[]")}catch(e){unlockedAchievements=[]}
+let toastTimer;
+const EFFECT_DEFAULTS={1:true,2:true,3:true,4:true,5:true};
+let rarityEffects={...EFFECT_DEFAULTS};
+try{const stored=JSON.parse(localStorage.getItem('elementalRarityEffects')||'null');if(stored&&typeof stored==='object')rarityEffects={...EFFECT_DEFAULTS,...stored}}catch(e){}
+function syncEffectSettings(){document.querySelectorAll('[data-effect-tier]').forEach(input=>{input.checked=rarityEffects[input.dataset.effectTier]!==false})}
+document.querySelectorAll('[data-effect-tier]').forEach(input=>input.addEventListener('change',()=>{rarityEffects[input.dataset.effectTier]=input.checked;try{localStorage.setItem('elementalRarityEffects',JSON.stringify(rarityEffects))}catch(e){}}));
+const $=id=>document.getElementById(id);
+const INITIAL_RESULT=$('rollResults').innerHTML;
+// Procedural audio: no external files or downloads required.
+let audioContext=null, tickTimer=null, tickIndex=0;
+const soundTierDefaults={1:true,2:true,3:true,4:true,5:true};
+let soundTiers={...soundTierDefaults};
+try{const saved=JSON.parse(localStorage.getItem('elementalSoundTiers')||'null');if(saved&&typeof saved==='object')soundTiers={...soundTierDefaults,...saved}}catch(e){}
+try{$('audioEnabled').checked=localStorage.getItem('elementalAudioEnabled')!=='false'}catch(e){}
+function audioReady(){
+  if(!$('audioEnabled').checked)return null;
+  try{const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return null;if(!audioContext)audioContext=new Ctx();if(audioContext.state==='suspended')audioContext.resume();return audioContext}catch(e){return null}
+}
+function tone(freq,when,duration,volume,type='sine',endFreq=null){
+  const ctx=audioReady();if(!ctx)return;
+  const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type=type;osc.frequency.setValueAtTime(freq,when);if(endFreq)osc.frequency.exponentialRampToValueAtTime(Math.max(1,endFreq),when+duration);
+  gain.gain.setValueAtTime(0.0001,when);gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,volume),when+Math.min(.018,duration*.25));gain.gain.exponentialRampToValueAtTime(0.0001,when+duration);
+  osc.connect(gain);gain.connect(ctx.destination);osc.start(when);osc.stop(when+duration+.03);
+}
+function startRollTicks(){
+  stopRollTicks();if(!$('audioEnabled').checked)return;tickIndex=0;audioReady();
+  tickTimer=setInterval(()=>{const ctx=audioReady();if(!ctx)return;const now=ctx.currentTime;const pitch=[1450,1180,1320,1550][tickIndex++%4];tone(pitch,now,.035,.012,'triangle',pitch*.72);},115);
+}
+function stopRollTicks(){if(tickTimer){clearInterval(tickTimer);tickTimer=null}}
+function getRarityTier(log){const r=-log;if(r>=8)return 5;if(r>=7)return 4;if(r>=6)return 3;if(r>=5)return 2;if(r>=4)return 1;return 0}
+function playResultChime(log){
+  stopRollTicks();if(!$('audioEnabled').checked)return;
+  const tier=getRarityTier(log);if(tier>0&&soundTiers[tier]===false) { // Keep a gentle standard result chime when a rare tier is muted.
+    const ctx=audioReady();if(ctx){const t=ctx.currentTime;tone(880,t,.42,.035,'sine');tone(1174.66,t+.09,.58,.022,'sine');}return;
+  }
+  const ctx=audioReady();if(!ctx)return;const t=ctx.currentTime;
+  const patterns={
+    0:[[783.99,0,.42,.035,'sine'],[1046.5,.1,.58,.023,'sine']],
+    1:[[880,0,.48,.04,'sine'],[1174.66,.09,.6,.028,'sine'],[1567.98,.17,.68,.018,'sine']],
+    2:[[659.25,0,.6,.045,'triangle'],[987.77,.09,.68,.035,'sine'],[1318.51,.18,.8,.028,'sine'],[1760,.28,.9,.018,'sine']],
+    3:[[523.25,0,.8,.05,'triangle'],[783.99,.08,.85,.04,'sine'],[1046.5,.17,.95,.035,'sine'],[1567.98,.27,1.05,.026,'sine'],[2093,.39,1.1,.018,'sine']],
+    4:[[392,0,1,.055,'triangle'],[587.33,.08,1.05,.045,'sine'],[783.99,.16,1.1,.04,'sine'],[1174.66,.25,1.2,.035,'sine'],[1567.98,.35,1.25,.03,'sine'],[2349.32,.48,1.35,.022,'sine']],
+    5:[[261.63,0,1.2,.06,'triangle'],[392,.08,1.25,.05,'sine'],[523.25,.16,1.3,.045,'sine'],[783.99,.25,1.4,.04,'sine'],[1046.5,.36,1.5,.035,'sine'],[1567.98,.48,1.6,.03,'sine'],[2093,.62,1.7,.024,'sine'],[2637.02,.78,1.8,.016,'sine']]
+  };
+  (patterns[tier]||patterns[0]).forEach(([f,offset,dur,vol,type])=>tone(f,t+offset,dur,vol,type));
+  if(tier>=3){tone(110,t,.45,.018,'sine',55)}
+}
+$('audioEnabled').addEventListener('change',()=>{try{localStorage.setItem('elementalAudioEnabled',$('audioEnabled').checked?'true':'false')}catch(e){}if(!$('audioEnabled').checked)stopRollTicks()});
+document.querySelectorAll('[data-sound-tier]').forEach(input=>{input.checked=soundTiers[input.dataset.soundTier]!==false;input.addEventListener('change',()=>{soundTiers[input.dataset.soundTier]=input.checked;try{localStorage.setItem('elementalSoundTiers',JSON.stringify(soundTiers))}catch(e){}})});
+let rarityEffectTimer=null;
+let fxToken=0;
+function triggerRarityEffect(log){
+  const tier=getRarityTier(log);
+  if(!tier||rarityEffects[tier]===false)return;
+  const body=document.body,ov=$('rarityEffect'),cls=[1,2,3,4,5].map(n=>'rarity-fx-'+n);
+  if(rarityEffectTimer){clearTimeout(rarityEffectTimer);rarityEffectTimer=null}
+  body.classList.remove(...cls);ov.innerHTML='';const tok=++fxToken;void body.offsetWidth;
+  const r=$('rollResults').getBoundingClientRect(),cx=r.width?r.left+r.width/2:innerWidth/2,cy=r.width?Math.min(Math.max(r.top+130,0),innerHeight):innerHeight/2;
+  ov.style.setProperty('--cx',cx+'px');ov.style.setProperty('--cy',cy+'px');
+  const p=['<i class="fx fx-edge"></i>'];
+  if(tier<=2)p.push('<i class="fx fx-sweep"></i>');
+  p.push('<i class="fx fx-ring"></i>');
+  if(tier>=2)p.push('<i class="fx fx-ring r2"></i>');
+  if(tier>=3)p.push('<i class="fx fx-rays"></i><i class="fx fx-ring r3"></i><i class="fx fx-flash"></i>');
+  if(tier>=4)p.push('<i class="fx fx-bar top"></i><i class="fx fx-bar bot"><b>'+['','','','RARE SIGNAL','ANOMALY DETECTED','IMPOSSIBLE ODDS'][tier]+' &middot; '+rarityText(log)+'</b></i>');
+  if(tier>=3)p.push('<canvas class="fx-sparks"></canvas>');
+  ov.innerHTML=p.join('');body.classList.add('rarity-fx-'+tier);
+  if(tier>=3)sparks(ov.querySelector('canvas'),cx,cy,tier,tok);
+  rarityEffectTimer=setTimeout(()=>{body.classList.remove(...cls);ov.innerHTML='';rarityEffectTimer=null},[0,2300,2800,3400,4300,5600][tier]);
+}
+function sparks(cv,cx,cy,tier,tok){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const W=cv.width=innerWidth,H=cv.height=innerHeight,g=cv.getContext('2d');
+  const cols=tier===5?['#ff2a2a','#ffd400','#39ff7a','#25e6ff','#6a5cff','#ff3df2']:tier===4?['#fff','#ffd23f','#ff6a3d']:['#ff4fd8','#7a5cff','#4df3ff'];
+  const ps=Array.from({length:[0,0,0,90,180,380][tier]},()=>{const a=Math.random()*6.283,v=4+Math.random()*(8+tier*3);return{x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,l:1,r:1.5+Math.random()*2.5,c:cols[Math.random()*cols.length|0]}});
+  (function f(){if(tok!==fxToken)return;g.clearRect(0,0,W,H);g.globalCompositeOperation='lighter';let alive=0;
+    ps.forEach(p=>{if(p.l<=0)return;alive++;p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.vy=p.vy*.985+.12;p.l-=.011;g.globalAlpha=Math.max(0,p.l);g.strokeStyle=p.c;g.lineWidth=p.r;g.beginPath();g.moveTo(p.x-p.vx*2,p.y-p.vy*2);g.lineTo(p.x,p.y);g.stroke()});
+    if(alive)requestAnimationFrame(f)})();
+}
+/* roll animation: fly through a 3D field of element symbols, lock on, then slam in */
+function scanField(reel,symEl,label,log,dur){
+  const W=reel.clientWidth,H=reel.clientHeight;
+  if(!W||matchMedia('(prefers-reduced-motion: reduce)').matches)return new Promise(r=>setTimeout(r,Math.min(dur,600)));
+  const cv=document.createElement('canvas'),dpr=Math.min(2,devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;reel.appendChild(cv);
+  const g=cv.getContext('2d');g.scale(dpr,dpr);
+  const cs=getComputedStyle(symEl),fam=cs.fontFamily;let fs=parseFloat(cs.fontSize)||80;
+  g.font='700 '+fs+'px '+fam;const tw=g.measureText(label).width;if(tw>W-30)fs*=(W-30)/tw;
+  const tier=getRarityTier(log),acc=['#f0c419','#4df3ff','#4df3ff','#ff4fd8','#ffd23f','#ffffff'][tier];
+    const tx=(Math.random()<.5?-1:1)*(1.2+Math.random()*1.6),ty=(Math.random()-.5)*1.6,Pp=H*.9,t0=performance.now();
+  const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
+  /* spawn to fill the whole view at that depth, so the edges are populated from frame one */
+  const spawn=(p,d,c)=>{p.z=c+d;p.x=(Math.random()-.5)*(W/Pp)*d*1.25;p.y=(Math.random()-.5)*(H/Pp)*d*1.25;p.s=.25+Math.random()*.45;p.t=E[Math.random()*E.length|0][0];return p};
+  /* lock-on and zoom keep fixed real-time lengths; only the search shortens with roll speed */
+  const S=Math.max(120,1350*dur/3000),T1=S+600,total=S+1650,amp=Math.min(1,S/1350),two=Math.random()<.5;
+  const P=Array.from({length:150},()=>spawn({},.6+Math.pow(Math.random(),.8)*13.4,-9));
+  return new Promise(res=>{let done=false;
+    const fin=()=>{if(done)return;done=true;cv.remove();res()};setTimeout(fin,total+1200);
+    (function frame(now){if(done)return;
+      const t=now-t0,u=t>=total?1:t<S?.45*t/S:t<T1?.45+.2*(t-S)/600:.65+.35*(t-T1)/1050,q=u<.65?0:(u-.65)/.35,D=u<.65?8-3*u/.65:5*(1-q*q),dt=1+D,cz=-dt,w=sm((u-.45)/.35);
+      const ur=t/3000,cxw=Math.sin(ur*9)*2.4*(1-w)+tx*w,cyw=Math.cos(ur*6)*1.2*(1-w)+ty*w;
+      g.clearRect(0,0,W,H);g.textAlign='center';g.textBaseline='middle';g.lineCap='round';
+      const pr=(x,y,d)=>[W/2+(x-cxw)*Pp/d,H/2+(y-cyw)*Pp/d];
+      P.forEach(p=>{let d=p.z-cz;if(d<.35){spawn(p,13+Math.random()*2,cz);d=p.z-cz}
+        const[sx,sy]=pr(p.x,p.y,d);if(sx<-60||sx>W+60||sy<-60||sy>H+60)return;
+        const a=Math.min(1,(d-.35)/.9)*(d>10?(14-d)/4:1)*.8*(1-q*.92);if(a<=0)return;
+        if(q>0){const[ex,ey]=pr(p.x,p.y,d+q*q*3.5);g.globalAlpha=a*.7;g.strokeStyle=tier?acc:'#9fe0c8';g.lineWidth=1.5;g.beginPath();g.moveTo(sx,sy);g.lineTo(ex,ey);g.stroke()}
+        g.globalAlpha=a;g.fillStyle='#cfe3da';g.font='700 '+Math.max(5,fs*p.s/d)+'px '+fam;g.fillText(p.t,sx,sy)});
+      const[sx,sy]=pr(tx,ty,dt),st=.45+.55*sm((u-.55)/.1),sz=fs*st/dt,hl=t>=T1-60||(t>=T1-240&&t<T1-150)||(two&&t>=T1-450&&t<T1-360);g.globalAlpha=1;
+      if(hl){const h=Math.max(16,sz*.9)*(1+(1-w)*.6);g.strokeStyle=acc;g.lineWidth=2;g.beginPath();[[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b])=>{g.moveTo(sx+a*h,sy+b*h*.7-b*8);g.lineTo(sx+a*h,sy+b*h*.7);g.lineTo(sx+a*h-a*8,sy+b*h*.7)});if(u<.95)g.stroke()}
+      g.globalAlpha=hl?1:.8*Math.min(1,(dt-.35)/.9);g.fillStyle=hl?(u>.65?'#eef3ef':acc):'#cfe3da';g.font='700 '+sz+'px '+fam;g.fillText(label,sx,sy);
+      g.globalAlpha=.9;g.fillStyle=acc;g.font='600 11px '+fam;g.textBaseline='alphabetic';g.textAlign='left';g.fillText(u<.65?'FIELD SCAN':'LOCK',18,26);
+      g.textAlign='right';g.fillText('RNG '+D.toFixed(1),W-18,26);g.textBaseline='middle';g.textAlign='center';
+      g.globalAlpha=.25;g.strokeStyle='#cfe3da';g.lineWidth=1;g.beginPath();g.moveTo(W/2-10,H/2);g.lineTo(W/2+10,H/2);g.moveTo(W/2,H/2-10);g.lineTo(W/2,H/2+10);g.stroke();
+      if(u>=1)fin();else requestAnimationFrame(frame)})(performance.now())})
+}
+function showAchievementToast(a){const toast=$("achievementToast");$("achievementToastKicker").textContent=a.kicker||'Achievement unlocked';$("achievementToastName").textContent=a.name;$("achievementToastDesc").textContent=a.flavor;toast.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove("show"),4200)}
+function checkAchievements(record){const matches=ACHIEVEMENTS.filter(a=>a.hill===record.formula&&!unlockedAchievements.includes(a.formula));matches.forEach(a=>{unlockedAchievements.push(a.formula);showAchievementToast(a)});if(matches.length){try{localStorage.setItem("elementalAchievements",JSON.stringify(unlockedAchievements))}catch(e){}renderAchievements()}}
+function renderAchievements(){
+ const root=$("achievementGrid");if(!root)return;
+ const q=$("achievementSearch").value.toLowerCase().trim(),filter=$("achievementFilter").value;
+ const count=unlockedAchievements.length,total=ACHIEVEMENTS.length;
+ $("achievementProgress").textContent=`${count} of ${total} found`;
+ $("achievementHeaderCount").textContent=`${count}/${total}`;
+ $("achievementBar").style.width=`${total?count/total*100:0}%`;
+ if($("homeAch"))$("homeAch").textContent=`${count} / ${total}`;
+ const list=ACHIEVEMENTS.filter(a=>{const unlocked=unlockedAchievements.includes(a.formula);return(filter==="all"||(filter==="unlocked"&&unlocked)||(filter==="locked"&&!unlocked))&&(!q||(a.formula+a.name+a.flavor+a.rarity).toLowerCase().includes(q))});
+ root.innerHTML="";
+ if(!list.length){root.innerHTML='<div class="empty"><strong>No matches</strong><p>Try a different search or filter.</p></div>';return}
+ list.forEach(a=>{
+  const unlocked=unlockedAchievements.includes(a.formula),row=document.createElement("div");
+  row.className="ach-row "+(unlocked?"found":"missing");
+  row.innerHTML=`<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked?a.formula:"???"}</span><div class="ach-main"><div class="ach-name">${unlocked?a.name:"Not found yet"}</div><div class="ach-flavor">${unlocked?a.flavor:"Roll this formula to see what it is."}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span>`;
+  root.appendChild(row);
+ });
+}
+
+let collection=[];try{collection=JSON.parse(localStorage.getItem('elementalCollection')||'[]')}catch(e){collection=[]}
+let rolling=false;let autoRolling=false;const fmt=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:3});
+let buffCache=null,wtCache=null;
+function save(){buffCache=wtCache=null;try{localStorage.setItem('elementalCollection',JSON.stringify(collection))}catch(e){}}
+function addRecord(r){const x=collection.find(c=>c.formula===r.formula);if(!x){r.count=1;collection.push(r);return}x.count=(x.count||1)+1;if(r.log<x.log||!Number.isFinite(x.log))Object.assign(x,{log:r.log,rarity:r.rarity,when:r.when,elements:r.elements,id:r.id,name:r.name})}
+function go(screen){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===screen));window.scrollTo(0,0)}
+document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{let tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));$('compoundView').style.display=tab==='compounds'?'':'none';$('completionView').style.display=tab==='completionist'?'':'none';if(tab==='completionist')renderPeriodic()}));
+// Every element grants one permanent, non-duplicating bonus after its first discovery.
+const EXTRA_ROLL_SYMBOLS=new Set(['Tc', 'Fr', 'Lr']); // Exactly three elements can grant extra elements per click.
+const CHAIN_SYMBOLS=new Set(['Xe', 'Ir', 'Rn', 'U', 'Og', 'Tb', 'Ra', 'Ds']);
+// Autoroll: unlocked by one element (~60% up the rarity ladder); a few rarer elements lengthen sessions or shorten the cooldown.
+const AUTO_UNLOCK_SYMBOL='Ru',AUTO_TIME_SYMBOLS=new Set(['Cs','Sm','Os','Tm','Ac']),AUTO_COOL_SYMBOLS=new Set(['Pr','Lu','Rh','Pa','Po']);
+const AUTO_BASE_SECONDS=120,AUTO_BASE_COOLDOWN=600,AUTO_TIME_STEP=12,AUTO_COOL_STEP=20; // Five rare finds improve chain odds by one step each, capped at 1/15.
+function buildBuffs(){
+ const raw=e=>Math.log10(e[2]+1)+.5,kind=(e,i)=>EXTRA_ROLL_SYMBOLS.has(e[0])?'extra':CHAIN_SYMBOLS.has(e[0])?'chain':e[0]===AUTO_UNLOCK_SYMBOL?'autounlock':AUTO_TIME_SYMBOLS.has(e[0])?'autotime':AUTO_COOL_SYMBOLS.has(e[0])?'autocool':i%4===1?'speed':'luck',sum={speed:0,luck:0},goal={speed:400,luck:150};
+ E.forEach((e,i)=>{const k=kind(e,i);if(k in sum)sum[k]+=raw(e)});
+ return new Map(E.map((e,i)=>{const k=kind(e,i);
+  if(k==='extra')return[e[0],{type:'extra',value:1,desc:'Bonus roll +1: every click launches one separate additional roll, with its own independent chance of a chain reaction. Stacks with the other two bonus-roll elements.'}];
+  if(k==='chain')return[e[0],{type:'chain',value:1,desc:'Chain chance +1 step: makes chain reactions more likely. Eight of these rare buffs improve the odds from 1 in 8 to 1 in 3.'}];
+  if(k==='autounlock')return[e[0],{type:'autounlock',value:1,desc:'Autoroll unlocked: run autoroll in timed sessions of 2 minutes, followed by a 10 minute cooldown. Other rare elements can lengthen sessions and shorten the cooldown.'}];
+  if(k==='autotime')return[e[0],{type:'autotime',value:AUTO_TIME_STEP,desc:`Autoroll session +${AUTO_TIME_STEP} seconds: each autoroll session lasts longer once autoroll is unlocked.`}];
+  if(k==='autocool')return[e[0],{type:'autocool',value:AUTO_COOL_STEP,desc:`Autoroll cooldown −${AUTO_COOL_STEP} seconds: autoroll recharges faster once it is unlocked.`}];
+  const v=raw(e)*goal[k]/sum[k];
+  return[e[0],k==='speed'?{type:'speed',value:v,desc:`Scanner speed +${v.toFixed(2)}%: each roll animation finishes faster.`}:{type:'luck',value:v,desc:`Luck +${v.toFixed(2)}%: shifts the scanner's weighting toward rarer elements.`}]}))
+}
+const ELEMENT_BUFFS=buildBuffs();
+function discoveredSymbols(){const set=new Set();collection.forEach(c=>(c.elements||[]).forEach(e=>set.add(e[0])));return set}
+function activeBuffStats(){return buffCache||(buffCache=computeBuffs())}function computeBuffs(){const found=discoveredSymbols();let luck=0,speed=0,extra=0,chainSteps=0,autoUnlock=false,autoTime=0,autoCool=0;found.forEach(sym=>{const b=ELEMENT_BUFFS.get(sym);if(!b)return;if(b.type==='autounlock')autoUnlock=true;if(b.type==='autotime')autoTime+=b.value;if(b.type==='autocool')autoCool+=b.value;if(b.type==='luck')luck+=b.value;if(b.type==='speed')speed+=b.value;if(b.type==='extra')extra+=1;if(b.type==='chain')chainSteps+=1});return {found,luck,speed,autoUnlocked:autoUnlock,autoSeconds:AUTO_BASE_SECONDS+autoTime,autoCooldown:AUTO_BASE_COOLDOWN-autoCool,extra:Math.min(3,extra),chainSteps:Math.min(8,chainSteps),chainDenom:Math.max(3,8-.625*Math.min(8,chainSteps))}}
+function weightTable(){if(wtCache)return wtCache;const b=activeBuffStats();let total=0;const w=E.map(e=>{const v=(1/e[2])*(1+(b.luck/100)*(Math.log10(e[2]+1)/3));total+=v;return v});return wtCache={w,total}}
+function weightedElement(){const{w,total}=weightTable();let r=Math.random()*total;for(let i=0;i<E.length;i++){r-=w[i];if(r<=0)return E[i]}return E[E.length-1]}
+
+function hillFormula(elements){const counts={};elements.forEach(e=>counts[e[0]]=(counts[e[0]]||0)+1);let syms=Object.keys(counts);syms.sort((a,b)=>{if(counts.C&&a==='C')return -1;if(counts.C&&b==='C')return 1;if(counts.C&&a==='H'&&b!=='C')return -1;if(counts.C&&b==='H'&&a!=='C')return 1;return a.localeCompare(b)});return syms.map(s=>s+(counts[s]>1?counts[s]:'')).join('')}
+function gcd(a,b){while(b){let t=b;b=a%b;a=t}return a}
+function exactRarity(elements,guaranteedExtras=0){const denominator=activeBuffStats().chainDenom;const randomChainLength=Math.max(1,elements.length-guaranteedExtras);let log10=Math.log10((denominator-1)/denominator)-(randomChainLength-1)*Math.log10(denominator);const t=weightTable();elements.forEach(e=>log10+=Math.log10(t.w[E.indexOf(e)]/t.total));return log10}
+function rarityText(log){const value=10**(-log);if(Number.isFinite(value)&&value<1e21){return '1/'+Math.max(1,Math.round(value)).toLocaleString('en-US',{maximumFractionDigits:0})}return '≈ 1/'+value.toExponential(2).replace('+','')}
+let selectedElementSymbol='H',elemReturn='inventory';
+const FAMILY={},FAMILY_NAMES={alkali:'Alkali metals',alkaline:'Alkaline earth metals',transition:'Transition metals',post:'Post-transition metals',metalloid:'Metalloids',nonmetal:'Nonmetals',halogen:'Halogens',noble:'Noble gases',lanth:'Lanthanides',actin:'Actinides',unknown:'Unclassified'};
+(function(){
+ const set=(cls,arr)=>arr.forEach(s=>FAMILY[s]=cls);
+ set('alkali',['Li','Na','K','Rb','Cs','Fr']);
+ set('alkaline',['Be','Mg','Ca','Sr','Ba','Ra']);
+ set('nonmetal',['H','C','N','O','P','S','Se']);
+ set('halogen',['F','Cl','Br','I','At','Ts']);
+ set('noble',['He','Ne','Ar','Kr','Xe','Rn','Og']);
+ set('metalloid',['B','Si','Ge','As','Sb','Te']);
+ set('post',['Al','Ga','In','Sn','Tl','Pb','Bi','Po']);
+ set('lanth',['La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu']);
+ set('actin',['Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr']);
+ set('unknown',['Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv']);
+})();
+function familyOf(sym){return FAMILY[sym]||'transition'}
+function buildTable(root,mode){
+ if(!root)return;
+ root.innerHTML='';const found=discoveredSymbols();
+ E.forEach((e,i)=>{
+  const pos=layout[e[0]]||[11,1],isFound=found.has(e[0]),tile=document.createElement('button');
+  tile.type='button';
+  tile.className='element-tile'+(isFound?' discovered fam-'+familyOf(e[0]):'')+'';
+  tile.style.gridRow=pos[0];tile.style.gridColumn=pos[1];
+  tile.title=isFound?`${e[1]}, ${FAMILY_NAMES[familyOf(e[0])]}`:(mode==='full'?'Not found yet. Select to see its bonus.':'Not found yet');
+  tile.setAttribute('aria-label',`${e[1]}${isFound?', found':', not found yet'}`);
+  tile.innerHTML=mode==='full'
+   ?`<span class="atomic">${isFound?i+1:''}</span><span class="sym">${isFound?e[0]:''}</span><span class="tiny">${isFound?e[1]:''}</span>`
+   :`<span class="sym">${isFound?e[0]:''}</span>`;
+  tile.addEventListener('click',()=>{
+   if(mode==='compact'&&!found.has(e[0]))return;
+   const cur=document.querySelector('.screen.active');elemReturn=cur&&cur.id!=='element'?cur.id:elemReturn;
+   selectedElementSymbol=e[0];renderPeriodic();go('element');
+  });
+  root.appendChild(tile);
+ });
+}
+function bonusRows(s){
+ const row=(k,v,cls)=>`<div><dt>${k}</dt><dd${cls?` class="${cls}"`:''}>${v}</dd></div>`;
+ let h=row('Elements found',`${s.found.size} / 118`)+row('Luck',`+${s.luck.toFixed(2)}%`)+row('Scanner speed',`+${s.speed.toFixed(2)}%`)+row('Bonus rolls',`${s.extra} of 3`)+row('Chain chance',`1 in ${+s.chainDenom.toFixed(2)}`);
+ if(s.autoUnlocked)h+=row('Autoroll session',fmtDur(s.autoSeconds))+row('Autoroll cooldown',fmtDur(s.autoCooldown));
+ return h+row('Autoroll','','js-auto');
+}
+function renderRollStats(){
+ const el=$('rollStats');if(!el)return;
+ el.innerHTML=bonusRows(activeBuffStats());updateAutoBtn();
+}
+function renderHome(){
+ if(!$('homeMap'))return;
+ const list=groupedCollection(),total=collection.reduce((n,c)=>n+(c.count||1),0),found=discoveredSymbols().size,s=activeBuffStats();
+ buildTable($('homeMap'),'compact');
+ $('mapCount').textContent=`${found} of 118 elements found.`;
+ $('homeUnique').textContent=list.length+(list.length===1?' formula':' formulas');
+ $('homeAch').textContent=unlockedAchievements.length+' / '+ACHIEVEMENTS.length;
+ $('homeRolls').textContent=total.toLocaleString();
+ $('homeChain').textContent='1 in '+(+s.chainDenom.toFixed(2));
+ const r=list[0],box=$('homeRarest');
+ if(!r){box.innerHTML='<p class="muted">Nothing logged yet. Roll once to start the log.</p>';return}
+ const rr=r.rarestRecord,odds=Number.isFinite(rr.log)?rarityText(rr.log):(rr.rarity||r.rarity);
+ box.innerHTML=`<div class="big-formula">${r.formula}</div><div class="big-name">${r.name}</div><div class="big-odds">Odds ${odds}</div>`;
+}
+function renderPeriodic(){
+ const found=discoveredSymbols();
+ buildTable($('periodic'),'full');
+ $('legend').innerHTML=Object.keys(FAMILY_NAMES).map(k=>`<span><i class="dot fam-${k}"></i>${FAMILY_NAMES[k]}</span>`).join('')+'<span><i class="dot none"></i>Not found yet</span>';
+ $('elementStats').textContent=`${found.size} / 118 elements found`;
+ const stats=activeBuffStats();
+ $('buffSummary').innerHTML='<h2 class="side-h">Active bonuses</h2><dl class="stats">'+bonusRows(stats)+'</dl>';
+ const e=E.find(x=>x[0]===selectedElementSymbol)||E[0],b=ELEMENT_BUFFS.get(e[0]),isFound=found.has(e[0]);
+ $('buffElementName').textContent=`${e[1]} (${e[0]})`;
+ $('buffElementDesc').textContent=b.desc;
+ $('buffElementState').textContent=isFound?'Active. This bonus always applies.':'Locked. Find this element once to activate it.';
+ $('buffElementState').classList.toggle('active',isFound);
+ renderElemCompounds();renderHome();renderRollStats();
+}
+function groupedCollection(){const g=new Map();collection.forEach(c=>{if(!g.has(c.formula))g.set(c.formula,{...c,count:0,rarestRecord:c});const x=g.get(c.formula);x.count+=c.count||1;if(Number.isFinite(c.log)&&(!Number.isFinite(x.rarestRecord.log)||c.log<x.rarestRecord.log))x.rarestRecord=c});const L=c=>Number.isFinite(c.rarestRecord.log)?c.rarestRecord.log:0;return[...g.values()].sort((a,b)=>L(a)-L(b))}
+function rankRow(c,rank){const r=c.rarestRecord,el=document.createElement('div'),joined=c.elements.map(e=>e[1]).join(' + ');el.className='rank-row';el.innerHTML=`<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}</div><div class="rank-name">${c.name}${c.elements.length>1&&c.name!==joined?': '+joined:''}</div></div><div class="rank-odds"><b>${Number.isFinite(r.log)?rarityText(r.log):(r.rarity||c.rarity)}</b><span>× ${c.count.toLocaleString()}</span></div>`;return el}
+function compoundCard(c,rank){const el=document.createElement('article'),r=c.rarestRecord;el.className='compound-card';el.innerHTML=`<div class="compound-top"><div class="compound-symbol ${c.elements.length>1?'compound':''}">${c.formula}</div><div><h3>${rank?'#'+rank+' · ':''}${c.formula}</h3><div class="formula">${c.name}</div></div></div><div class="compound-rarity">Rarest found<br><b>(${Number.isFinite(r.log)?rarityText(r.log):(r.rarity||c.rarity)})</b></div><div class="compound-rarity" style="margin-top:5px">${c.elements.map(e=>e[1]).join(' + ')}</div><div class="stack-count">× ${c.count.toLocaleString()}</div>`;return el}
+function renderInventory(){
+ const root=$('compoundGrid'),list=groupedCollection();root.innerHTML='';
+ $('collectionStats').textContent=`${collection.reduce((n,c)=>n+(c.count||1),0).toLocaleString()} total rolls, ${list.length} unique formulas`;
+ if(!list.length){root.innerHTML='<div class="empty"><strong>Nothing logged yet.</strong><p>Roll once to record your first formula.</p><button class="primary" data-go="game">Roll</button></div>';root.querySelector('[data-go]').addEventListener('click',()=>go('game'));return}
+ list.slice(0,10).forEach((c,i)=>root.appendChild(rankRow(c,i+1)));
+}
+let elemMode='start';
+function renderElemCompounds(){
+ const root=$('elemCompounds'),sym=selectedElementSymbol,el=E.find(x=>x[0]===sym)||E[0],found=discoveredSymbols().has(el[0]);
+ const starts=c=>(c.formula.match(/^[A-Z][a-z]?/)||[''])[0]===el[0];
+ $('elemTitle').textContent=`${el[1]} (${el[0]})`;$('elemSub').textContent=`${FAMILY_NAMES[familyOf(el[0])]}, atomic number ${E.indexOf(el)+1}. Base odds 1 in ${el[2].toLocaleString()}. ${found?'Found.':'Not found yet.'}`;
+ const list=found?groupedCollection().filter(c=>elemMode==='start'?starts(c):c.elements.some(x=>x[0]===el[0])):[];
+ root.innerHTML=`<div class="toolbar"><strong>${el[1]} finds, rarest first</strong><span class="stat">${list.length} found</span><button class="ghost" id="elemModeBtn">${elemMode==='start'?'Formula starts with '+el[0]:'Formula contains '+el[0]}</button></div><div class="rank-list" id="elemGrid"></div>`;
+ $('elemModeBtn').onclick=()=>{elemMode=elemMode==='start'?'contains':'start';renderElemCompounds()};
+ const g=$('elemGrid');
+ if(!list.length){g.innerHTML=`<div class="empty" style="grid-column:1/-1">${found?'Nothing found yet that matches.':'Discover this element to see its compounds here.'}</div>`;return}
+ list.forEach((c,i)=>g.appendChild(rankRow(c,i+1)));
+}
+$('elemBack').addEventListener('click',()=>go(elemReturn||'inventory'));
+$('achievementSearch').addEventListener('input',renderAchievements);
+$('achievementFilter').addEventListener('change',renderAchievements);
+async function doRoll(){
+ if(rolling)return;
+ rolling=true;$('rollBtn').disabled=true;$('rollBtn').textContent='Rolling…';$('rollToast').textContent='';
+ const buffs=activeBuffStats(),rollCount=1+buffs.extra;
+ const delay=Math.max(300,3000/(1+buffs.speed/100));
+ const results=$('rollResults');results.innerHTML='';results.style.gridTemplateColumns=`repeat(${rollCount},minmax(0,1fr))`;
+ const cards=[];
+ for(let i=0;i<rollCount;i++){
+  const card=document.createElement('div');card.className='roll-result-column';
+  card.innerHTML=`${rollCount>1?`<div class="eyebrow">Roll ${i+1} of ${rollCount}</div>`:''}<div class="reel rolling"><div class="reel-symbol">?</div></div><div class="result-card"><h2 class="result-name">Rolling…</h2><div class="rarity">&nbsp;</div><div class="sub"></div></div>`;
+  results.appendChild(card);cards.push(card);
+ }
+ let records=[];
+ try{
+  startRollTicks();
+  await Promise.all(cards.map(async(card,rollIndex)=>{
+   const reel=card.querySelector('.reel'),symbol=card.querySelector('.reel-symbol'),nameEl=card.querySelector('.result-name'),rarityEl=card.querySelector('.rarity'),extraEl=card.querySelector('.sub');
+   const elements=[weightedElement()];while(elements.length<30&&Math.random()<1/buffs.chainDenom)elements.push(weightedElement());
+   const formula=hillFormula(elements),log=exactRarity(elements,0),rarity=rarityText(log);
+   await scanField(reel,symbol,formula,log,delay);
+   reel.classList.remove('rolling');reel.classList.add('reveal');
+   const names=elements.map(e=>e[1]),known=ACHIEVEMENTS.find(a=>a.hill===formula),name=elements.length===1?elements[0][1]:(known?known.name:names.join(' + '));
+   const record={id:Date.now()+Math.random(),formula,name,elements,rarity,log,when:new Date().toISOString()};
+   addRecord(record);records.push(record);save();checkAchievements(record);
+   symbol.textContent=formula;nameEl.textContent=name;rarityEl.textContent='Odds '+rarity;extraEl.textContent=$('chainSetting').value==='off'?'':elements.length>1?`${elements.length} elements chained`:'No chain';
+   playResultChime(log);triggerRarityEffect(log);
+  }));
+  stopRollTicks();
+  $('rollToast').textContent='';
+  renderInventory();renderPeriodic();
+  if(!buffs.autoUnlocked&&activeBuffStats().autoUnlocked)setTimeout(()=>showAchievementToast({kicker:'New feature',name:'Autoroll unlocked',flavor:'Ruthenium discovered: timed autoroll sessions are now available on the roll screen.'}),1800);
+ }finally{stopRollTicks();rolling=false;$('rollBtn').disabled=false;$('rollBtn').textContent='Roll again'}
+}
+$('rollBtn').addEventListener('click',doRoll);
+/* ---- Autoroll: locked, timed, with cooldown ---- */
+function fmtDur(s){s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+let autoEnd=0,autoState={cooldownUntil:0};
+try{const a=JSON.parse(localStorage.getItem('elementalAutoState')||'null');if(a&&typeof a==='object')autoState.cooldownUntil=+a.cooldownUntil||0}catch(e){}
+function saveAutoState(){try{localStorage.setItem('elementalAutoState',JSON.stringify({cooldownUntil:autoState.cooldownUntil}))}catch(e){}}
+function updateAutoBtn(){
+ const b=$('autoRollBtn'),hint=$('autoHint'),s=activeBuffStats(),now=Date.now(),u=bySym[AUTO_UNLOCK_SYMBOL];
+ let label,status,disabled=false,pressed='false';
+ if(!s.autoUnlocked){
+  label='Autoroll locked';status='Locked';disabled=true;
+  hint.textContent='Autoroll unlocks when you find '+u[1]+' ('+u[0]+').';
+ }else{
+  hint.textContent='Autoroll runs for '+fmtDur(s.autoSeconds)+' per session, then needs '+fmtDur(s.autoCooldown)+' to cool down.';
+  if(autoRolling){label='Stop autoroll, '+fmtDur((autoEnd-now)/1000)+' left';status='Running, '+fmtDur((autoEnd-now)/1000)+' left';pressed='true'}
+  else if(now<autoState.cooldownUntil){label='Autoroll cooling down, '+fmtDur((autoState.cooldownUntil-now)/1000);status='Cooling down, '+fmtDur((autoState.cooldownUntil-now)/1000);disabled=true}
+  else{label='Start autoroll ('+fmtDur(s.autoSeconds)+')';status='Ready'}
+ }
+ b.disabled=disabled;b.textContent=label;b.setAttribute('aria-pressed',pressed);
+ document.querySelectorAll('.js-auto').forEach(el=>{el.textContent=status});
+}
+$('autoRollBtn').addEventListener('click',async()=>{
+ if(autoRolling){autoRolling=false;updateAutoBtn();return}
+ const s=activeBuffStats();
+ if(!s.autoUnlocked||Date.now()<autoState.cooldownUntil)return;
+ const cooldownMs=s.autoCooldown*1000;
+ autoRolling=true;autoEnd=Date.now()+s.autoSeconds*1000;
+ // Reserve the cooldown up front so refreshing the page mid-session can't skip it.
+ autoState.cooldownUntil=autoEnd+cooldownMs;saveAutoState();updateAutoBtn();
+ try{
+  while(autoRolling&&Date.now()<autoEnd){
+   await doRoll();
+   if(autoRolling&&Date.now()<autoEnd) await new Promise(resolve=>setTimeout(resolve,500));
+  }
+ }catch(err){
+  console.error('Autoroll stopped after an error:',err);
+ }finally{
+  autoRolling=false;
+  autoState.cooldownUntil=activeBuffStats().autoUnlocked?Date.now()+cooldownMs:0;
+  saveAutoState();updateAutoBtn();
+ }
+});
+setInterval(updateAutoBtn,250);updateAutoBtn();
+$('resetBtn').addEventListener('click',()=>{if(confirm('Reset all discoveries and collection progress? This cannot be undone.')){autoRolling=false;autoState.cooldownUntil=0;try{localStorage.removeItem('elementalAutoState')}catch(e){}collection=[];save();updateAutoBtn();unlockedAchievements=[];try{localStorage.removeItem('elementalAchievements')}catch(e){}syncEffectSettings();renderInventory();renderPeriodic();renderAchievements();$('rollResults').style.gridTemplateColumns='';$('rollResults').innerHTML=INITIAL_RESULT;alert('Progress reset.')}});
+renderInventory();renderPeriodic();renderAchievements();
+
+/* ---- v2 additions ---- */
+function parseF(s){const st=[{}],re=/([A-Z][a-z]?)(\d*)|(\()|\)(\d*)/g;let m;while(m=re.exec(s)){if(m[1]){const c=st[st.length-1];c[m[1]]=(c[m[1]]||0)+(+m[2]||1)}else if(m[3])st.push({});else{const t=st.pop(),k=+m[4]||1,c=st[st.length-1];for(const x in t)c[x]=(c[x]||0)+t[x]*k}}return st[0]}
+function normHill(f){const c=parseF(f),a=[];for(const x in c)for(let i=0;i<c[x];i++)a.push([x]);return hillFormula(a)}
+ACHIEVEMENTS.forEach(a=>a.hill=normHill(a.formula));
+(function(){const fw=E.map(e=>(1/e[2])*(1+(150/100)*(Math.log10(e[2]+1)/3))),ft=fw.reduce((a,b)=>a+b,0),lf=n=>{let x=0;for(let i=2;i<=n;i++)x+=Math.log(i);return x};
+ function rolls(f){const c=parseF(f),ks=Object.keys(c),n=ks.reduce((a,k)=>a+c[k],0);if(n>30)return Infinity;const q=1/3;let lp=lf(n)+(n<30?(n-1)*Math.log(q)+Math.log(1-q):29*Math.log(q));ks.forEach(k=>{lp+=c[k]*Math.log(fw[E.findIndex(e=>e[0]===k)]/ft)-lf(c[k])});return Math.exp(-lp)}
+ for(let i=ACHIEVEMENTS.length;i--;){const a=ACHIEVEMENTS[i],r=rolls(a.formula);if(r>5000000)ACHIEVEMENTS.splice(i,1);else a.rarity=r<2e3?'Common':r<2e4?'Uncommon':r<2e5?'Rare':r<2e6?'Epic':'Legendary'}
+ unlockedAchievements=unlockedAchievements.filter(f=>ACHIEVEMENTS.some(a=>a.formula===f));
+ document.querySelector('#achievements .sub').textContent=ACHIEVEMENTS.length+' formulas to find. Each is recorded the first time you roll it.';renderAchievements()})();
+$('exportBtn').onclick=()=>{const d={};Object.keys(localStorage).filter(k=>k.startsWith('elemental')).forEach(k=>d[k]=localStorage.getItem(k));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(d)],{type:'application/json'}));a.download='elemental-save.json';a.click()};
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());if(!confirm('Replace current progress with this save?'))return;Object.keys(d).filter(k=>k.startsWith('elemental')).forEach(k=>localStorage.setItem(k,d[k]));location.reload()}catch(err){alert('That file is not a valid save.')}};
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&$('game').classList.contains('active')&&!/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)){e.preventDefault();doRoll()}});
+try{$('chainSetting').value=localStorage.getItem('elementalChain')||'on'}catch(e){}
+$('chainSetting').onchange=()=>{try{localStorage.setItem('elementalChain',$('chainSetting').value)}catch(e){}};
+syncEffectSettings();try{localStorage.removeItem('elementalStock')}catch(e){}
+</script>
+</body></html>
