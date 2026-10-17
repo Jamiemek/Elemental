@@ -196,43 +196,70 @@ input[type=checkbox]{width:19px;height:19px;accent-color:var(--ink)}
 .slots .reel-symbol{flex:1;display:grid;place-items:center;min-width:0;padding:0 8px}
 .cards-row{display:grid;gap:14px}
 @media(max-width:600px){.cards-row{grid-template-columns:1fr 1fr!important}}
-/* rarity screen effects: neon, deliberately unlike the bench palette */
-.rarity-effect{position:fixed;inset:0;z-index:15;pointer-events:none;overflow:hidden;--fx1:#4df3ff;--fx2:#1a6bff;--d:2.2s}
-body.rarity-fx-2 .rarity-effect{--fx2:#ff4fd8;--d:2.6s}
-body.rarity-fx-3 .rarity-effect{--fx1:#ff4fd8;--fx2:#6a5cff;--d:3.2s}
-body.rarity-fx-4 .rarity-effect{--fx1:#ffe14a;--fx2:#ff3b1f;--d:4.1s}
-body.rarity-fx-5 .rarity-effect{--fx1:#fff;--fx2:#ff2bd6;--d:5.4s}
-.fx{position:absolute;display:block}
-.fx-edge{inset:0;box-shadow:inset 0 0 0 5px var(--fx1),inset 0 0 70px 12px var(--fx1),inset 0 0 200px 50px var(--fx2);animation:fxEdge var(--d) ease-out both}
-body.rarity-fx-5 .fx-edge{animation:fxEdge var(--d) ease-out both,fxHue 1.2s linear infinite}
-.fx-sweep{top:0;bottom:0;left:0;width:26%;background:linear-gradient(90deg,transparent,var(--fx1),#fff,var(--fx1),transparent);mix-blend-mode:screen;opacity:.75;animation:fxSweep .9s ease-in-out both}
-.fx-ring{left:var(--cx);top:var(--cy);width:18vmin;height:18vmin;margin:-9vmin 0 0 -9vmin;border-radius:50%;border:5px solid var(--fx1);box-shadow:0 0 40px var(--fx1),inset 0 0 40px var(--fx2);animation:fxRing 1.3s cubic-bezier(.1,.7,.2,1) both}
-.fx-ring.r2{animation-delay:.18s;border-color:var(--fx2)}.fx-ring.r3{animation-delay:.36s}
-.fx-rays{left:var(--cx);top:var(--cy);width:260vmax;height:260vmax;margin:-130vmax 0 0 -130vmax;background:conic-gradient(var(--fx1),var(--fx2),var(--fx1));-webkit-mask-image:repeating-conic-gradient(#000 0 4deg,transparent 4deg 14deg);mask-image:repeating-conic-gradient(#000 0 4deg,transparent 4deg 14deg);mix-blend-mode:screen;animation:fxRays var(--d) ease-out both}
-body.rarity-fx-5 .fx-rays{background:conic-gradient(#f22,#fd0,#3f6,#2ee,#66f,#f3f,#f22);animation:fxRays var(--d) ease-out both,fxHue 1.5s linear infinite}
-.fx-flash{inset:0;background:var(--fx1);animation:fxFlash .55s ease-out both}
-body.rarity-fx-5 .fx-flash{animation:fxStrobe 1.1s steps(1,end) both}
-.fx-bar{left:0;right:0;height:14vh;background:#000;display:flex;align-items:center;justify-content:center}
-.fx-bar.top{top:0;border-bottom:3px solid var(--fx1);animation:fxBarT var(--d) cubic-bezier(.2,.9,.2,1) both}
-.fx-bar.bot{bottom:0;border-top:3px solid var(--fx1);animation:fxBarB var(--d) cubic-bezier(.2,.9,.2,1) both}
-.fx-bar b{font-family:var(--head);font-weight:700;font-size:clamp(14px,3.4vw,32px);letter-spacing:.3em;text-align:center;color:var(--fx1);text-shadow:0 0 18px var(--fx2);animation:fxLetter var(--d) ease-out both}
-.fx-sparks{position:absolute;inset:0;width:100%;height:100%}
-body.rarity-fx-3 .app,body.rarity-fx-3 .topband{animation:fxHit3 .7s both}
-body.rarity-fx-4 .app,body.rarity-fx-4 .topband{animation:fxHit4 .9s both}
-body.rarity-fx-5 .app,body.rarity-fx-5 .topband{animation:fxHit5 1.6s both}
-@keyframes fxEdge{0%{opacity:0}6%{opacity:1}30%{opacity:.5}45%{opacity:1}100%{opacity:0}}
-@keyframes fxSweep{from{transform:translateX(-130%) skewX(-20deg)}to{transform:translateX(480%) skewX(-20deg)}}
-@keyframes fxRing{0%{transform:scale(.1);opacity:0}8%{opacity:1}100%{transform:scale(11);opacity:0}}
-@keyframes fxRays{0%{opacity:0;transform:rotate(0) scale(.3)}10%{opacity:.7}100%{opacity:0;transform:rotate(60deg) scale(1)}}
-@keyframes fxFlash{0%{opacity:.9}100%{opacity:0}}
-@keyframes fxStrobe{0%{opacity:1;background:#fff}10%{background:#000}20%{background:#fff}30%{background:var(--fx2)}40%{opacity:.8;background:#fff}55%{opacity:.5;background:#000}70%{opacity:.4;background:var(--fx2)}100%{opacity:0}}
-@keyframes fxBarT{0%{transform:translateY(-101%)}12%,85%{transform:none}100%{transform:translateY(-101%)}}
-@keyframes fxBarB{0%{transform:translateY(101%)}12%,85%{transform:none}100%{transform:translateY(101%)}}
-@keyframes fxLetter{0%{letter-spacing:1em;opacity:0}20%{letter-spacing:.3em;opacity:1}85%{opacity:1}100%{opacity:0}}
-@keyframes fxHue{to{filter:hue-rotate(360deg)}}
-@keyframes fxHit3{0%{transform:none}10%{transform:translate(-6px,3px);filter:hue-rotate(40deg) saturate(1.8)}20%{transform:translate(5px,-4px)}30%{transform:translate(-3px,2px);filter:none}45%,100%{transform:none;filter:none}}
-@keyframes fxHit4{0%{filter:invert(1) hue-rotate(180deg)}6%{transform:translate(-12px,6px);filter:invert(1)}12%{transform:translate(10px,-8px);filter:none}20%{transform:translate(-8px,5px);filter:invert(1) hue-rotate(90deg)}28%{transform:translate(6px,-4px);filter:none}40%{transform:translate(-3px,2px)}55%,100%{transform:none;filter:none}}
-@keyframes fxHit5{0%{filter:invert(1)}5%{transform:translate(-16px,8px) scale(1.02);filter:invert(1) hue-rotate(120deg)}10%{transform:translate(14px,-10px);filter:none}15%{transform:translate(-12px,6px);filter:invert(1)}20%{transform:translate(10px,-6px) scale(1.015);filter:hue-rotate(200deg) saturate(3)}28%{transform:translate(-8px,4px);filter:invert(1) hue-rotate(60deg)}36%{transform:translate(6px,-3px);filter:none}50%{transform:translate(-3px,2px);filter:hue-rotate(300deg) saturate(2)}70%,100%{transform:none;filter:none}}
+/* bonds: full-screen blueprint strip */
+#bonds.screen.active{display:flex;flex-direction:column;position:fixed;inset:0;z-index:12;background:var(--readout);color:#e8efe9}
+.bonds-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 16px;background:var(--ink);border-bottom:3px solid var(--hazard)}
+.bonds-bar .ghost{color:var(--hazard);border-color:var(--hazard)}.bonds-bar .ghost:hover{background:var(--hazard);color:var(--ink)}
+.bonds-title{font-family:var(--head);font-weight:700;font-size:26px;letter-spacing:.16em;color:var(--hazard)}
+.bond-tabs{display:flex;gap:6px;flex-wrap:wrap}.bond-tabs button{font-family:var(--head);font-weight:700;letter-spacing:.06em;border:2px solid var(--tc);background:transparent;color:var(--tc);padding:3px 10px;cursor:pointer}.bond-tabs button.on{background:var(--tc);color:#0b120f}
+.bonds-sum{margin-left:auto;font-family:var(--head);font-size:15px;color:#b9c8bf}
+.bond-strip{flex:1;min-height:0;display:flex;overflow:hidden;touch-action:none;user-select:none}
+.bond-strip.drag,.bond-strip.drag *{cursor:grabbing!important}
+.bond-arrow{position:absolute;top:50%;z-index:3;width:78px;height:130px;padding:0;border:0;background:none;color:var(--hazard);cursor:pointer;display:grid;place-items:center;transform:translateY(-50%) scale(1);transition:transform .16s cubic-bezier(.2,1.6,.4,1),filter .16s;filter:drop-shadow(0 7px 0 rgba(0,0,0,.75)) drop-shadow(0 0 14px rgba(240,196,25,.65))}
+.bond-arrow svg{width:64px;height:106px;display:block}.bond-arrow.left{left:14px}.bond-arrow.right{right:14px}
+.bond-arrow:hover{transform:translateY(-50%) scale(1.22);filter:drop-shadow(0 11px 0 rgba(0,0,0,.7)) drop-shadow(0 0 26px rgba(255,236,120,.95))}
+.bond-arrow:active{transform:translateY(-50%) scale(1.1)}
+.bond-arrow[hidden]{display:none}
+.bond-arrow.locked{opacity:.7}
+.bond-arrow.nope{animation:arrowNope .45s ease-out}
+@keyframes arrowNope{0%,100%{transform:translateY(-50%) translateX(0)}20%{transform:translateY(-50%) translateX(12px) scale(1.1)}45%{transform:translateY(-50%) translateX(-8px)}70%{transform:translateY(-50%) translateX(5px)}}
+.bond-panel{position:relative}
+.bond-panel.locked>*{filter:grayscale(1) brightness(.45)}
+.bond-panel.locked::after{content:"🔒\A LOCKED\A COMPLETE THE PREVIOUS BOND";white-space:pre;text-align:center;position:absolute;inset:0;display:grid;place-content:center;font-family:var(--head);font-weight:700;font-size:26px;letter-spacing:.2em;color:#cfd8d2;line-height:1.5;background:repeating-linear-gradient(-45deg,rgba(0,0,0,.45) 0 22px,rgba(0,0,0,.6) 22px 44px);pointer-events:none}
+.bond-panel.locked::first-line{font-size:80px}
+.bond-arrow.ready{animation:arrowPulse 1.2s ease-in-out infinite}
+@keyframes arrowPulse{50%{filter:drop-shadow(0 7px 0 rgba(0,0,0,.75)) drop-shadow(0 0 30px #fff3a0)}}
+.bonds-hint{font-family:var(--head);font-size:14px;color:#8fa59a}
+.bond-panel{flex:0 0 100%;min-width:0;display:flex;flex-direction:column;border-right:6px double var(--tc)}
+.bp-top{display:flex;justify-content:space-between;padding:5px 20px;background:repeating-linear-gradient(-45deg,var(--hazard) 0 14px,#17211e 14px 28px)}
+.bp-top span{background:#17211e;color:var(--hazard);font-family:var(--head);font-weight:700;letter-spacing:.2em;padding:2px 12px}
+.bp-head{display:flex;align-items:baseline;gap:8px 26px;flex-wrap:wrap;padding:10px 26px 6px}
+.bp-head h2{font-size:clamp(30px,5vw,48px);color:#fff;margin:0;text-shadow:0 0 22px var(--tc)}
+.bp-buff{font-family:var(--head);font-weight:700;font-size:clamp(18px,2.4vw,26px);color:var(--tc)}.bp-prog{font-family:var(--head);color:#b9c8bf}.bp-msg{font-family:var(--head);color:var(--hazard);min-height:1.2em}
+.bond-panel.done .bp-head h2::after{content:" ✓ COMPLETE";font-size:.4em;color:var(--tc);letter-spacing:.15em}
+.bond-canvas{flex:1;min-height:0;overflow:hidden;cursor:grab;display:flex;background:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px) 0 0/40px 40px,linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px) 0 0/40px 40px,radial-gradient(ellipse at 50% 40%,#22352d,var(--readout) 78%)}
+.bond-canvas svg{margin:auto;flex-shrink:0}
+.bond-canvas .lines{filter:drop-shadow(0 0 7px var(--tc))}.bond-canvas line{stroke:var(--tc);stroke-linecap:round}
+.slot{cursor:pointer}.slot .core{fill:#14201b;stroke:#4b5f55;stroke-width:4;stroke-dasharray:7 5}.slot .halo{fill:none;stroke:none;transform-box:fill-box;transform-origin:center}
+.slot text{font-family:var(--head);font-weight:700;text-anchor:middle;dominant-baseline:central;fill:#6c8176;pointer-events:none}
+.slot.ready .core{fill:#2b2608;stroke:var(--hazard);stroke-width:5;stroke-dasharray:none;filter:drop-shadow(0 0 10px var(--hazard))}.slot.ready text{fill:var(--hazard)}
+.slot.ready .halo{stroke:var(--hazard);stroke-width:3;animation:haloPulse 1.2s ease-in-out infinite}
+.slot.filled .core{fill:var(--tc);stroke:#fff;stroke-width:3;stroke-dasharray:none;filter:drop-shadow(0 0 14px var(--tc))}.slot.filled text{fill:#0b120f}
+.slot.pop .core{animation:slotPop .6s cubic-bezier(.2,1.6,.4,1)}.slot.pop .halo{stroke:#fff;stroke-width:4;animation:haloBurst .7s ease-out both}
+@keyframes haloPulse{0%,100%{transform:scale(.95);opacity:.3}50%{transform:scale(1.15);opacity:1}}
+@keyframes haloBurst{from{transform:scale(1);opacity:1}to{transform:scale(2.4);opacity:0}}
+@keyframes slotPop{0%{transform:scale(.6)}100%{transform:none}}
+/* rarity effects: elements are built and timed in JS (see triggerRarityEffect). Low tiers are a soft glow; each tier adds one layer. */
+.rarity-effect{position:fixed;inset:0;z-index:15;pointer-events:none;overflow:hidden}
+.rarity-effect .fx{position:absolute;display:block}
+.rarity-effect .fx-fill{inset:0}
+.rarity-effect .fx-ring{border:2px solid #fff;border-radius:50%;transform:translate(-50%,-50%)}
+.rarity-effect .fx-bloom,.rarity-effect .fx-core{border-radius:50%}
+.rarity-effect .fx-core{width:14vmin;height:14vmin;margin:-7vmin 0 0 -7vmin;background:#000;box-shadow:0 0 0 2px var(--c),0 0 40px 4px var(--c2),0 0 130px 28px var(--c2)}
+.rarity-effect .fx-streak{left:0;right:0}
+.rarity-effect .fx-vstreak{top:0;bottom:0}
+.rarity-effect .fx-raysw{width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(circle,#000 0,rgba(0,0,0,.55) 18%,transparent 50%);mask-image:radial-gradient(circle,#000 0,rgba(0,0,0,.55) 18%,transparent 50%)}
+.rarity-effect .fx-raysw>i{position:absolute;inset:0;display:block;-webkit-mask-image:repeating-conic-gradient(#000 0 1.6deg,transparent 1.6deg 10deg);mask-image:repeating-conic-gradient(#000 0 1.6deg,transparent 1.6deg 10deg)}
+.rarity-effect .fx-bar{position:absolute;left:0;right:0;background:#03060a}
+.rarity-effect .fx-bar.top{top:0}.rarity-effect .fx-bar.bot{bottom:0}
+.rarity-effect .fx-canvas{position:absolute;inset:0;width:100%;height:100%}
+.rarity-effect .fx-banner{left:0;right:0;top:14vh;display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 16px 20px;text-align:center;font-family:var(--head);color:#fff;background:linear-gradient(90deg,transparent,rgba(3,6,10,.8) 18%,rgba(3,6,10,.8) 82%,transparent)}
+.fx-banner small{font-weight:600;font-size:clamp(12px,1.5vw,16px);letter-spacing:.42em;text-indent:.42em;text-transform:uppercase;color:var(--c)}
+.fx-banner strong{font-weight:700;line-height:1.05;letter-spacing:.14em;text-transform:uppercase;text-shadow:0 0 26px var(--c),0 2px 0 rgba(0,0,0,.45)}
+.fx-banner strong.iri{background:linear-gradient(90deg,#fff,#ffe48a,#ff9ad5,#8ad8ff,#fff,#ffe48a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 0 16px rgba(255,214,140,.55))}
+.fx-banner i{display:block;height:2px;width:min(46vw,380px);background:linear-gradient(90deg,transparent,var(--c),transparent);transform:scaleX(0)}
+.fx-banner span{font-weight:600;font-size:clamp(14px,1.9vw,20px);letter-spacing:.12em;color:#eef3ef;opacity:0;font-variant-numeric:tabular-nums}
+body.fx-warping .screen.active{filter:url(#fxWarp)}
 
 /* responsive */
 @media(max-width:860px){
@@ -275,6 +302,7 @@ body.rarity-fx-5 .app,body.rarity-fx-5 .topband{animation:fxHit5 1.6s both}
 <button class="primary roll-cta" data-go="game">Roll</button>
 <nav class="navlist" aria-label="Sections">
 <button class="nav-row" data-go="inventory"><span>Collection</span><span class="val" id="homeUnique">0 formulas</span></button>
+<button class="nav-row" data-go="bonds"><span>Bonds</span><span class="val" id="homeBonds">0 / 30</span></button>
 <button class="nav-row" data-go="achievements"><span>Achievements</span><span class="val" id="homeAch">0 / 0</span></button>
 <button class="nav-row" data-go="settings"><span>Settings</span><span class="val">Sound, effects, save</span></button>
 </nav>
@@ -338,18 +366,28 @@ body.rarity-fx-5 .app,body.rarity-fx-5 .topband{animation:fxHit5 1.6s both}
 <div class="setting"><h3>Chain details</h3><div class="body"><p>Show how many elements were chained under each result.</p><select id="chainSetting"><option value="on" selected>Show chain details</option><option value="off">Result only</option></select></div></div>
 <div class="setting"><h3>Sound</h3><div class="body"><p>A soft tick while the reel spins and a chime on the result. Rarer results get a fuller chime. Sound starts after you press Roll.</p>
 <label class="check"><input type="checkbox" id="audioEnabled" checked>Play roll sounds</label>
-<p>Choose which rarity tiers get a sound and a full-screen flash.</p>
-<table class="tier-table"><thead><tr><th>Rarity</th><th>Sound</th><th>Flash</th></tr></thead><tbody>
-<tr><td><b>Tier 1</b>1 in 10,000 to 1 in 100,000</td><td><input type="checkbox" data-sound-tier="1" checked aria-label="Tier 1 sound"></td><td><input type="checkbox" data-effect-tier="1" checked aria-label="Tier 1 flash"></td></tr>
-<tr><td><b>Tier 2</b>1 in 100,000 to 1 in 1,000,000</td><td><input type="checkbox" data-sound-tier="2" checked aria-label="Tier 2 sound"></td><td><input type="checkbox" data-effect-tier="2" checked aria-label="Tier 2 flash"></td></tr>
-<tr><td><b>Tier 3</b>1 in 1,000,000 to 1 in 10,000,000</td><td><input type="checkbox" data-sound-tier="3" checked aria-label="Tier 3 sound"></td><td><input type="checkbox" data-effect-tier="3" checked aria-label="Tier 3 flash"></td></tr>
-<tr><td><b>Tier 4</b>1 in 10,000,000 to 1 in 100,000,000</td><td><input type="checkbox" data-sound-tier="4" checked aria-label="Tier 4 sound"></td><td><input type="checkbox" data-effect-tier="4" checked aria-label="Tier 4 flash"></td></tr>
-<tr><td><b>Tier 5</b>1 in 100,000,000 and rarer</td><td><input type="checkbox" data-sound-tier="5" checked aria-label="Tier 5 sound"></td><td><input type="checkbox" data-effect-tier="5" checked aria-label="Tier 5 flash"></td></tr>
+<p>Choose which rarity tiers get a sound and a full-screen effect.</p>
+<table class="tier-table"><thead><tr><th>Rarity</th><th>Sound</th><th>Effect</th></tr></thead><tbody>
+<tr><td><b>Tier 1</b>1 in 10,000 to 1 in 100,000</td><td><input type="checkbox" data-sound-tier="1" checked aria-label="Tier 1 sound"></td><td><input type="checkbox" data-effect-tier="1" checked aria-label="Tier 1 effect"></td></tr>
+<tr><td><b>Tier 2</b>1 in 100,000 to 1 in 1,000,000</td><td><input type="checkbox" data-sound-tier="2" checked aria-label="Tier 2 sound"></td><td><input type="checkbox" data-effect-tier="2" checked aria-label="Tier 2 effect"></td></tr>
+<tr><td><b>Tier 3</b>1 in 1,000,000 to 1 in 10,000,000</td><td><input type="checkbox" data-sound-tier="3" checked aria-label="Tier 3 sound"></td><td><input type="checkbox" data-effect-tier="3" checked aria-label="Tier 3 effect"></td></tr>
+<tr><td><b>Tier 4</b>1 in 10,000,000 to 1 in 100,000,000</td><td><input type="checkbox" data-sound-tier="4" checked aria-label="Tier 4 sound"></td><td><input type="checkbox" data-effect-tier="4" checked aria-label="Tier 4 effect"></td></tr>
+<tr><td><b>Tier 5</b>1 in 100,000,000 to 1 in 1,000,000,000</td><td><input type="checkbox" data-sound-tier="5" checked aria-label="Tier 5 sound"></td><td><input type="checkbox" data-effect-tier="5" checked aria-label="Tier 5 effect"></td></tr>
+<tr><td><b>Tier 6</b>1 in 1 billion to 1 in 10 billion</td><td><input type="checkbox" data-sound-tier="6" checked aria-label="Tier 6 sound"></td><td><input type="checkbox" data-effect-tier="6" checked aria-label="Tier 6 effect"></td></tr>
+<tr><td><b>Tier 7</b>1 in 10 billion to 1 in 100 billion</td><td><input type="checkbox" data-sound-tier="7" checked aria-label="Tier 7 sound"></td><td><input type="checkbox" data-effect-tier="7" checked aria-label="Tier 7 effect"></td></tr>
+<tr><td><b>Tier 8</b>1 in 100 billion to 1 in 1 trillion</td><td><input type="checkbox" data-sound-tier="8" checked aria-label="Tier 8 sound"></td><td><input type="checkbox" data-effect-tier="8" checked aria-label="Tier 8 effect"></td></tr>
+<tr><td><b>Tier 9</b>1 in 1 trillion and rarer</td><td><input type="checkbox" data-sound-tier="9" checked aria-label="Tier 9 sound"></td><td><input type="checkbox" data-effect-tier="9" checked aria-label="Tier 9 effect"></td></tr>
 </tbody></table></div></div>
 <div class="setting"><h3>Backup</h3><div class="body"><p>Save your progress to a file, or restore it from one.</p><div class="btn-row"><button class="ghost" id="exportBtn">Export save</button><button class="ghost" id="importBtn">Import save</button><input type="file" id="importFile" accept="application/json" hidden></div></div></div>
 <div class="setting"><h3>Start over</h3><div class="body"><p>Delete your collection, found elements and achievements. This cannot be undone.</p><button class="ghost" id="resetBtn">Reset all progress</button></div></div>
-<p class="footnote">The odds shown on a result combine the odds of each element with the chance of that exact chain length.</p>
+<p class="footnote">Odds are always shown as base odds: the odds of each element and of that exact chain length before any luck, chain or other bonuses.</p>
 </section>
+</main>
+
+<main id="bonds" class="screen">
+<div class="bonds-bar"><button class="ghost" data-go="menu">Main menu</button><button class="ghost" data-go="game">Roll</button><div class="bonds-title">BONDS</div><span class="bonds-hint">Drag a large bond to move around it · use ‹ › or the arrow keys to change bond</span></div>
+<div id="bondStrip" class="bond-strip"></div>
+<button class="bond-arrow left" id="bondPrev" aria-label="Previous bond"><svg viewBox="0 0 60 100"><polyline points="48,8 14,50 48,92" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="bond-arrow right" id="bondNext" aria-label="Next bond"><svg viewBox="0 0 60 100"><polyline points="12,8 46,50 12,92" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </main>
 
 <main id="achievements" class="screen">
@@ -363,6 +401,7 @@ body.rarity-fx-5 .app,body.rarity-fx-5 .topband{animation:fxHit5 1.6s both}
 
 </div>
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="fxWarp" x="0" y="0" width="100%" height="100%"><feTurbulence id="fxTurb" type="fractalNoise" baseFrequency="0.005 0.008" numOctaves="2" seed="7"/><feDisplacementMap id="fxDisp" in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
 <script>
 const E=[
@@ -500,7 +539,7 @@ put(7,[['Fr',1],['Ra',2],['Rf',4],['Db',5],['Sg',6],['Bh',7],['Hs',8],['Mt',9],[
 const ACHIEVEMENTS = [{"formula":"H2O","name":"Water","flavor":"A tiny, bent molecule that covers most of Earth and makes life as we know it possible.","rarity":"Common"},{"formula":"CO2","name":"Carbon dioxide","flavor":"Plants borrow this invisible gas to build sugars; too much in the atmosphere traps extra heat.","rarity":"Common"},{"formula":"ClNa","name":"Table salt","flavor":"Sodium and chlorine make the familiar crystals that season food and help nerves work.","rarity":"Rare"},{"formula":"O2","name":"Oxygen","flavor":"The reactive gas many organisms use to release energy from food.","rarity":"Common"},{"formula":"O3","name":"Ozone","flavor":"High in the atmosphere it shields Earth from ultraviolet light; near the ground it is a pollutant.","rarity":"Common"},{"formula":"NH3","name":"Ammonia","flavor":"Sharp-smelling and nitrogen-rich, ammonia is an important starting point for fertilisers.","rarity":"Rare"},{"formula":"CH4","name":"Methane","flavor":"A simple carbon fuel and a powerful greenhouse gas.","rarity":"Epic"},{"formula":"H2O2","name":"Hydrogen peroxide","flavor":"A reactive liquid used in bleaching and disinfection, breaking down into water and oxygen.","rarity":"Common"},{"formula":"C2H4","name":"Ethylene","flavor":"A plant hormone that helps fruit ripen and a key industrial chemical.","rarity":"Legendary"},{"formula":"C2H2","name":"Acetylene","flavor":"A highly combustible gas once used in bright lamps and now in metalworking.","rarity":"Rare"},{"formula":"HCl","name":"Hydrochloric acid","flavor":"In water, this strong acid is also part of the stomach’s digestive chemistry.","rarity":"Common"},{"formula":"H2SO4","name":"Sulfuric acid","flavor":"A major industrial chemical used in batteries, fertiliser production and refining.","rarity":"Epic"},{"formula":"HNO3","name":"Nitric acid","flavor":"A strong acid and important industrial ingredient in fertilisers.","rarity":"Uncommon"},{"formula":"NaOH","name":"Sodium hydroxide","flavor":"A caustic base used to make soap and clean industrial equipment.","rarity":"Rare"},{"formula":"KOH","name":"Potassium hydroxide","flavor":"A strong base used in soft soaps and alkaline batteries.","rarity":"Rare"},{"formula":"CaCO3","name":"Calcium carbonate","flavor":"Found in limestone, chalk, shells and many stalactites.","rarity":"Rare"},{"formula":"CaO","name":"Quicklime","flavor":"Made by heating limestone; it reacts strongly with water.","rarity":"Common"},{"formula":"Ca(OH)2","name":"Slaked lime","flavor":"Used in mortar and to reduce acidity in soil and water.","rarity":"Rare"},{"formula":"MgSO4","name":"Epsom salt","flavor":"A magnesium salt often sold for baths and used in gardening.","rarity":"Legendary"},{"formula":"CuSO4","name":"Copper sulfate","flavor":"Its vivid blue crystals make it a classic chemistry-lab compound.","rarity":"Legendary"},{"formula":"SiO2","name":"Silica","flavor":"The main ingredient in quartz and sand, and a key material in glass.","rarity":"Rare"},{"formula":"H2","name":"Hydrogen gas","flavor":"The lightest molecule, used in industry and explored as an energy carrier.","rarity":"Common"},{"formula":"N2","name":"Nitrogen gas","flavor":"The quiet majority of the air, making up about four-fifths of the atmosphere.","rarity":"Uncommon"},{"formula":"Cl2","name":"Chlorine gas","flavor":"A reactive greenish gas whose chemistry helps disinfect water.","rarity":"Uncommon"},{"formula":"HF","name":"Hydrofluoric acid","flavor":"An unusually hazardous acid that can attack glass by reacting with silica.","rarity":"Common"},{"formula":"CO","name":"Carbon monoxide","flavor":"An odourless, poisonous gas formed by incomplete combustion.","rarity":"Common"},{"formula":"HCN","name":"Hydrogen cyanide","flavor":"A small, highly toxic molecule with a history in both chemistry and industry.","rarity":"Uncommon"},{"formula":"NO","name":"Nitric oxide","flavor":"A signalling molecule in the body and a reactive gas in the atmosphere.","rarity":"Common"},{"formula":"NO2","name":"Nitrogen dioxide","flavor":"A brownish air pollutant that contributes to smog and acid deposition.","rarity":"Common"},{"formula":"N2O","name":"Nitrous oxide","flavor":"Known as laughing gas, it is used medically and is also a greenhouse gas.","rarity":"Uncommon"},{"formula":"SO2","name":"Sulfur dioxide","flavor":"A pungent gas released by some volcanoes and burning sulfur-containing fuels.","rarity":"Common"},{"formula":"SO3","name":"Sulfur trioxide","flavor":"A reactive sulfur oxide that forms sulfuric acid when combined with water.","rarity":"Uncommon"},{"formula":"H2S","name":"Hydrogen sulfide","flavor":"A toxic gas known for its rotten-egg smell at low concentrations.","rarity":"Uncommon"},{"formula":"HBr","name":"Hydrobromic acid","flavor":"A strong acid used to introduce bromine into organic molecules.","rarity":"Uncommon"},{"formula":"HI","name":"Hydroiodic acid","flavor":"A strong hydrogen halide acid used in specialised chemical synthesis.","rarity":"Uncommon"},{"formula":"LiCl","name":"Lithium chloride","flavor":"A hygroscopic salt used in laboratories and some industrial processes.","rarity":"Uncommon"},{"formula":"KCl","name":"Potassium chloride","flavor":"A mineral salt used in fertilisers and as a substitute for table salt.","rarity":"Epic"},{"formula":"KI","name":"Potassium iodide","flavor":"A source of iodine used in medicine and laboratory chemistry.","rarity":"Epic"},{"formula":"NaF","name":"Sodium fluoride","flavor":"A fluoride salt used in carefully controlled amounts to help protect teeth.","rarity":"Epic"},{"formula":"CaF2","name":"Fluorite","flavor":"A colourful mineral and a major natural source of fluorine.","rarity":"Legendary"},{"formula":"AgCl","name":"Silver chloride","flavor":"A light-sensitive solid that helped make traditional photography possible.","rarity":"Uncommon"},{"formula":"AgNO3","name":"Silver nitrate","flavor":"A light-sensitive silver salt used in analytical chemistry and photography.","rarity":"Rare"},{"formula":"NaNO3","name":"Sodium nitrate","flavor":"A naturally occurring nitrate used as a fertiliser and industrial feedstock.","rarity":"Legendary"},{"formula":"ZnO","name":"Zinc oxide","flavor":"A white powder used in sunscreens, rubber and protective ointments.","rarity":"Common"},{"formula":"TiO2","name":"Titanium dioxide","flavor":"A bright white pigment used in paints and many everyday materials.","rarity":"Uncommon"},{"formula":"Al2O3","name":"Alumina","flavor":"A hard ceramic oxide and the key feedstock for aluminium production.","rarity":"Epic"},{"formula":"PbS","name":"Galena","flavor":"The principal ore of lead, recognised by its metallic grey appearance.","rarity":"Uncommon"},{"formula":"SnO2","name":"Cassiterite","flavor":"The main ore of tin, important to metalworking for thousands of years.","rarity":"Uncommon"},{"formula":"NaBr","name":"Sodium bromide","flavor":"A bromide salt used in laboratories and specialised chemical processes.","rarity":"Epic"},{"formula":"KBr","name":"Potassium bromide","flavor":"A salt once common in photographic materials and infrared spectroscopy.","rarity":"Epic"},{"formula":"MgO","name":"Magnesia","flavor":"A heat-resistant oxide used to line furnaces and make refractory ceramics.","rarity":"Common"},{"formula":"CaCl2","name":"Calcium chloride","flavor":"A moisture-loving salt used for de-icing roads and drying gases.","rarity":"Epic"},{"formula":"SiC","name":"Silicon carbide","flavor":"An extremely hard material used in abrasives and high-performance ceramics.","rarity":"Rare"},{"formula":"BN","name":"Boron nitride","flavor":"A boron-nitrogen material with forms that resemble graphite and diamond.","rarity":"Uncommon"},{"formula":"B2O3","name":"Boron trioxide","flavor":"A glass-forming oxide that helps make heat-resistant borosilicate glass.","rarity":"Legendary"},{"formula":"H3BO3","name":"Boric acid","flavor":"A mild acid used in glassmaking and some specialised applications.","rarity":"Legendary"},{"formula":"CH2O","name":"Formaldehyde","flavor":"A simple carbonyl compound used to make resins and preserve specimens.","rarity":"Uncommon"},{"formula":"CH2O2","name":"Formic acid","flavor":"The acid found in ant venom and nettles, with a sharp sting.","rarity":"Uncommon"},{"formula":"H2CO3","name":"Carbonic acid","flavor":"Formed when carbon dioxide dissolves in water, it helps give fizzy drinks their bite.","rarity":"Rare"},{"formula":"HClO","name":"Hypochlorous acid","flavor":"A weak, fast-acting disinfectant that your own white blood cells make.","rarity":"Common"},{"formula":"NaClO","name":"Sodium hypochlorite","flavor":"The active ingredient in household bleach.","rarity":"Epic"},{"formula":"CaSO4","name":"Calcium sulfate","flavor":"The mineral behind gypsum, plaster and drywall.","rarity":"Legendary"},{"formula":"MgCl2","name":"Magnesium chloride","flavor":"A salt found in seawater, used for de-icing and tofu making.","rarity":"Epic"},{"formula":"FeS2","name":"Pyrite","flavor":"Fool's gold: a brassy iron sulfide that sparks when struck.","rarity":"Epic"},{"formula":"Cu2O","name":"Cuprite","flavor":"A deep red copper ore with a mirror-like shine.","rarity":"Rare"},{"formula":"CuO","name":"Copper oxide","flavor":"A black oxide that tints glazes and glass blue-green.","rarity":"Common"},{"formula":"ZnS","name":"Zinc sulfide","flavor":"A glow-in-the-dark phosphor and the main ore of zinc.","rarity":"Uncommon"},{"formula":"HgS","name":"Cinnabar","flavor":"A vivid red mercury ore once ground into pigment.","rarity":"Uncommon"},{"formula":"Ag2S","name":"Silver sulfide","flavor":"The dark tarnish that forms on silver.","rarity":"Epic"},{"formula":"AgBr","name":"Silver bromide","flavor":"A light-sensitive crystal used in classic photographic film.","rarity":"Rare"},{"formula":"Li2O","name":"Lithium oxide","flavor":"A lithium compound used in specialised ceramics and glass.","rarity":"Rare"},{"formula":"LiOH","name":"Lithium hydroxide","flavor":"A strong base used in batteries and to scrub CO2 in spacecraft.","rarity":"Common"},{"formula":"MnO2","name":"Manganese dioxide","flavor":"A dark mineral used in dry-cell batteries.","rarity":"Uncommon"},{"formula":"WO3","name":"Tungsten trioxide","flavor":"A yellow oxide used in smart-glass coatings.","rarity":"Rare"},{"formula":"ZrO2","name":"Zirconia","flavor":"The tough ceramic behind cubic zirconia gemstones.","rarity":"Rare"},{"formula":"CS2","name":"Carbon disulfide","flavor":"A smelly, volatile solvent used in making rayon.","rarity":"Rare"},{"formula":"CH4O","name":"Methanol","flavor":"The simplest alcohol, used as a solvent and fuel.","rarity":"Epic"},{"formula":"PH3","name":"Phosphine","flavor":"A toxic, garlicky-smelling gas of phosphorus and hydrogen.","rarity":"Rare"},{"formula":"PbO","name":"Lead oxide","flavor":"Litharge: a yellow oxide used in glass and old batteries.","rarity":"Common"},{"formula":"SnCl2","name":"Tin(II) chloride","flavor":"A reducing agent used in labs and mirror making.","rarity":"Legendary"},{"formula":"CdS","name":"Cadmium sulfide","flavor":"A bright yellow pigment famous in artists' paint.","rarity":"Rare"},{"formula":"BaO","name":"Barium oxide","flavor":"A reactive oxide used in glass and cathode coatings.","rarity":"Uncommon"},{"formula":"SrO","name":"Strontium oxide","flavor":"A strontium compound used in specialised glass and ceramics.","rarity":"Uncommon"},{"formula":"CsCl","name":"Caesium chloride","flavor":"A dense salt used to separate DNA by centrifuge.","rarity":"Epic"},{"formula":"NaI","name":"Sodium iodide","flavor":"A salt used in iodised supplements and radiation detectors.","rarity":"Epic"},{"formula":"KF","name":"Potassium fluoride","flavor":"A fluoride salt used in chemical synthesis.","rarity":"Epic"},{"formula":"GeO2","name":"Germanium dioxide","flavor":"A clear oxide used in optical fibres.","rarity":"Rare"},{"formula":"NiO","name":"Nickel oxide","flavor":"A green-grey oxide used in batteries and ceramics.","rarity":"Common"},{"formula":"CoO","name":"Cobalt oxide","flavor":"The classic source of cobalt blue in glass and glazes.","rarity":"Uncommon"},{"formula":"LiF","name":"Lithium fluoride","flavor":"A crystal that is transparent to ultraviolet light.","rarity":"Uncommon"},{"formula":"AgI","name":"Silver iodide","flavor":"A crystal used in cloud-seeding experiments.","rarity":"Rare"},{"formula":"PtO2","name":"Platinum dioxide","flavor":"Adams' catalyst, used for hydrogenation reactions.","rarity":"Uncommon"},{"formula":"ThO2","name":"Thorium dioxide","flavor":"One of the most heat-resistant oxides known.","rarity":"Rare"},{"formula":"IrO2","name":"Iridium dioxide","flavor":"A durable catalyst used in electrolysis.","rarity":"Rare"},{"formula":"NaH","name":"Sodium hydride","flavor":"A reactive hydride used as a strong base in synthesis.","rarity":"Uncommon"},{"formula":"CaH2","name":"Calcium hydride","flavor":"A drying agent that reacts vigorously with water.","rarity":"Uncommon"},{"formula":"LiH","name":"Lithium hydride","flavor":"A compact hydrogen store used in specialised chemistry.","rarity":"Common"},{"formula":"MgF2","name":"Magnesium fluoride","flavor":"A crystal used in lens coatings and ultraviolet optics.","rarity":"Legendary"},{"formula":"CaC2","name":"Calcium carbide","flavor":"Reacts with water to release acetylene gas.","rarity":"Rare"},{"formula":"FeO","name":"Wustite","flavor":"A black iron oxide found in steelmaking.","rarity":"Common"}];
 let unlockedAchievements=[];try{unlockedAchievements=JSON.parse(localStorage.getItem("elementalAchievements")||"[]")}catch(e){unlockedAchievements=[]}
 let toastTimer;
-const EFFECT_DEFAULTS={1:true,2:true,3:true,4:true,5:true};
+const EFFECT_DEFAULTS={1:true,2:true,3:true,4:true,5:true,6:true,7:true,8:true,9:true};
 let rarityEffects={...EFFECT_DEFAULTS};
 try{const stored=JSON.parse(localStorage.getItem('elementalRarityEffects')||'null');if(stored&&typeof stored==='object')rarityEffects={...EFFECT_DEFAULTS,...stored}}catch(e){}
 function syncEffectSettings(){document.querySelectorAll('[data-effect-tier]').forEach(input=>{input.checked=rarityEffects[input.dataset.effectTier]!==false})}
@@ -509,7 +548,7 @@ const $=id=>document.getElementById(id);
 const INITIAL_RESULT=$('rollResults').innerHTML;
 // Procedural audio: no external files or downloads required.
 let audioContext=null, tickTimer=null, tickIndex=0;
-const soundTierDefaults={1:true,2:true,3:true,4:true,5:true};
+const soundTierDefaults={1:true,2:true,3:true,4:true,5:true,6:true,7:true,8:true,9:true};
 let soundTiers={...soundTierDefaults};
 try{const saved=JSON.parse(localStorage.getItem('elementalSoundTiers')||'null');if(saved&&typeof saved==='object')soundTiers={...soundTierDefaults,...saved}}catch(e){}
 try{$('audioEnabled').checked=localStorage.getItem('elementalAudioEnabled')!=='false'}catch(e){}
@@ -528,13 +567,117 @@ function startRollTicks(){
   tickTimer=setInterval(()=>{const ctx=audioReady();if(!ctx)return;const now=ctx.currentTime;const pitch=[1450,1180,1320,1550][tickIndex++%4];tone(pitch,now,.035,.012,'triangle',pitch*.72);},115);
 }
 function stopRollTicks(){if(tickTimer){clearInterval(tickTimer);tickTimer=null}}
-function getRarityTier(log){const r=-log;if(r>=8)return 5;if(r>=7)return 4;if(r>=6)return 3;if(r>=5)return 2;if(r>=4)return 1;return 0}
+function getRarityTier(log){const r=-log;if(r>=12)return 9;if(r>=11)return 8;if(r>=10)return 7;if(r>=9)return 6;if(r>=8)return 5;if(r>=7)return 4;if(r>=6)return 3;if(r>=5)return 2;if(r>=4)return 1;return 0}
+
+/* ---- big-roll sound design (tiers 6-9): layered booms, noise sweeps, risers, pads, bells and reverb ---- */
+function sfxBus(ctx){
+  if(ctx._bus)return ctx._bus;
+  const comp=ctx.createDynamicsCompressor();comp.threshold.value=-18;comp.knee.value=20;comp.ratio.value=6;comp.attack.value=.004;comp.release.value=.25;
+  const master=ctx.createGain();master.gain.value=.9;master.connect(comp);comp.connect(ctx.destination);
+  const len=Math.floor(ctx.sampleRate*3.2),ib=ctx.createBuffer(2,len,ctx.sampleRate);
+  for(let c=0;c<2;c++){const d=ib.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}
+  const conv=ctx.createConvolver();conv.buffer=ib;const wet=ctx.createGain();wet.gain.value=.55;conv.connect(wet);wet.connect(master);
+  const nb=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate),nd=nb.getChannelData(0);for(let i=0;i<nd.length;i++)nd[i]=Math.random()*2-1;
+  return ctx._bus={master,conv,nb};
+}
+function routeOut(ctx,node,wet){const b=sfxBus(ctx);node.connect(b.master);if(wet>0){const g=ctx.createGain();g.gain.value=wet;node.connect(g);g.connect(b.conv)}}
+function tn(ctx,f,when,dur,vol,type='sine',endF=null,wet=.3,det=0,atk=.02){
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.detune.value=det;o.frequency.setValueAtTime(f,when);
+  if(endF)o.frequency.exponentialRampToValueAtTime(Math.max(1,endF),when+dur);
+  g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),when+Math.min(atk,dur*.4));g.gain.exponentialRampToValueAtTime(.0001,when+dur);
+  o.connect(g);routeOut(ctx,g,wet);o.start(when);o.stop(when+dur+.05);
+}
+function nz(ctx,when,dur,vol,f0,f1,type='lowpass',q=1,wet=.2,atk=.01){
+  const b=sfxBus(ctx),s=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();s.buffer=b.nb;s.loop=true;
+  f.type=type;f.Q.value=q;f.frequency.setValueAtTime(f0,when);f.frequency.exponentialRampToValueAtTime(Math.max(20,f1),when+dur);
+  g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(Math.max(.0002,vol),when+Math.min(atk,dur*.4));g.gain.exponentialRampToValueAtTime(.0001,when+dur);
+  s.connect(f);f.connect(g);routeOut(ctx,g,wet);s.start(when,Math.random()*2);s.stop(when+dur+.05);
+}
+function boom(ctx,when,vol,len=1.4){tn(ctx,110,when,len,vol,'sine',26,.25,0,.006);tn(ctx,55,when,len*1.2,vol*.8,'sine',22,.2,0,.006);nz(ctx,when,len*.5,vol*.9,900,60,'lowpass',.8,.35,.004)}
+function riser(ctx,when,dur,vol,f0,f1){
+  const o=ctx.createOscillator(),o2=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();
+  o.type='sawtooth';o2.type='sawtooth';o2.detune.value=14;f.type='lowpass';f.Q.value=3;
+  o.frequency.setValueAtTime(f0,when);o.frequency.exponentialRampToValueAtTime(f1,when+dur);o2.frequency.setValueAtTime(f0*1.005,when);o2.frequency.exponentialRampToValueAtTime(f1*1.005,when+dur);
+  f.frequency.setValueAtTime(f0*2,when);f.frequency.exponentialRampToValueAtTime(f1*5,when+dur);
+  g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(vol,when+dur*.96);g.gain.linearRampToValueAtTime(0,when+dur);
+  o.connect(f);o2.connect(f);f.connect(g);routeOut(ctx,g,.25);o.start(when);o2.start(when);o.stop(when+dur+.05);o2.stop(when+dur+.05);
+  nz(ctx,when,dur,vol*.7,500,9000,'bandpass',2,.3,dur*.8);
+}
+function padChord(ctx,when,notes,dur,vol,type='sawtooth',lp=2400){
+  notes.forEach(n=>[-9,0,9].forEach(d=>{
+    const o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=ctx.createGain();o.type=type;o.detune.value=d;o.frequency.value=n;f.type='lowpass';
+    f.frequency.setValueAtTime(300,when);f.frequency.exponentialRampToValueAtTime(lp,when+dur*.3);f.frequency.exponentialRampToValueAtTime(400,when+dur);
+    g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(vol,when+.12);g.gain.exponentialRampToValueAtTime(.0001,when+dur);
+    o.connect(f);f.connect(g);routeOut(ctx,g,.45);o.start(when);o.stop(when+dur+.05)}));
+}
+function sparkle(ctx,when,n,span,vol,scale){
+  const base=scale||[1046.5,1174.66,1318.51,1567.98,1760,2093,2349.32,2637.02,3135.96];
+  for(let i=0;i<n;i++){const t=when+Math.random()*span,f=base[Math.random()*base.length|0];tn(ctx,f,t,.5+Math.random()*.7,vol*(.5+Math.random()*.7),'sine',null,.6,0,.004)}
+}
+function arp(ctx,when,notes,step,vol,type='triangle'){notes.forEach((f,i)=>tn(ctx,f,when+i*step,.7,vol,type,null,.45,0,.008))}
+function bigSound(ctx,t,tier){
+  if(tier===6){ /* cosmic anomaly: deep boom, bright rising arpeggio, shimmer */
+    boom(ctx,t,.55,1.6);nz(ctx,t,1.4,.1,200,7000,'highpass',.7,.4,.5);
+    padChord(ctx,t+.05,[196,293.66,392,587.33,783.99],2.8,.012,'sawtooth',2600);
+    arp(ctx,t+.15,[392,493.88,587.33,783.99,987.77,1174.66,1567.98,1975.53],.075,.05);
+    sparkle(ctx,t+.7,16,1.8,.025);
+    nz(ctx,t,4.6,.05,500,180,'lowpass',.8,.2,.4); /* fire roar */
+    for(let i=0;i<34;i++)nz(ctx,t+.2+Math.random()*4.2,.03+Math.random()*.05,.05+Math.random()*.06,4000+Math.random()*5000,900,'highpass',1,.2,.002); /* crackle */
+    [1567.98,2349.32].forEach((f,i)=>tn(ctx,f,t+.9+i*.12,2.2,.03,'sine',null,.7));
+  }else if(tier===7){ /* reality breach: double boom, glitch stutter, dark minor wall */
+    boom(ctx,t,.65,1.8);boom(ctx,t+.34,.5,1.4);
+    nz(ctx,t,1.3,.12,7000,150,'bandpass',3,.3,.02);
+    for(let i=0;i<9;i++)tn(ctx,[440,311,622,233,880,349,740,277,555][i],t+.45+i*.055,.045,.035,'square',null,.1,0,.002);
+    tn(ctx,880,t,2.4,.03,'sawtooth',110,.4,25,.01);tn(ctx,622.25,t,2.4,.022,'sawtooth',77.8,.4,-25,.01); /* tritone dive */
+    padChord(ctx,t+.9,[146.83,220,261.63,329.63,440],3.4,.012,'sawtooth',1900);
+    arp(ctx,t+1.0,[293.66,349.23,440,523.25,659.25,880,1046.5],.1,.04,'sawtooth');
+    sparkle(ctx,t+1.2,16,2.2,.022,[1174.66,1396.91,1760,2093]);
+    for(let i=0;i<6;i++)nz(ctx,t+.05+i*.1,.07,.08,9000,3000,'highpass',2,.2,.001); /* cracks spreading */
+    nz(ctx,t+1.5,1.0,.16,13000,2500,'highpass',1,.5,.002);sparkle(ctx,t+1.5,26,2.4,.03,[2093,2637.02,3135.96,3951,4186]); /* glass shatters */
+  }else if(tier===8){ /* elemental singularity: 2.4s collapse into the void, then an enormous release */
+    const v=2.4;
+    tn(ctx,140,t,v,.14,'sine',24,.3,0,.4);tn(ctx,70,t,v,.12,'sine',18,.3,0,.4);
+    nz(ctx,t,v,.14,320,70,'lowpass',2,.3,.6);riser(ctx,t+.1,v-.1,.06,90,1400);
+    [.5,1.05,1.5,1.85,2.1].forEach((d,i)=>boom(ctx,t+d,.1+i*.05,.5));
+    const R=t+v;
+    boom(ctx,R,.95,3);boom(ctx,R+.02,.6,2);nz(ctx,R,2.2,.3,9000,300,'highpass',.7,.5,.003);
+    padChord(ctx,R,[130.81,196,261.63,392,523.25,783.99],5,.014,'sawtooth',3200);
+    arp(ctx,R+.05,[261.63,329.63,392,523.25,659.25,783.99,1046.5,1318.51,1567.98,2093],.07,.055);
+    [1046.5,1318.51,1567.98,2093,2637.02].forEach((f,i)=>tn(ctx,f,R+.1+i*.1,3.4,.035,'sine',null,.8,3,.01));
+    sparkle(ctx,R+.3,30,3.2,.03);
+  }else{ /* tier 9, one in a trillion: slow heartbeat in the dark, silence, then everything at once */
+    const v=4.2;
+    [0,.9,1.7,2.4,3,3.5,3.9].forEach((d,i)=>{boom(ctx,t+d,.16+i*.04,.7);boom(ctx,t+d+.16,.1+i*.03,.5)});
+    riser(ctx,t,v,.075,70,3200);nz(ctx,t+.5,v-.5,.12,200,10000,'bandpass',4,.4,v*.7);
+    tn(ctx,60,t,v,.1,'sine',200,.3,0,1);
+    const R=t+v+.12; /* the small silence before the hit */
+    boom(ctx,R,1,4);boom(ctx,R+.03,.8,3.2);boom(ctx,R+.45,.6,2.4);nz(ctx,R,3,.38,12000,200,'highpass',.7,.6,.003);
+    padChord(ctx,R,[65.41,130.81,196,261.63,329.63,392,523.25,659.25,783.99],7,.012,'sawtooth',4200);
+    padChord(ctx,R+.3,[1046.5,1318.51,1567.98,2093],6,.01,'triangle',6000);
+    arp(ctx,R+.05,[261.63,329.63,392,523.25,659.25,783.99,1046.5,1318.51,1567.98,2093,2637.02,3135.96],.06,.06);
+    arp(ctx,R+1.0,[392,523.25,659.25,783.99,1046.5,1318.51,1567.98,2093,2637.02,3135.96,4186],.08,.045,'sine');
+    sparkle(ctx,R+.2,60,5.5,.035,[1046.5,1318.51,1567.98,2093,2637.02,3135.96,4186]);
+    [2093,3135.96,4186].forEach((f,i)=>tn(ctx,f,R+.8+i*.3,5,.03,'sine',f*1.01,.9,0,.05));
+    tn(ctx,98,R+3.2,4,.07,'sine',49,.5,0,.5); /* low aftershock */
+    for(let i=0;i<9;i++)nz(ctx,R+.05+i*.09,.07,.08,9000,3000,'highpass',2,.2,.001);
+    nz(ctx,R+1.7,1.2,.2,14000,2500,'highpass',1,.6,.002);sparkle(ctx,R+1.7,36,3,.03,[2093,2637.02,3135.96,3951,4186]);
+    for(let i=0;i<40;i++)nz(ctx,R+.3+Math.random()*5,.03+Math.random()*.05,.04+Math.random()*.05,4000+Math.random()*5000,900,'highpass',1,.2,.002);
+  }
+}
+/* a rising tension riser that plays while the scanner is still searching, for the biggest finds */
+function playBuildup(tier,seconds){
+  if(tier<6||!$('audioEnabled').checked||soundTiers[tier]===false)return;
+  const ctx=audioReady();if(!ctx)return;const t=ctx.currentTime,d=Math.max(1.2,seconds);
+  riser(ctx,t,d,.02+(tier-6)*.012,100+(tier-6)*18,700+(tier-6)*200);
+  if(tier>=8){tn(ctx,55,t,d,.05,'sine',90,.3,0,d*.6)}
+}
 function playResultChime(log){
   stopRollTicks();if(!$('audioEnabled').checked)return;
   const tier=getRarityTier(log);if(tier>0&&soundTiers[tier]===false) { // Keep a gentle standard result chime when a rare tier is muted.
     const ctx=audioReady();if(ctx){const t=ctx.currentTime;tone(880,t,.42,.035,'sine');tone(1174.66,t+.09,.58,.022,'sine');}return;
   }
   const ctx=audioReady();if(!ctx)return;const t=ctx.currentTime;
+  if(tier>=6){bigSound(ctx,t,tier);return}
   const patterns={
     0:[[783.99,0,.42,.035,'sine'],[1046.5,.1,.58,.023,'sine']],
     1:[[880,0,.48,.04,'sine'],[1174.66,.09,.6,.028,'sine'],[1567.98,.17,.68,.018,'sine']],
@@ -548,36 +691,148 @@ function playResultChime(log){
 }
 $('audioEnabled').addEventListener('change',()=>{try{localStorage.setItem('elementalAudioEnabled',$('audioEnabled').checked?'true':'false')}catch(e){}if(!$('audioEnabled').checked)stopRollTicks()});
 document.querySelectorAll('[data-sound-tier]').forEach(input=>{input.checked=soundTiers[input.dataset.soundTier]!==false;input.addEventListener('change',()=>{soundTiers[input.dataset.soundTier]=input.checked;try{localStorage.setItem('elementalSoundTiers',JSON.stringify(soundTiers))}catch(e){}})});
-let rarityEffectTimer=null;
-let fxToken=0;
+/* ---- rarity effects: one visual language (edge glow, light, rings, motes), one more layer added per tier ----
+   tiers 1-7 release on the roll; tiers 8 and 9 hold a short "eclipse" first, timed to the sound design (vd). */
+const FXT=[null,
+ {name:'Scarce',c:'#7cc8ff',c2:'#2f6bff',ms:1900},
+ {name:'Rare',c:'#5eead4',c2:'#0e9f9a',ms:2400},
+ {name:'Exceptional',c:'#b39dff',c2:'#6d4cff',ms:3200},
+ {name:'Epic',c:'#f78fd8',c2:'#c026d3',ms:4000},
+ {name:'Mythic',c:'#ffd166',c2:'#ff8c1a',ms:5000},
+ {name:'Legendary',c:'#ff9a5c',c2:'#e8431a',ms:5800},
+ {name:'Celestial',c:'#ff5d7a',c2:'#b0123a',ms:6800},
+ {name:'Transcendent',c:'#c9b8ff',c2:'#4b2bff',ms:5600,vd:2400,hb:[500,1050,1500,1850,2100]},
+ {name:'Singular',c:'#fff6d6',c2:'#ff7ad9',ms:7600,vd:4320,hb:[0,900,1700,2400,3000,3500,3900]}];
+let rarityEffectTimer=null,fxToken=0,fxRun=[];
+function fxAn(el,frames,o){const a=el.animate(frames,Object.assign({fill:'both',easing:'ease-out'},o));fxRun.push(a);return a}
+function fxEl(ov,cls,css){const e=document.createElement('div');e.className='fx '+cls;if(css)e.style.cssText=css;ov.appendChild(e);return e}
+function fxStop(){fxToken++;if(rarityEffectTimer){clearTimeout(rarityEffectTimer);rarityEffectTimer=null}fxRun.splice(0).forEach(a=>{try{a.cancel()}catch(e){}});const ov=$('rarityEffect');if(ov)ov.innerHTML='';document.body.classList.remove('fx-warping')}
+function fxBanner(ov,T,tier,log,delay,dur,topVh,calm){
+  const b=fxEl(ov,'fx-banner','top:'+topVh+'vh'),fs='font-size:clamp('+Math.round(20+tier*2.6)+'px,'+(3+tier*.55).toFixed(1)+'vw,'+(30+tier*6)+'px)';
+  b.innerHTML='<small>Tier '+tier+'</small><strong class="'+(tier===9?'iri':'')+'" style="'+fs+'">'+T.name+'</strong><i></i><span>'+rarityText(log).replace('1/','1 in ')+'</span>';
+  fxAn(b,[{opacity:0},{opacity:1,offset:.1},{opacity:1,offset:.78},{opacity:0}],{duration:dur,delay,easing:'linear'});
+  const q=s=>b.querySelector(s);
+  if(calm){q('i').style.transform='none';q('span').style.opacity=1;return}
+  fxAn(q('small'),[{opacity:0,transform:'translateY(6px)'},{opacity:.9,transform:'none'}],{duration:500,delay});
+  fxAn(q('strong'),[{opacity:0,transform:'scale(1.08)',letterSpacing:'.3em'},{opacity:1,transform:'scale(1)',letterSpacing:'.14em'}],{duration:760,delay:delay+80});
+  fxAn(q('i'),[{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:800,delay:delay+260});
+  fxAn(q('span'),[{opacity:0},{opacity:1}],{duration:600,delay:delay+520});
+  if(tier===9)fxAn(q('strong'),[{backgroundPosition:'0% 0'},{backgroundPosition:'200% 0'}],{duration:2600,iterations:4,easing:'linear'});
+}
+/* soft glowing motes on one canvas: a radial burst, then slow drift; tiers 8-9 first draw motes inward toward the eclipse */
+function fxMotes(cv,o){
+  const dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;
+  const g=cv.getContext('2d');g.scale(dpr,dpr);
+  const{cx,cy,tier,vd,tok}=o,sc=Math.max(.6,Math.min(1.5,W/1200)),diag=Math.hypot(W,H);
+  const spr=col=>{const s=document.createElement('canvas');s.width=s.height=48;const x=s.getContext('2d'),h=parseInt(col.slice(1),16),rgb=(h>>16)+','+(h>>8&255)+','+(h&255),gr=x.createRadialGradient(24,24,0,24,24,24);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.2,'rgba('+rgb+',.9)');gr.addColorStop(1,'rgba('+rgb+',0)');x.fillStyle=gr;x.fillRect(0,0,48,48);return s};
+  const S=[spr(o.c),spr(o.c2),spr('#ffffff')],P=[],N=[0,26,44,80,120,170,230,300,380,520][tier];
+  const waves=[{at:vd,n:N,pw:1}];if(tier>=6)waves.push({at:vd+450,n:Math.round(N*.45),pw:.55});if(tier===7)waves.push({at:vd+340,n:Math.round(N*.4),pw:.8});waves.sort((a,b)=>a.at-b.at);
+  const burst=w=>{for(let i=0;i<w.n&&P.length<1000;i++){const a=Math.random()*6.2832,sp=(90+Math.pow(Math.random(),1.6)*520)*sc*(1+tier*.07)*w.pw;
+    P.push({x:cx+Math.cos(a)*6,y:cy+Math.sin(a)*6,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,g:tier>=5?-26*sc:34*sc,age:0,life:1.2+Math.random()*1.5+tier*.18,size:(1.1+Math.random()*2.4)*sc*(1+tier*.04),s:Math.random()<.5?0:Math.random()<.4?1:2,tw:Math.random()*6.28})}};
+  const inward=()=>{P.push({inw:1,a:Math.random()*6.2832,r0:diag*(.28+Math.random()*.3),spin:(Math.random()<.5?-1:1)*(.5+Math.random()*.9),age:0,life:.9+Math.random()*.8,size:(1.2+Math.random()*2)*sc,s:Math.random()<.6?0:2,px:0,py:0})};
+  const t0=performance.now();let last=t0,wi=0,acc=0;
+  (function f(now){
+    if(tok!==fxToken)return;
+    const t=now-t0,dt=Math.min(.05,(now-last)/1000);last=now;
+    while(wi<waves.length&&t>=waves[wi].at){burst(waves[wi]);wi++}
+    if(vd&&t<vd){acc+=(tier===9?150:105)*(.25+.75*t/vd)*dt;while(acc>=1){acc--;inward()}}
+    g.clearRect(0,0,W,H);g.globalCompositeOperation='lighter';g.lineCap='round';
+    for(let i=P.length;i--;){const p=P[i];p.age+=dt;const k=p.age/p.life;if(k>=1){P.splice(i,1);continue}
+      if(p.inw){const r=p.r0*(1-k*k),a=p.a+p.spin*k,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r,al=Math.sin(Math.PI*k)*.85;
+        if(p.px){g.globalAlpha=al*.5;g.strokeStyle=o.c;g.lineWidth=p.size*.6;g.beginPath();g.moveTo(p.px,p.py);g.lineTo(x,y);g.stroke()}
+        p.px=x;p.py=y;g.globalAlpha=al;const d=p.size*5;g.drawImage(S[p.s],x-d/2,y-d/2,d,d);continue}
+      const dr=Math.exp(-2.4*dt);p.vx*=dr;p.vy=p.vy*dr+p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;
+      const al=Math.pow(1-k,1.4)*(.78+.22*Math.sin(p.tw+p.age*16)),d=p.size*6*(1+(1-k)*.25);
+      if(Math.abs(p.vx)+Math.abs(p.vy)>260){g.globalAlpha=al*.45;g.strokeStyle=p.s===1?o.c2:o.c;g.lineWidth=p.size*.7;g.beginPath();g.moveTo(p.x-p.vx*.022,p.y-p.vy*.022);g.lineTo(p.x,p.y);g.stroke()}
+      g.globalAlpha=al;g.drawImage(S[p.s],p.x-d/2,p.y-d/2,d,d)}
+    g.globalCompositeOperation='source-over';g.globalAlpha=1;
+    if(wi<waves.length||t<vd||P.length)requestAnimationFrame(f);else g.clearRect(0,0,W,H)
+  })(t0);
+}
 function triggerRarityEffect(log){
   const tier=getRarityTier(log);
   if(!tier||rarityEffects[tier]===false)return;
-  const body=document.body,ov=$('rarityEffect'),cls=[1,2,3,4,5].map(n=>'rarity-fx-'+n);
-  if(rarityEffectTimer){clearTimeout(rarityEffectTimer);rarityEffectTimer=null}
-  body.classList.remove(...cls);ov.innerHTML='';const tok=++fxToken;void body.offsetWidth;
-  const r=$('rollResults').getBoundingClientRect(),cx=r.width?r.left+r.width/2:innerWidth/2,cy=r.width?Math.min(Math.max(r.top+130,0),innerHeight):innerHeight/2;
-  ov.style.setProperty('--cx',cx+'px');ov.style.setProperty('--cy',cy+'px');
-  const p=['<i class="fx fx-edge"></i>'];
-  if(tier<=2)p.push('<i class="fx fx-sweep"></i>');
-  p.push('<i class="fx fx-ring"></i>');
-  if(tier>=2)p.push('<i class="fx fx-ring r2"></i>');
-  if(tier>=3)p.push('<i class="fx fx-rays"></i><i class="fx fx-ring r3"></i><i class="fx fx-flash"></i>');
-  if(tier>=4)p.push('<i class="fx fx-bar top"></i><i class="fx fx-bar bot"><b>'+['','','','RARE SIGNAL','ANOMALY DETECTED','IMPOSSIBLE ODDS'][tier]+' &middot; '+rarityText(log)+'</b></i>');
-  if(tier>=3)p.push('<canvas class="fx-sparks"></canvas>');
-  ov.innerHTML=p.join('');body.classList.add('rarity-fx-'+tier);
-  if(tier>=3)sparks(ov.querySelector('canvas'),cx,cy,tier,tok);
-  rarityEffectTimer=setTimeout(()=>{body.classList.remove(...cls);ov.innerHTML='';rarityEffectTimer=null},[0,2300,2800,3400,4300,5600][tier]);
+  const T=FXT[tier],ov=$('rarityEffect'),vd=T.vd||0,D=vd,total=vd+T.ms,W=innerWidth,H=innerHeight,c=T.c,c2=T.c2;
+  fxStop();const tok=fxToken;
+  const rr=$('rollResults').getBoundingClientRect(),cx=rr.width?rr.left+rr.width/2:W/2,cy=rr.width?Math.min(Math.max(rr.top+130,H*.18),H*.82):H/2;
+  const vm=Math.min(W,H)/100,at='left:'+cx+'px;top:'+cy+'px;',E=(cls,css)=>fxEl(ov,cls,css),TR='translate(-50%,-50%) ',onGame=$('game').classList.contains('active');
+  ov.style.setProperty('--c',c);ov.style.setProperty('--c2',c2);
+  const barH=tier>=5?[0,0,0,0,0,6,7,8,9,10][tier]:0,bannerTop=barH?barH+5:14,done=()=>{rarityEffectTimer=setTimeout(()=>{fxStop()},total+500)};
+  /* reduced motion: a still glow that fades, plus the tier banner */
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+    const e=E('fx-fill','box-shadow:inset 0 0 0 1px '+c+',inset 0 0 90px 6px '+c2);fxAn(e,[{opacity:0},{opacity:.8,offset:.15},{opacity:0}],{duration:1600,easing:'linear'});
+    if(tier>=3)fxBanner(ov,T,tier,log,0,2600,14,true);done();return;
+  }
+  /* 1. void dim (tiers 8-9): the room goes dark around the roll */
+  if(vd){const v=E('fx-fill','background:radial-gradient(circle at '+cx+'px '+cy+'px,rgba(8,4,24,.8) 0,rgba(3,1,10,.94) 36%,#010004 100%)'),d=vd+560;
+    fxAn(v,[{opacity:0},{opacity:1,offset:650/d},{opacity:1,offset:vd/d},{opacity:0}],{duration:d,easing:'linear'})}
+  /* 1b. a soft dim around the reel so the light reads on the pale page (tiers 3-7; 8-9 have the void) */
+  if(tier>=3&&!vd){const dm=E('fx-fill','background:radial-gradient(circle at '+cx+'px '+cy+'px,rgba(4,8,14,.35) 0,rgba(4,8,14,.9) 100%)'),pk=.14+tier*.06;
+    fxAn(dm,[{opacity:0},{opacity:pk,offset:.07},{opacity:pk*.8,offset:.5},{opacity:0}],{duration:T.ms*.85,delay:D,easing:'ease-in-out'})}
+  /* 2. edge glow: a hairline rim plus soft inner light, breathing at the higher tiers */
+  const edge=E('fx-fill','box-shadow:inset 0 0 0 1px '+c+',inset 0 0 '+(60+tier*16)+'px '+(2+tier*2)+'px '+c2+(tier>=4?',inset 0 0 '+(180+tier*20)+'px 10px '+c2:''));
+  fxAn(edge,tier>=5?[{opacity:0},{opacity:1,offset:.08},{opacity:.45,offset:.28},{opacity:.85,offset:.42},{opacity:.35,offset:.62},{opacity:.6,offset:.74},{opacity:0}]:[{opacity:0},{opacity:.9,offset:.1},{opacity:.4,offset:.4},{opacity:0}],{duration:T.ms*.95,delay:D,easing:'ease-in-out'});
+  if(tier===9)fxAn(edge,[{filter:'hue-rotate(0deg)'},{filter:'hue-rotate(360deg)'}],{duration:3200,iterations:3,delay:D,easing:'linear'});
+  /* 3. light: a bloom at the reel (tier 7 gets a second pulse for its second boom), a colour wash from tier 3 */
+  const S=48+tier*6,pulse=(dl,k)=>{
+    const b=E('fx-bloom',at+'width:'+S+'vmin;height:'+S+'vmin;margin:-'+S/2+'vmin 0 0 -'+S/2+'vmin;mix-blend-mode:screen;background:radial-gradient(circle,rgba(255,255,255,.9) 0,'+c+' 22%,transparent 62%)');
+    fxAn(b,[{opacity:0,transform:'scale(.35)'},{opacity:Math.min(.95,(.3+tier*.06)*k),transform:'scale(1)',offset:.18},{opacity:0,transform:'scale(1.5)'}],{duration:900+tier*120,delay:dl});
+    if(tier>=3){const f=E('fx-fill','background:radial-gradient(circle at '+cx+'px '+cy+'px,'+(tier>=8?'#fff':c)+' 0,transparent 70%)');fxAn(f,[{opacity:0},{opacity:(.28+tier*.05)*k,offset:.1},{opacity:0}],{duration:520+tier*40,delay:dl})}};
+  pulse(D,1);if(tier===7)pulse(D+340,.7);
+  /* 4. rays (tier 4+), slow and wide; tier 9 gets two counter-rotating prismatic sets */
+  if(tier>=4){const sets=tier===9?2:1;for(let i=0;i<sets;i++){const rw=E('fx-raysw',at),ri=document.createElement('i');
+    ri.style.background=tier===9?'conic-gradient(#ff6b9a,#ffd36b,#7dffa0,#6bdcff,#a58bff,#ff6b9a)':'conic-gradient('+c+','+c2+','+c+','+c2+','+c+')';rw.appendChild(ri);
+    const dir=i?-1:1,pk=(.26+(tier-4)*.06)*(i?.6:1);
+    fxAn(rw,[{opacity:0,transform:'rotate(0deg) scale(.5)'},{opacity:pk,offset:.2},{opacity:0,transform:'rotate('+dir*(30+tier*6)+'deg) scale(1)'}],{duration:2200+tier*350,delay:D});
+    if(tier===9)fxAn(rw,[{filter:'hue-rotate(0deg)'},{filter:'hue-rotate(360deg)'}],{duration:3000,iterations:3,delay:D,easing:'linear'})}}
+  /* 5. shockwave rings: expanding on release, contracting during the eclipse */
+  const nr=tier>=7?4:tier>=5?3:tier>=2?2:1,end=Math.hypot(W,H)*1.15/(14*vm);
+  for(let i=0;i<nr;i++){const r=E('fx-ring',at+'width:14vmin;height:14vmin;border-color:'+(i%2?c2:c)+';border-width:'+(i?1.5:2)+'px;box-shadow:0 0 22px '+c2+',inset 0 0 18px '+c2);
+    fxAn(r,[{opacity:.95,transform:TR+'scale(.15)'},{opacity:.6,transform:TR+'scale('+end*.35+')',offset:.35},{opacity:0,transform:TR+'scale('+end+')'}],{duration:1250+tier*90,delay:D+i*150,easing:'cubic-bezier(.12,.7,.2,1)'})}
+  if(tier===7){const r=E('fx-ring',at+'width:14vmin;height:14vmin;border-color:'+c+';box-shadow:0 0 22px '+c2);fxAn(r,[{opacity:.8,transform:TR+'scale(.15)'},{opacity:0,transform:TR+'scale('+end*.8+')'}],{duration:1500,delay:D+340,easing:'cubic-bezier(.12,.7,.2,1)'})}
+  if(vd)for(let i=0;i<(tier===9?3:2);i++){const r=E('fx-ring',at+'width:14vmin;height:14vmin;border-color:'+c+';box-shadow:0 0 14px '+c2);
+    fxAn(r,[{opacity:0,transform:TR+'scale(9)'},{opacity:.55,transform:TR+'scale(5)',offset:.3},{opacity:0,transform:TR+'scale(1)'}],{duration:vd*.62,delay:i*vd*.19,easing:'cubic-bezier(.4,0,.9,.6)'})}
+  /* 6. lens streaks across the reel: horizontal from tier 2, plus a vertical from tier 5 */
+  if(tier>=2){const s=E('fx-streak','top:'+(cy-1)+'px;height:2px;background:linear-gradient(90deg,transparent,'+c+' 22%,#fff 50%,'+c+' 78%,transparent);box-shadow:0 0 16px '+c2);
+    fxAn(s,[{opacity:0,transform:'scaleX(.04)'},{opacity:1,transform:'scaleX(1)',offset:.28},{opacity:0,transform:'scaleX(1.06)'}],{duration:900+tier*70,delay:D+40})}
+  if(tier>=5){const s=E('fx-vstreak','left:'+(cx-1)+'px;width:2px;background:linear-gradient(180deg,transparent,'+c+' 22%,#fff 50%,'+c+' 78%,transparent);box-shadow:0 0 16px '+c2);
+    fxAn(s,[{opacity:0,transform:'scaleY(.04)'},{opacity:1,transform:'scaleY(1)',offset:.28},{opacity:0,transform:'scaleY(1.06)'}],{duration:1000+tier*60,delay:D+120})}
+  /* 7. the eclipse (tiers 8-9): a dark disc with a bright corona that swells, then releases */
+  if(vd){const core=E('fx-core',at+'--c:'+c+';--c2:'+c2),d=vd+700;
+    fxAn(core,[{opacity:0,transform:'scale(.2)',offset:0},{opacity:1,transform:'scale(.9)',offset:.25*vd/d},{opacity:1,transform:'scale(1.2)',offset:vd/d,easing:'ease-in'},{opacity:0,transform:'scale(6)',offset:1}],{duration:d,easing:'ease-out'})}
+  (T.hb||[]).forEach((ms,i,a)=>{const k=i/(a.length-1||1),p=E('fx-fill','background:radial-gradient(circle at '+cx+'px '+cy+'px,'+c+' 0,transparent 55%)');
+    fxAn(p,[{opacity:0},{opacity:.12+k*.2,offset:.2},{opacity:0}],{duration:500,delay:ms});
+    const r=E('fx-ring',at+'width:10vmin;height:10vmin;border-color:'+c+';box-shadow:0 0 16px '+c2);
+    fxAn(r,[{opacity:.5+k*.3,transform:TR+'scale(1)'},{opacity:0,transform:TR+'scale('+(3+k*3)+')'}],{duration:800,delay:ms,easing:'cubic-bezier(.1,.7,.2,1)'})});
+  /* 8. motes */
+  const cv=document.createElement('canvas');cv.className='fx fx-canvas';ov.appendChild(cv);fxMotes(cv,{cx,cy,tier,vd,tok,c,c2});
+  /* 9. the whiteout on a one-in-a-trillion release */
+  if(tier===9){const w=E('fx-fill','background:#fff');fxAn(w,[{opacity:0},{opacity:.92,offset:.03},{opacity:0}],{duration:1900,delay:D})}
+  /* 10. letterbox bars and the tier banner */
+  if(barH){const dur=vd+T.ms*.9,inT=600,hide=['translateY(-101%)','translateY(101%)'];
+    ['top','bot'].forEach((p,i)=>{const bar=E('fx-bar '+p,'height:'+barH+'vh');fxAn(bar,[{transform:hide[i],offset:0},{transform:'none',offset:inT/dur},{transform:'none',offset:(dur-700)/dur},{transform:hide[i],offset:1}],{duration:dur,easing:'ease-out'})})}
+  if(tier>=3)fxBanner(ov,T,tier,log,D+250,Math.max(2200,T.ms-600),bannerTop,false);
+  /* page-level: a small impact on release and a faint tremor while the eclipse builds (roll screen only) */
+  const app=document.querySelector('.app');
+  if(onGame&&app){const ar=app.getBoundingClientRect();app.style.transformOrigin=(cx-ar.left)+'px '+(cy-ar.top)+'px';
+    if(vd){const fr=[];for(let i=0;i<=24;i++){const a=.4+i/24*(tier===9?2.2:1.5);fr.push({transform:i&&i<24?'translate('+((Math.random()-.5)*2*a).toFixed(2)+'px,'+((Math.random()-.5)*2*a).toFixed(2)+'px)':'none'})}fxAn(app,fr,{duration:vd,easing:'linear'})}
+    if(tier>=4)fxAn(app,[{transform:'none'},{transform:'scale('+(1+tier*.0035)+')',offset:.14},{transform:'none'}],{duration:520+tier*60,delay:D,easing:'cubic-bezier(.2,.8,.2,1)'})}
+  if(tier===8)warpFx(tok,vd,2200,16,'ripple');
+  if(tier===9)warpFx(tok,vd,3200,26,'ripple');
+  done();
 }
-function sparks(cv,cx,cy,tier,tok){
-  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const W=cv.width=innerWidth,H=cv.height=innerHeight,g=cv.getContext('2d');
-  const cols=tier===5?['#ff2a2a','#ffd400','#39ff7a','#25e6ff','#6a5cff','#ff3df2']:tier===4?['#fff','#ffd23f','#ff6a3d']:['#ff4fd8','#7a5cff','#4df3ff'];
-  const ps=Array.from({length:[0,0,0,90,180,380][tier]},()=>{const a=Math.random()*6.283,v=4+Math.random()*(8+tier*3);return{x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,l:1,r:1.5+Math.random()*2.5,c:cols[Math.random()*cols.length|0]}});
-  (function f(){if(tok!==fxToken)return;g.clearRect(0,0,W,H);g.globalCompositeOperation='lighter';let alive=0;
-    ps.forEach(p=>{if(p.l<=0)return;alive++;p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.vy=p.vy*.985+.12;p.l-=.011;g.globalAlpha=Math.max(0,p.l);g.strokeStyle=p.c;g.lineWidth=p.r;g.beginPath();g.moveTo(p.x-p.vx*2,p.y-p.vy*2);g.lineTo(p.x,p.y);g.stroke()});
-    if(alive)requestAnimationFrame(f)})();
+const reducedFx=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* real screen distortion: an SVG displacement filter on the active screen (heat shimmer or a rippling warp) */
+function warpFx(tok,delay,dur,peak,mode){
+  if(reducedFx())return;const turb=$('fxTurb'),disp=$('fxDisp');if(!turb||!disp)return;
+  const clear=()=>{document.body.classList.remove('fx-warping');disp.setAttribute('scale','0')};
+  setTimeout(()=>{if(tok!==fxToken)return;document.body.classList.add('fx-warping');const t0=performance.now();
+    (function f(now){if(tok!==fxToken){clear();return}const t=Math.max(0,now-t0);if(t>dur){clear();return}
+      const e=Math.pow(Math.sin(Math.PI*t/dur),.7);disp.setAttribute('scale',(peak*e).toFixed(1));
+      turb.setAttribute('baseFrequency',mode==='heat'?(.012+Math.sin(t/700)*.003).toFixed(4)+' '+(.05+Math.sin(t/140)*.012).toFixed(4):(.004+Math.sin(t/1100)*.0025).toFixed(4)+' '+(.007+Math.cos(t/900)*.003).toFixed(4));
+      requestAnimationFrame(f)})(performance.now())},delay);
 }
+
 /* roll animation: fly through a 3D field of element symbols, lock on, then slam in */
 function scanField(reel,syms,labels,logs,dur){
   const N=labels.length,W=reel.clientWidth,H=reel.clientHeight;
@@ -588,7 +843,7 @@ function scanField(reel,syms,labels,logs,dur){
   g.font='700 '+base+'px '+fam;
   const fsA=labels.map(l=>{const room=W/N-(N>1?24:30),tw=g.measureText(l).width;return tw>room?base*room/tw:base});
   if(N>1)syms.forEach((e,i)=>e.style.fontSize=fsA[i]+'px');
-  const ACC=['#f0c419','#4df3ff','#4df3ff','#ff4fd8','#ffd23f','#ffffff'],tiers=logs.map(getRarityTier),tier=Math.max(...tiers),acc=ACC[tier];
+  const ACC=['#f0c419'].concat(FXT.slice(1).map(x=>x.c)),tiers=logs.map(getRarityTier),tier=Math.max(...tiers),acc=ACC[tier];
   const Pp=H*.9,t0=performance.now();
   const sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)};
   const spawn=(p,d,c)=>{p.z=c+d;p.x=(Math.random()-.5)*(W/Pp)*d*1.25;p.y=(Math.random()-.5)*(H/Pp)*d*1.25;p.s=.25+Math.random()*.45;p.t=E[Math.random()*E.length|0][0];return p};
@@ -647,7 +902,7 @@ let rolling=false;let autoRolling=false;const fmt=n=>Number(n).toLocaleString('e
 let buffCache=null,wtCache=null;
 function save(){buffCache=wtCache=null;try{localStorage.setItem('elementalCollection',JSON.stringify(collection))}catch(e){}}
 function addRecord(r){const x=collection.find(c=>c.formula===r.formula);if(!x){r.count=1;collection.push(r);return}x.count=(x.count||1)+1;if(r.log<x.log||!Number.isFinite(x.log))Object.assign(x,{log:r.log,rarity:r.rarity,when:r.when,elements:r.elements,id:r.id,name:r.name})}
-function go(screen){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===screen));window.scrollTo(0,0)}
+function go(screen){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===screen));window.scrollTo(0,0);if(screen==='bonds')renderBonds()}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{let tab=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));$('compoundView').style.display=tab==='compounds'?'':'none';$('completionView').style.display=tab==='completionist'?'':'none';if(tab==='completionist')renderPeriodic()}));
 // Every element grants one permanent, non-duplicating bonus after its first discovery.
@@ -670,14 +925,90 @@ function buildBuffs(){
 }
 const ELEMENT_BUFFS=buildBuffs();
 function discoveredSymbols(){const set=new Set();collection.forEach(c=>(c.elements||[]).forEach(e=>set.add(e[0])));return set}
-function activeBuffStats(){return buffCache||(buffCache=computeBuffs())}function computeBuffs(){const found=discoveredSymbols();let luck=0,speed=0,extra=0,chainSteps=0,autoUnlock=false,autoTime=0,autoCool=0;found.forEach(sym=>{const b=ELEMENT_BUFFS.get(sym);if(!b)return;if(b.type==='autounlock')autoUnlock=true;if(b.type==='autotime')autoTime+=b.value;if(b.type==='autocool')autoCool+=b.value;if(b.type==='luck')luck+=b.value;if(b.type==='speed')speed+=b.value;if(b.type==='extra')extra+=1;if(b.type==='chain')chainSteps+=1});return {found,luck,speed,autoUnlocked:autoUnlock,autoSeconds:AUTO_BASE_SECONDS+autoTime,autoCooldown:AUTO_BASE_COOLDOWN-autoCool,extra:Math.min(3,extra),chainSteps:Math.min(8,chainSteps),chainDenom:Math.max(3,8-.625*Math.min(8,chainSteps))}}
-function weightTable(){if(wtCache)return wtCache;const b=activeBuffStats();let total=0;const w=E.map(e=>{const v=(1/e[2])*(1+(b.luck/100)*(Math.log10(e[2]+1)/3));total+=v;return v});return wtCache={w,total}}
+/* ---- bonds: full-screen structure puzzles that grant luck and autoroll buffs ---- */
+var BONDS=null,bondState={},bondPos=0;try{bondState=JSON.parse(localStorage.getItem('elementalBonds2')||'{}')}catch(e){}
+const BOND_NAMES=['Ember Lattice','Salt Whisper','Dawn Carbonyl','Quiet Hydride','Tin Lullaby','Verdigris Ring','Copperhead Chain','Ghost Sulfide','Amber Ketone','Frost Halide','Gilded Ether','Cobalt Spire','Neon Cascade','Obsidian Ester','Violet Arsenide','Mercury Helix','Argent Ion','Phantom Alkyne','Radiant Silicate','Void Carbide','Prism Nitrile','Lead Eclipse','Cerium Crown','Thorium Veil','Plutonic Weave','Neutron Bloom','Singularity Lattice','Event Horizon','Omega Isotope','Genesis Core'];
+const BOND_TIERS=['Trace','Surface','Reactive','Volatile','Exotic','Transuranic','Singularity'],BOND_COL=['#7ddc5a','#2fe0b0','#35d0e0','#5aa8ff','#9b8cff','#e060ff','#ff5a8a'];
+const SHAPE_MIN={ring:3,chain:3,star:4,fused:6,lattice:4,helix:6,crown:5,tree:5,spiral:5,cage:8},hk=a=>a.hill||normHill(a.formula);
+function genBonds(){
+  const rnd=(a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296})(20241018);
+  const RK={Common:0,Uncommon:1,Rare:2,Epic:3,Legendary:4},els=[...E].sort((a,b)=>a[2]-b[2]).map(e=>e[0]),ach=[...ACHIEVEMENTS].sort((a,b)=>RK[a.rarity]-RK[b.rarity]);
+  const sizes=[5,5,4,4,4,4,4],mults=[1.03,1.04,1.05,1.06,1.07,1.08,1.1],out=[];let n=0,prev='';
+  for(let t=1;t<=7;t++){const lo=Math.floor((t-1)*els.length/7),hi=Math.floor(t*els.length/7),alo=Math.floor((t-1)*ach.length/7),ahi=Math.floor(t*ach.length/7),kinds=t<=2?['luck','sec','cool','luck']:['luck','sec','cool'];
+    for(let i=0;i<sizes[t-1];i++){const last=i===sizes[t-1]-1,k=last?'mult':kinds[i],total=t+3+(last?1:0),cp=t>=2?Math.min(3,Math.ceil(t/2))+(last?1:0):0,slots=[];
+      for(let s=0;s<total;s++){if(s<cp){const a=ach[alo+Math.floor(rnd()*(ahi-alo))];slots.push({t:'cp',k:hk(a),l:a.formula})}else{const e=els[lo+Math.floor(rnd()*(hi-lo))];slots.push({t:'el',k:e,l:e})}}
+      slots.sort(()=>rnd()-.5);const ok=Object.keys(SHAPE_MIN).filter(x=>total>=SHAPE_MIN[x]);let sh=ok[(n*3+t)%ok.length];if(sh===prev)sh=ok[(n*3+t+1)%ok.length];prev=sh;
+      out.push({id:'b'+n,tier:t,name:BOND_NAMES[n],kind:k,val:k==='luck'?3*t:k==='sec'?15*t:k==='cool'?10*t:mults[t-1],slots,shape:sh});n++}}
+  return out}
+function bondDone(b){const st=bondState[b.id]||[];return b.slots.every((_,i)=>st[i])}
+function bondBonus(){const r={add:0,mult:1,sec:0,cool:0};if(!BONDS)BONDS=genBonds();BONDS.forEach(b=>{if(!bondDone(b))return;if(b.kind==='luck')r.add+=b.val;else if(b.kind==='mult')r.mult*=b.val;else if(b.kind==='sec')r.sec+=b.val;else r.cool+=b.val});return r}
+const bondDesc=b=>b.kind==='luck'?`+${b.val}% luck`:b.kind==='mult'?`×${b.val} luck (multiplies all luck)`:b.kind==='sec'?`+${b.val}s autoroll session`:`−${b.val}s autoroll cooldown`;
+const hasItem=r=>r.t==='el'?[...discoveredSymbols()].includes(r.k):collection.some(c=>c.formula===r.k);
+/* each shape is laid out in px; big ones overflow the screen and are panned by scrolling */
+function bondLayout(b){const k=b.slots.length,D=100+14*b.tier,P=[],G=[],C=Math.cos,S=Math.sin,R=a=>a*Math.PI/180;
+  const near=f=>{for(let i=0;i<k;i++)for(let j=i+1;j<k;j++)if(Math.hypot(P[i][0]-P[j][0],P[i][1]-P[j][1])<D*f)G.push([i,j])};
+  switch(b.shape){
+   case'ring':{const r=Math.min(6,k);for(let i=0;i<r;i++)P.push([D*C(R(-90+360*i/r)),D*S(R(-90+360*i/r))]);for(let j=0;j<k-r;j++)P.push([2*D*C(R(-90+360*j/r)),2*D*S(R(-90+360*j/r))]);for(let i=0;i<r;i++)G.push([i,(i+1)%r]);for(let j=0;j<k-r;j++)G.push([j,r+j]);break}
+   case'chain':for(let i=0;i<k;i++){P.push([i*D*.87,(i%2)*D*.55]);if(i)G.push([i-1,i])}break;
+   case'star':P.push([0,0]);for(let i=1;i<k;i++){P.push([1.5*D*C(R(-90+360*(i-1)/(k-1))),1.5*D*S(R(-90+360*(i-1)/(k-1)))]);G.push([0,i])}break;
+   case'fused':{const L=[];for(let i=0;i<6;i++)L.push([D*C(R(30+60*i)),D*S(R(30+60*i))]);[30,90,330,270].forEach(a=>L.push([1.732*D+D*C(R(a)),D*S(R(a))]));for(let m=0;m<k;m++)L.push([-.87*D-(m+1)*D*.9,-.5*D-(m%2)*D*.3]);L.slice(0,k).forEach(p=>P.push(p));near(1.08);break}
+   case'lattice':{const c=Math.ceil(Math.sqrt(k*1.5));for(let i=0;i<k;i++)P.push([(i%c)*D*1.1+(Math.floor(i/c)%2)*D*.55,Math.floor(i/c)*D*.95]);near(1.2);break}
+   case'helix':for(let i=0;i<k;i++){P.push([i*D*.75,(i%2?1:-1)*D*.9*Math.abs(C(i*.55))+(i%2?.35:-.35)*D]);if(i+2<k)G.push([i,i+2]);if(i%2===0&&i+1<k)G.push([i,i+1])}break;
+   case'crown':{const r=Math.max(1.4*D,k*D/6.28*1.15);for(let i=0;i<k;i++){P.push([r*C(R(-90+360*i/k)),r*S(R(-90+360*i/k))]);G.push([i,(i+1)%k])}break}
+   case'tree':{const md=Math.floor(Math.log2(k));for(let i=0;i<k;i++){const d=Math.floor(Math.log2(i+1)),n=2**d,p=i+1-n;P.push([(p+.5)/n*(2**md)*D*1.2,d*D*1.15]);if(i)G.push([(i-1)>>1,i])}break}
+   case'spiral':for(let i=0;i<k;i++){const a=i*.85;P.push([D*(.7+.22*i)*C(a),D*(.7+.22*i)*S(a)]);if(i)G.push([i-1,i])}break;
+   case'cage':{const Z=1.3*D,L=[[0,0],[Z,0],[Z,Z],[0,Z],[.6*Z,-.5*Z],[1.6*Z,-.5*Z],[1.6*Z,.5*Z],[.6*Z,.5*Z]];L.forEach(p=>P.push(p));[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]].forEach(e=>G.push(e));for(let i=8;i<k;i++){const q=P[(i-8)%8],v=[q[0]-.8*Z,q[1]-.8*Z*((i-8)%2?-1:1)];P.push([(i-8)%8>=4?q[0]+D*.9:v[0],(i-8)%8>=4?q[1]-D*.9:v[1]]);G.push([(i-8)%8,i])}break}}
+  const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),x0=Math.min(...xs),y0=Math.min(...ys),pad=95;
+  return{pts:P.map(p=>[p[0]-x0+pad,p[1]-y0+pad]),edges:G,W:Math.max(...xs)-x0+pad*2,H:Math.max(...ys)-y0+pad*2}}
+function bondSVG(b){const L=b.layout||(b.layout=bondLayout(b)),P=L.pts,st=bondState[b.id]||[];
+  const ln=([i,j],e)=>{const[x1,y1]=P[i],[x2,y2]=P[j],dbl=e%3===1,dx=y2-y1,dy=x1-x2,m=Math.hypot(dx,dy)||1,o=dbl?5:0,u=dx/m*o,v=dy/m*o,w=dbl?4:6;return dbl?`<line stroke-width="${w}" x1="${x1+u}" y1="${y1+v}" x2="${x2+u}" y2="${y2+v}"/><line stroke-width="${w}" x1="${x1-u}" y1="${y1-v}" x2="${x2-u}" y2="${y2-v}"/>`:`<line stroke-width="${w}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`};
+  const nd=b.slots.map((q,i)=>`<g class="slot ${st[i]?'filled':hasItem(q)?'ready':'locked'}" data-b="${b.id}" data-i="${i}" transform="translate(${P[i][0]} ${P[i][1]})"><title>${q.l}</title><circle class="halo" r="46"/><circle class="core" r="37"/><text font-size="${q.t==='el'?30:Math.max(12,24-String(q.l).length*1.6)}">${String(q.l).slice(0,10)}</text></g>`).join('');
+  return `<svg width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}"><g class="lines">${L.edges.map(ln).join('')}</g>${nd}</svg>`}
+function bondSummary(){$('homeBonds').textContent=BONDS.filter(bondDone).length+' / '+BONDS.length}
+function renderBonds(){if(!BONDS)BONDS=genBonds();const strip=$('bondStrip');
+  strip.innerHTML=BONDS.map((b,n)=>`<section class="bond-panel${bondDone(b)?' done':''}" data-id="${b.id}" style="--tc:${BOND_COL[b.tier-1]}"><div class="bp-top"><span>TIER ${b.tier} · ${BOND_TIERS[b.tier-1].toUpperCase()}</span><span>BOND ${n+1} / ${BONDS.length}</span></div><div class="bp-head"><h2>${b.name}</h2><div class="bp-buff">${bondDesc(b)}</div><div class="bp-prog">${(bondState[b.id]||[]).filter(Boolean).length} / ${b.slots.length} placed</div><div class="bp-msg"></div></div><div class="bond-canvas">${bondSVG(b)}</div></section>`).join('');
+  bondCur=bondOpen();strip.scrollLeft=bondCur*strip.clientWidth;arrows();bondSummary()}
+var bondMoved=false,bd=null,bondCur=0;
+const bondOpen=()=>{const i=BONDS.findIndex(b=>!bondDone(b));return i<0?BONDS.length-1:i};
+function arrows(){const mx=bondOpen(),p=$('bondPrev'),n=$('bondNext'),last=BONDS.length-1;p.hidden=bondCur<=0;n.hidden=bondCur>=last;n.classList.toggle('locked',bondCur>=mx&&bondCur<last);n.classList.toggle('ready',bondCur<mx&&bondCur<last);document.querySelectorAll('.bond-panel').forEach((el,i)=>el.classList.toggle('locked',i>mx))}
+function goBond(n){const s=$('bondStrip');n=Math.max(0,Math.min(bondOpen(),n));bondCur=n;s.scrollTo({left:n*s.clientWidth,behavior:'smooth'});arrows()}
+var peeking=false;
+function peekLocked(){if(peeking)return;peeking=true;const s=$('bondStrip'),n=$('bondNext'),base=bondCur*s.clientWidth,peek=s.clientWidth*.24,A=260,H=150,B=560,t0=performance.now();
+  n.classList.remove('nope');void n.offsetWidth;n.classList.add('nope');
+  const out=t=>1-Math.pow(1-t,3),back=t=>1+3.4*Math.pow(t-1,3)+2.4*Math.pow(t-1,2);
+  (function f(now){const t=now-t0;let p;if(t<A)p=out(t/A);else if(t<A+H)p=1;else if(t<A+H+B)p=1-back((t-A-H)/B);else{s.scrollLeft=base;peeking=false;n.classList.remove('nope');return}s.scrollLeft=base+peek*p;requestAnimationFrame(f)})(t0)}
+function nextBond(){if(bondCur>=bondOpen()&&bondCur<BONDS.length-1)peekLocked();else goBond(bondCur+1)}
+$('bondPrev').onclick=()=>goBond(bondCur-1);$('bondNext').onclick=nextBond;
+document.addEventListener('keydown',e=>{if(!$('bonds').classList.contains('active'))return;if(e.key==='ArrowRight')nextBond();if(e.key==='ArrowLeft')goBond(bondCur-1)});
+addEventListener('resize',()=>{if($('bonds').classList.contains('active'))$('bondStrip').scrollLeft=bondCur*$('bondStrip').clientWidth});
+{const st=$('bondStrip');
+st.addEventListener('pointerdown',e=>{if(e.button)return;const cv=e.target.closest('.bond-canvas');if(!cv)return;bd={x:e.clientX,y:e.clientY,cv,cx:cv.scrollLeft,cy:cv.scrollTop,mode:false,id:e.pointerId}});
+st.addEventListener('pointermove',e=>{if(!bd)return;const dx=e.clientX-bd.x,dy=e.clientY-bd.y,c=bd.cv;
+  if(!bd.mode){if(Math.hypot(dx,dy)<7||!(c.scrollWidth>c.clientWidth+2||c.scrollHeight>c.clientHeight+2))return;bd.mode=true;st.classList.add('drag');try{st.setPointerCapture(bd.id)}catch(x){}}
+  c.scrollLeft=bd.cx-dx;c.scrollTop=bd.cy-dy});
+const end=()=>{if(!bd)return;if(bd.mode){bondMoved=true;setTimeout(()=>bondMoved=false,0)}bd=null;st.classList.remove('drag')};
+st.addEventListener('pointerup',end);st.addEventListener('pointercancel',end);
+st.addEventListener('wheel',e=>{const c=e.target.closest('.bond-canvas');if(!c)return;e.preventDefault();c.scrollLeft+=e.deltaX||(e.shiftKey?e.deltaY:0);c.scrollTop+=e.shiftKey?0:e.deltaY},{passive:false})}
+$('bondStrip').addEventListener('click',e=>{if(bondMoved)return;const g=e.target.closest('.slot');if(!g||g.classList.contains('filled'))return;
+  const b=BONDS.find(x=>x.id===g.dataset.b),i=+g.dataset.i,q=b.slots[i],panel=g.closest('.bond-panel'),msg=panel.querySelector('.bp-msg');
+  if(!hasItem(q)){msg.textContent=`Needs ${q.l}, which you haven't found yet.`;return}
+  const st=bondState[b.id]||(bondState[b.id]=[]);st[i]=true;try{localStorage.setItem('elementalBonds2',JSON.stringify(bondState))}catch(x){}
+  buffCache=wtCache=null;const cv=panel.querySelector('.bond-canvas'),sl=cv.scrollLeft,sp=cv.scrollTop;cv.innerHTML=bondSVG(b);cv.scrollLeft=sl;cv.scrollTop=sp;
+  cv.querySelector(`.slot[data-i="${i}"]`).classList.add('pop');panel.querySelector('.bp-prog').textContent=st.filter(Boolean).length+' / '+b.slots.length+' placed';
+  msg.textContent=bondDone(b)?'Bond complete: '+bondDesc(b)+' unlocked':'';panel.classList.toggle('done',bondDone(b));bondSummary();arrows()});
+
+function activeBuffStats(){return buffCache||(buffCache=computeBuffs())}function computeBuffs(){const found=discoveredSymbols();let luck=0,speed=0,extra=0,chainSteps=0,autoUnlock=false,autoTime=0,autoCool=0;found.forEach(sym=>{const b=ELEMENT_BUFFS.get(sym);if(!b)return;if(b.type==='autounlock')autoUnlock=true;if(b.type==='autotime')autoTime+=b.value;if(b.type==='autocool')autoCool+=b.value;if(b.type==='luck')luck+=b.value;if(b.type==='speed')speed+=b.value;if(b.type==='extra')extra+=1;if(b.type==='chain')chainSteps+=1});const bd=bondBonus();return {found,luck:(luck+bd.add)*bd.mult,speed,autoUnlocked:autoUnlock,autoSeconds:AUTO_BASE_SECONDS+autoTime+bd.sec,autoCooldown:Math.max(60,AUTO_BASE_COOLDOWN-autoCool-bd.cool),extra:Math.min(3,extra),chainSteps:Math.min(8,chainSteps),chainDenom:Math.max(3,8-.625*Math.min(8,chainSteps))}}
+function weightTable(){if(wtCache)return wtCache;const b=activeBuffStats();let total=0;const w=E.map(e=>{const v=(1/e[2])*Math.pow(1+1.5*(Math.log10(e[2]+1)/3),(b.luck/100)/1.5);total+=v;return v});return wtCache={w,total}}
 function weightedElement(){const{w,total}=weightTable();let r=Math.random()*total;for(let i=0;i<E.length;i++){r-=w[i];if(r<=0)return E[i]}return E[E.length-1]}
 
 function hillFormula(elements){const counts={};elements.forEach(e=>counts[e[0]]=(counts[e[0]]||0)+1);let syms=Object.keys(counts);syms.sort((a,b)=>{if(counts.C&&a==='C')return -1;if(counts.C&&b==='C')return 1;if(counts.C&&a==='H'&&b!=='C')return -1;if(counts.C&&b==='H'&&a!=='C')return 1;return a.localeCompare(b)});return syms.map(s=>s+(counts[s]>1?counts[s]:'')).join('')}
 function gcd(a,b){while(b){let t=b;b=a%b;a=t}return a}
-function exactRarity(elements,guaranteedExtras=0){const denominator=activeBuffStats().chainDenom;const randomChainLength=Math.max(1,elements.length-guaranteedExtras);let log10=Math.log10((denominator-1)/denominator)-(randomChainLength-1)*Math.log10(denominator);const t=weightTable();elements.forEach(e=>log10+=Math.log10(t.w[E.indexOf(e)]/t.total));return log10}
+/* Odds are ALWAYS base odds: weights and chain chance as if no luck, chain or other buffs existed. Buffs only change how often things happen, never the odds shown. */
+const BASE_CHAIN=8,SYM_IDX=Object.fromEntries(E.map((e,i)=>[e[0],i]));let baseWtCache=null;
+function baseWeightTable(){if(baseWtCache)return baseWtCache;let total=0;const w=E.map(e=>{const v=1/e[2];total+=v;return v});return baseWtCache={w,total}}
+function exactRarity(elements,guaranteedExtras=0){const d=BASE_CHAIN,n=Math.max(1,elements.length-guaranteedExtras);let log10=(elements.length<30?Math.log10((d-1)/d):0)-(n-1)*Math.log10(d);const t=baseWeightTable();elements.forEach(e=>log10+=Math.log10(t.w[SYM_IDX[e[0]]]/t.total));return log10}
 function rarityText(log){const value=10**(-log);if(Number.isFinite(value)&&value<1e21){return '1/'+Math.max(1,Math.round(value)).toLocaleString('en-US',{maximumFractionDigits:0})}return '≈ 1/'+value.toExponential(2).replace('+','')}
+(function(){let ch=false;collection.forEach(r=>{if(!r||!Array.isArray(r.elements)||!r.elements.length)return;const lg=exactRarity(r.elements,0);if(Number.isFinite(lg)&&r.log!==lg){r.log=lg;r.rarity=rarityText(lg);ch=true}});if(ch)save()})(); /* old saves stored buffed odds: convert them to base odds */
 let selectedElementSymbol='H',elemReturn='inventory';
 const FAMILY={},FAMILY_NAMES={alkali:'Alkali metals',alkaline:'Alkaline earth metals',transition:'Transition metals',post:'Post-transition metals',metalloid:'Metalloids',nonmetal:'Nonmetals',halogen:'Halogens',noble:'Noble gases',lanth:'Lanthanides',actin:'Actinides',unknown:'Unclassified'};
 (function(){
@@ -792,6 +1123,7 @@ async function doRoll(){
  try{
   startRollTicks();
   const rolls=Array.from({length:rollCount},()=>{const elements=[weightedElement()];while(elements.length<30&&Math.random()<1/buffs.chainDenom)elements.push(weightedElement());const formula=hillFormula(elements),log=exactRarity(elements,0);return{elements,formula,log,rarity:rarityText(log)}});
+  playBuildup(Math.max(...rolls.map(r=>getRarityTier(r.log))),(Math.max(120,1350*delay/3000)+1650)/1000);
   await scanField(reel,syms,rolls.map(r=>r.formula),rolls.map(r=>r.log),delay);
   reel.classList.remove('rolling');reel.classList.add('reveal');
   rolls.forEach((r,i)=>{const{elements,formula,log,rarity}=r,card=cards[i];
@@ -810,7 +1142,9 @@ async function doRoll(){
 $('rollBtn').addEventListener('click',doRoll);
 /* ---- Autoroll: locked, timed, with cooldown ---- */
 function fmtDur(s){s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
-let autoEnd=0,autoState={cooldownUntil:0};
+let autoEnd=0,autoState={cooldownUntil:0},autoPaused=false,pausedAt=0;
+/* autoroll freezes (session timer and cooldown included) whenever the roll screen isn't showing, and resumes when you come back */
+function autoPauseSync(){if(!autoRolling)return;const on=$('game').classList.contains('active');if(!on&&!autoPaused){autoPaused=true;pausedAt=Date.now()}else if(on&&autoPaused){const d=Date.now()-pausedAt;autoEnd+=d;autoState.cooldownUntil+=d;saveAutoState();autoPaused=false}}
 try{const a=JSON.parse(localStorage.getItem('elementalAutoState')||'null');if(a&&typeof a==='object')autoState.cooldownUntil=+a.cooldownUntil||0}catch(e){}
 function saveAutoState(){try{localStorage.setItem('elementalAutoState',JSON.stringify({cooldownUntil:autoState.cooldownUntil}))}catch(e){}}
 function updateAutoBtn(){
@@ -821,7 +1155,7 @@ function updateAutoBtn(){
   hint.textContent='Autoroll unlocks when you find '+u[1]+' ('+u[0]+').';
  }else{
   hint.textContent='Autoroll runs for '+fmtDur(s.autoSeconds)+' per session, then needs '+fmtDur(s.autoCooldown)+' to cool down.';
-  if(autoRolling){label='Stop autoroll, '+fmtDur((autoEnd-now)/1000)+' left';status='Running, '+fmtDur((autoEnd-now)/1000)+' left';pressed='true'}
+  if(autoRolling){const rem=fmtDur((autoEnd-(autoPaused?pausedAt:now))/1000);label='Stop autoroll, '+rem+' left';status=(autoPaused?'Paused, ':'Running, ')+rem+' left';pressed='true'}
   else if(now<autoState.cooldownUntil){label='Autoroll cooling down, '+fmtDur((autoState.cooldownUntil-now)/1000);status='Cooling down, '+fmtDur((autoState.cooldownUntil-now)/1000);disabled=true}
   else{label='Start autoroll ('+fmtDur(s.autoSeconds)+')';status='Ready'}
  }
@@ -837,20 +1171,21 @@ $('autoRollBtn').addEventListener('click',async()=>{
  // Reserve the cooldown up front so refreshing the page mid-session can't skip it.
  autoState.cooldownUntil=autoEnd+cooldownMs;saveAutoState();updateAutoBtn();
  try{
-  while(autoRolling&&Date.now()<autoEnd){
+  while(autoRolling&&(autoPaused||Date.now()<autoEnd)){
+   if(autoPaused){await new Promise(resolve=>setTimeout(resolve,200));continue}
    await doRoll();
    if(autoRolling&&Date.now()<autoEnd) await new Promise(resolve=>setTimeout(resolve,500));
   }
  }catch(err){
   console.error('Autoroll stopped after an error:',err);
  }finally{
-  autoRolling=false;
+  autoRolling=false;autoPaused=false;
   autoState.cooldownUntil=activeBuffStats().autoUnlocked?Date.now()+cooldownMs:0;
   saveAutoState();updateAutoBtn();
  }
 });
-setInterval(updateAutoBtn,250);updateAutoBtn();
-$('resetBtn').addEventListener('click',()=>{if(confirm('Reset all discoveries and collection progress? This cannot be undone.')){autoRolling=false;autoState.cooldownUntil=0;try{localStorage.removeItem('elementalAutoState')}catch(e){}collection=[];save();updateAutoBtn();unlockedAchievements=[];try{localStorage.removeItem('elementalAchievements')}catch(e){}syncEffectSettings();renderInventory();renderPeriodic();renderAchievements();$('rollResults').style.gridTemplateColumns='';$('rollResults').innerHTML=INITIAL_RESULT;alert('Progress reset.')}});
+setInterval(()=>{autoPauseSync();updateAutoBtn()},250);updateAutoBtn();
+$('resetBtn').addEventListener('click',()=>{if(confirm('Reset all discoveries and collection progress? This cannot be undone.')){autoRolling=false;autoState.cooldownUntil=0;try{localStorage.removeItem('elementalAutoState');localStorage.removeItem('elementalBonds2');bondState={};buffCache=wtCache=null}catch(e){}collection=[];save();updateAutoBtn();unlockedAchievements=[];try{localStorage.removeItem('elementalAchievements')}catch(e){}syncEffectSettings();renderInventory();renderPeriodic();renderAchievements();$('rollResults').style.gridTemplateColumns='';$('rollResults').innerHTML=INITIAL_RESULT;alert('Progress reset.')}});
 renderInventory();renderPeriodic();renderAchievements();
 
 /* ---- v2 additions ---- */
@@ -869,5 +1204,7 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&$('game').classList
 try{$('chainSetting').value=localStorage.getItem('elementalChain')||'on'}catch(e){}
 $('chainSetting').onchange=()=>{try{localStorage.setItem('elementalChain',$('chainSetting').value)}catch(e){}};
 syncEffectSettings();try{localStorage.removeItem('elementalStock')}catch(e){}
+
+if(!BONDS)BONDS=genBonds();bondSummary();
 </script>
 </body></html>
