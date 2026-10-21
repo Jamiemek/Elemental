@@ -5140,6 +5140,14 @@ function go(screen) {
     if (screen === 'catinv') {
         renderCatInv();
     }
+    if (screen === 'game') {
+        const col = document.querySelector('#rollResults .roll-result-column');
+        if (col && col._mr) {
+            col.querySelectorAll('.mr-chip b').forEach(b => fitText(b, b.textContent, b.parentElement.clientWidth - 10, 18));
+            const sel = [...col.querySelectorAll('.mr-chip')].findIndex(c => c.classList.contains('sel'));
+            showMultiRoll(col, col._mr.records, Math.max(0, sel), col._mr.best, false);
+        }
+    }
 }
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => {
@@ -7062,7 +7070,10 @@ async function doRoll() {
     const cards = [...col.querySelectorAll('.result-card')];
     let records = [];
     try {
-        startRollTicks();
+        const onRoll = $('game').classList.contains('active');
+        if (onRoll) {
+            startRollTicks();
+        }
         const rolls = Array.from({ length: rollCount }, () => {
             const ch = takeRollCharge();
             let luckUp = ch.rollLuck;
@@ -7088,6 +7099,10 @@ async function doRoll() {
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
         const cut = pickCutscene(rolls);
+        // a cutscene always plays on the roll screen, so a rare roll found elsewhere takes you there
+        if (cut && !$('game').classList.contains('active')) {
+            go('game');
+        }
         // multiroll: the cutscene roll, or else the highest score, is shown large; the rest sit in the strip
         const feat = cut ? cut.idx : bestIdx;
         let targets = null;
@@ -7106,7 +7121,7 @@ async function doRoll() {
             stopRollTicks();
             await playCutscene(cut.sym, reel, multi ? [rolls[feat].formula] : rolls.map(r => r.formula), multi ? 0 : cut.idx, syms);
         } else {
-            playBuildup(Math.max(...rolls.map(r => getRarityTier(r.score))), (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
+            playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
             await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay, targets);
         }
         reel.classList.remove('rolling');
@@ -7141,13 +7156,22 @@ async function doRoll() {
                 card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(record);
                 card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
             }
-            playResultChime(score, secret && i === bestIdx);
+            if (onRoll || cut || getRarityTier(score) > 0) {
+                playResultChime(score, secret && i === bestIdx);
+            }
             addQuarks(quarksFor(score, 1 + (buffs.quark || 0) / 100));
         });
         if (multi) {
             showMultiRoll(col, records, feat, bestIdx, false);
         }
         renderHistory();
+        if ($('bonds').classList.contains('active')) {
+            bondSummary();
+            netDrawSoon();
+        }
+        if ($('catinv').classList.contains('active')) {
+            renderCatInv();
+        }
         triggerRarityEffect(rolls[bestIdx], secret);
         stopRollTicks();
         $('rollToast').textContent = '';
@@ -7200,14 +7224,14 @@ function updateAutoBtn() {
         disabled = true;
         hint.textContent = 'Autoroll unlocks when you find ' + u[1] + ' (' + u[0] + ').';
     } else {
-        const onRoll = $('game').classList.contains('active');
-        hint.textContent = `Autoroll keeps rolling with a ${fmtGap(s.autoGap)} break between rolls${s.autoGap <= AUTO_MIN_GAP ? ' (its fastest)' : ''}. It waits while you are away from this screen.`;
+        const onMenu = $('menu').classList.contains('active');
+        hint.textContent = `Autoroll keeps rolling with a ${fmtGap(s.autoGap)} break between rolls${s.autoGap <= AUTO_MIN_GAP ? ' (its fastest)' : ''}. It keeps going on every screen except the main menu.`;
         if (!autoWanted) {
             label = 'Autoroll off';
             status = 'Off';
-        } else if (!onRoll) {
+        } else if (onMenu) {
             label = 'Autoroll on';
-            status = 'On, waiting for the roll screen';
+            status = 'Paused on the main menu';
         } else if (rolling || !autoFrom) {
             label = 'Autoroll on';
             status = 'On, rolling';
@@ -7232,7 +7256,7 @@ async function autoLoop() {
     autoRolling = true;
     try {
         while (autoWanted && activeBuffStats().autoUnlocked) {
-            if (!$('game').classList.contains('active') || rolling) {
+            if ($('menu').classList.contains('active') || rolling) {
                 autoFrom = 0;
                 await new Promise(r => setTimeout(r, 250));
                 continue;
@@ -8211,6 +8235,537 @@ CUTSCENES.Mc = {
         const rb = smoothstep(7300, 8000, time);
         drawGlow(ctx, width / 2, height / 2, Math.max(width, height) * 0.7, '#ff3d55', rb * 0.45 * (1 - smoothstep(8000, 9500, time) * 0.4));
         drawCard(ctx, scene, time, 7900, '#fff0f2', '#ff4d5e');
+    }
+};
+// Fl: protons fill the nuclear shells one by one until 114 closes a shell
+CUTSCENES.Fl = {
+    z: 114, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [82.4, 123.5, 164.8], 7.4, 0.014, 'sine', 800);
+        for (let i = 0; i < 38; i++) {
+            const x = 0.5 + 5.6 * Math.pow(i / 37, 1.25);
+            playTone(audio, 520 + i * 16, start + x, 0.07, 0.012, 'triangle', null, 0.3, 0, 0.002);
+        }
+        playNoise(audio, start + 6.15, 0.12, 0.05, 6000, 1500, 'highpass', 1, 0.3, 0.002);
+        boom(audio, start + 6.2, 0.18, 2);
+        playTone(audio, 329.6, start + 6.2, 3, 0.03, 'sine', null, 0.6, 0, 0.02);
+        arp(audio, start + 6.4, [329.6, 415.3, 493.9, 659.3, 830.6, 987.8], 0.12, 0.028, 'sine');
+        padChord(audio, start + 7.6, [164.8, 246.9, 329.6, 493.9], 3, 0.02, 'sine', 2600);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const st = scene.state;
+        const cx = W / 2;
+        const cy = H * 0.5;
+        const shells = [2, 6, 12, 8, 22, 32, 32];
+        const R = Math.min(W, H * 0.78) * 0.4;
+        const rr = s => R * (0.16 + 0.84 * (s + 1) / shells.length);
+        if (!st.p) {
+            const r = seededRandom(114);
+            st.p = [];
+            let n = 0;
+            shells.forEach((c, s) => {
+                for (let k = 0; k < c; k++) {
+                    st.p.push({ s, a: k / c * TAU + s * 0.7 + r() * 0.12, t: 500 + 5600 * Math.pow(n / 113, 1.25) });
+                    n++;
+                }
+            });
+            st.full = shells.map((c, s) => Math.max(...st.p.filter(p => p.s === s).map(p => p.t)));
+        }
+        const fa = 1 - smoothstep(7300, 8100, time);
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.75);
+        g.addColorStop(0, '#0b2a26');
+        g.addColorStop(1, '#03100e');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+        const close = smoothstep(6150, 6350, time);
+        drawGlow(ctx, cx, cy, rr(0) * 2.2, '#2fe0b0', 0.25 + 0.6 * close * fa);
+        shells.forEach((c, s) => {
+            const full = time >= st.full[s];
+            const fl = full ? 1 - smoothstep(st.full[s], st.full[s] + 700, time) : 0;
+            ctx.strokeStyle = 'rgba(47,224,176,' + ((full ? 0.55 : 0.18) + 0.4 * fl + 0.4 * close) * fa + ')';
+            ctx.lineWidth = (full ? 0.35 : 0.2) * u + fl * 0.6 * u;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rr(s), 0, TAU);
+            ctx.stroke();
+        });
+        let count = 0;
+        st.p.forEach(p => {
+            if (time < p.t) {
+                return;
+            }
+            count++;
+            const age = time - p.t;
+            const spin = (0.00012 + 0.00005 * (shells.length - p.s)) * time * (p.s % 2 ? -1 : 1);
+            const x = cx + Math.cos(p.a + spin) * rr(p.s);
+            const y = cy + Math.sin(p.a + spin) * rr(p.s);
+            const pop = 1 - smoothstep(0, 400, age);
+            drawGlow(ctx, x, y, (1.6 + 3 * pop) * u, '#7dffd6', (0.35 + 0.6 * pop) * fa);
+            ctx.fillStyle = 'rgba(232,255,248,' + fa + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, 0.55 * u * (1 + pop), 0, TAU);
+            ctx.fill();
+        });
+        const ring = clamp((time - 6200) / 1300);
+        if (ring > 0 && ring < 1) {
+            ctx.strokeStyle = 'rgba(160,255,225,' + (1 - ring) + ')';
+            ctx.lineWidth = (1 - ring) * 1.5 * u;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rr(shells.length - 1) * (1 + ring * 0.6), 0, TAU);
+            ctx.stroke();
+        }
+        drawText(ctx, 'PROTONS', W / 2, H * 0.06, 2.1 * u, '#7dffd6', smoothstep(300, 900, time) * fa * (1 - close), 600, 0.7 * u);
+        drawText(ctx, 'Z = ' + count, W / 2, H * 0.1, 3.6 * u, '#e8fff8', smoothstep(300, 900, time) * fa, 700);
+        drawText(ctx, 'SHELL CLOSED', W / 2, H * 0.06, 2.1 * u, '#7dffd6', close * fa, 600, 0.7 * u);
+        drawText(ctx, 'A PREDICTED MAGIC NUMBER', W / 2, H * 0.94, 2 * u, '#7dffd6', smoothstep(6400, 6900, time) * fa, 600, 0.5 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#2fe0b0', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#e8fff8', '#2fe0b0');
+    }
+};
+// Nh: nine years at RIKEN catch three atoms, then the sun rises over Japan
+CUTSCENES.Nh = {
+    z: 113, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [73.4, 110, 146.8], 6.6, 0.013, 'sine', 600);
+        for (let i = 0; i < 10; i++) {
+            playTone(audio, 1046.5, start + 0.6 + i * 0.6, 0.12, 0.008, 'sine', null, 0.4, 0, 0.003);
+        }
+        [1.58, 2.05, 5.98].forEach((x, i) => {
+            playTone(audio, [880, 987.8, 1174.7][i], start + x, 2.2, 0.03, 'sine', null, 0.8, 0, 0.004);
+            playTone(audio, [1760, 1975.5, 2349.3][i], start + x, 1.6, 0.012, 'sine', null, 0.8, 0, 0.004);
+        });
+        riser(audio, start + 6.2, 1.4, 0.02, 80, 700);
+        padChord(audio, start + 6.9, [146.8, 220, 293.7, 440], 3.4, 0.022, 'sine', 2200);
+        arp(audio, start + 7.2, [293.7, 329.6, 440, 587.3, 659.3, 880], 0.16, 0.026, 'triangle');
+        sparkle(audio, start + 7.8, 8, 2, 0.015);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const st = scene.state;
+        const hz = H * 0.66;
+        if (!st.s) {
+            const r = seededRandom(113);
+            st.s = Array.from({ length: 110 }, () => [r() * W, r() * hz * 0.95, r() * 0.8 + 0.3, r() * 6.28]);
+            st.w = Array.from({ length: 34 }, () => [r(), r() * (H - hz), r() * 0.6 + 0.2]);
+        }
+        const fa = 1 - smoothstep(7300, 8100, time);
+        const dawn = smoothstep(5800, 7600, time);
+        const mixc = (a, b, k) => 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')';
+        const g = ctx.createLinearGradient(0, 0, 0, hz);
+        g.addColorStop(0, mixc([4, 6, 18], [40, 18, 40], dawn));
+        g.addColorStop(1, mixc([10, 16, 38], [232, 110, 80], dawn));
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, hz);
+        st.s.forEach(([x, y, r, ph]) => {
+            const a = (0.45 + 0.35 * Math.sin(time / 500 + ph)) * (1 - dawn * 0.9);
+            ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, r * u * 0.25, 0, TAU);
+            ctx.fill();
+        });
+        // the sun rises
+        const rise = smoothstep(6000, 7800, time);
+        const sr = Math.min(W, H) * 0.17;
+        const sy = hz + sr * 1.05 - rise * sr * 1.9;
+        drawGlow(ctx, W / 2, sy, sr * 3.4, '#ff6a4a', 0.55 * rise);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, W, hz);
+        ctx.clip();
+        ctx.globalAlpha = 1 - 0.85 * smoothstep(7500, 8300, time);
+        ctx.fillStyle = '#e8263a';
+        ctx.beginPath();
+        ctx.arc(W / 2, sy, sr, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+        // sea
+        const sg = ctx.createLinearGradient(0, hz, 0, H);
+        sg.addColorStop(0, mixc([8, 14, 30], [90, 40, 50], dawn));
+        sg.addColorStop(1, mixc([2, 4, 10], [20, 10, 18], dawn));
+        ctx.fillStyle = sg;
+        ctx.fillRect(0, hz, W, H - hz);
+        st.w.forEach(([x, y, l]) => {
+            const yy = hz + y;
+            const xx = ((x + time * 0.00002 * (1 + y / H)) % 1) * W;
+            const near = Math.abs(xx - W / 2) < sr * (1.2 + y / (H - hz));
+            ctx.fillStyle = near && rise > 0.05 ? 'rgba(255,120,90,' + 0.6 * rise + ')' : 'rgba(180,200,255,' + 0.12 * (1 - dawn * 0.5) + ')';
+            ctx.fillRect(xx - l * 6 * u, yy, l * 12 * u, 0.25 * u);
+        });
+        // nine years, three atoms
+        const yr = 2003.7 + 8.9 * clamp((time - 600) / 5600);
+        const atoms = [[2004.55, 0.28, 0.24], [2005.3, 0.7, 0.18], [2012.6, 0.48, 0.32]];
+        atoms.forEach(([at, ax, ay], i) => {
+            const tAt = 600 + (at - 2003.7) / 8.9 * 5600;
+            if (time < tAt) {
+                return;
+            }
+            const age = time - tAt;
+            const x = W * ax;
+            const y = hz * ay;
+            const fl = 1 - smoothstep(0, 900, age);
+            drawGlow(ctx, x, y, (3 + 14 * fl) * u, '#ffd0c0', (0.5 + 0.5 * fl) * fa);
+            ctx.strokeStyle = 'rgba(255,220,210,' + fl * fa + ')';
+            ctx.lineWidth = 0.3 * u;
+            ctx.beginPath();
+            ctx.arc(x, y, (2 + 18 * (1 - fl)) * u, 0, TAU);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255,245,240,' + fa + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, 0.8 * u, 0, TAU);
+            ctx.fill();
+            drawText(ctx, String(i + 1), x + 3 * u, y - 3 * u, 2 * u, '#ffd0c0', smoothstep(0, 400, age) * fa * (1 - dawn), 700);
+        });
+        const ya = smoothstep(300, 900, time) * fa * (1 - smoothstep(6100, 6600, time));
+        drawText(ctx, String(Math.min(2012, Math.floor(yr))), W / 2, H * 0.84, 5 * u, '#e8eeff', ya, 700, 0.4 * u);
+        drawText(ctx, 'RIKEN · WAKO', W / 2, H * 0.9, 1.9 * u, '#9fb4ff', ya, 600, 0.6 * u);
+        drawText(ctx, 'THREE ATOMS IN NINE YEARS', W / 2, H * 0.07, 2.1 * u, '#ffd0c0', smoothstep(6100, 6700, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#e8263a', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#fff2ee', '#e8263a');
+    }
+};
+// Cn: a brass orrery turns from Earth at the centre to the Sun at the centre
+CUTSCENES.Cn = {
+    z: 112, dur: 10000,
+    snd(audio, start) {
+        for (let i = 0; i < 28; i++) {
+            playNoise(audio, start + 0.2 + i * 0.22, 0.025, 0.035, 5200, 2600, 'bandpass', 6, 0.15, 0.001);
+        }
+        padChord(audio, start, [98, 146.8, 196], 3.6, 0.013, 'triangle', 900);
+        arp(audio, start + 0.8, [392, 466.2, 587.3, 698.5, 587.3, 466.2], 0.3, 0.018, 'triangle');
+        riser(audio, start + 3.4, 2, 0.02, 120, 800);
+        padChord(audio, start + 3.6, [116.5, 174.6, 233.1], 2.4, 0.014, 'triangle', 1200);
+        boom(audio, start + 5.5, 0.12, 1.6);
+        arp(audio, start + 5.6, [392, 493.9, 587.3, 784, 987.8, 1174.7], 0.14, 0.024, 'triangle');
+        padChord(audio, start + 7.4, [196, 293.7, 392, 587.3], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const st = scene.state;
+        const cx = W / 2;
+        const cy = H / 2;
+        const R = Math.min(W, H) * 0.29;
+        // Mercury, Venus, Earth, Mars, Jupiter, Saturn: [orbit share, colour, size, phase]
+        const P = [[0.2, '#c9b9a0', 0.7, 0.4], [0.36, '#f3d9a4', 0.95, 2.1], [0.52, '#6fb4ff', 1, 4.0], [0.67, '#ff8a5c', 0.8, 1.2], [0.85, '#e8c38a', 1.6, 5.2], [1, '#e9d7a6', 1.4, 3.3]];
+        if (!st.s) {
+            const r = seededRandom(112);
+            st.s = Array.from({ length: 140 }, () => [r() * W, r() * H, r() * 0.7 + 0.2]);
+        }
+        const fa = 1 - smoothstep(7300, 8100, time);
+        const helio = smoothstep(3400, 5600, time);
+        ctx.fillStyle = '#07070d';
+        ctx.fillRect(0, 0, W, H);
+        st.s.forEach(([x, y, r]) => {
+            ctx.fillStyle = 'rgba(255,240,210,' + 0.5 * r + ')';
+            ctx.fillRect(x, y, r * 0.3 * u, r * 0.3 * u);
+        });
+        const pos = (i, t) => {
+            const a = P[i][3] + t * 0.0011 / Math.pow(P[i][0], 1.5);
+            return [Math.cos(a) * R * P[i][0], Math.sin(a) * R * P[i][0] * 0.92];
+        };
+        // geocentric view = position relative to Earth; heliocentric = position relative to the Sun
+        const view = (i, t) => {
+            const p = pos(i, t);
+            const e = pos(2, t);
+            return [cx + p[0] - e[0] * (1 - helio), cy + p[1] - e[1] * (1 - helio)];
+        };
+        const sun = t => {
+            const e = pos(2, t);
+            return [cx - e[0] * (1 - helio), cy - e[1] * (1 - helio)];
+        };
+        // brass rings: centred on the Sun once it takes the middle
+        const ringA = (0.25 + 0.6 * helio + 0.4 * smoothstep(5600, 6200, time) * (1 - smoothstep(6600, 7400, time))) * fa;
+        P.forEach(p => {
+            ctx.strokeStyle = 'rgba(232,176,74,' + ringA * 0.7 + ')';
+            ctx.lineWidth = 0.3 * u;
+            ctx.beginPath();
+            ctx.ellipse(sun(time)[0], sun(time)[1], R * p[0], R * p[0] * 0.92, 0, 0, TAU);
+            ctx.stroke();
+        });
+        // loops traced by the planets (epicycles in the Earth-centred view)
+        P.forEach((p, i) => {
+            if (i === 2 && helio < 0.5) {
+                return;
+            }
+            ctx.strokeStyle = p[1];
+            ctx.globalAlpha = 0.35 * fa;
+            ctx.lineWidth = 0.25 * u;
+            ctx.beginPath();
+            for (let k = 0; k <= 60; k++) {
+                const [x, y] = view(i, time - k * 70);
+                if (k) {
+                    ctx.lineTo(x, y);
+                } else {
+                    ctx.moveTo(x, y);
+                }
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        });
+        const [sx, sy] = sun(time);
+        drawGlow(ctx, sx, sy, 9 * u * (1 + helio * 0.6), '#ffb84a', 0.9 * fa);
+        ctx.fillStyle = 'rgba(255,214,120,' + fa + ')';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2.4 * u, 0, TAU);
+        ctx.fill();
+        P.forEach((p, i) => {
+            const [x, y] = view(i, time);
+            if (i === 4 || i === 5) {
+                ctx.strokeStyle = 'rgba(232,210,160,' + 0.6 * fa + ')';
+                ctx.lineWidth = 0.2 * u;
+                ctx.beginPath();
+                ctx.ellipse(x, y, p[2] * 1.9 * u, p[2] * 0.6 * u, -0.3, 0, TAU);
+                if (i === 5) {
+                    ctx.stroke();
+                }
+            }
+            drawGlow(ctx, x, y, p[2] * 2.4 * u, p[1], 0.4 * fa);
+            ctx.fillStyle = p[1];
+            ctx.globalAlpha = fa;
+            ctx.beginPath();
+            ctx.arc(x, y, p[2] * u, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+        drawText(ctx, 'EARTH AT THE CENTRE', W / 2, H * 0.07, 2.1 * u, '#e8b04a', smoothstep(300, 900, time) * (1 - smoothstep(3200, 3800, time)), 600, 0.7 * u);
+        drawText(ctx, 'THE SUN AT THE CENTRE', W / 2, H * 0.07, 2.1 * u, '#e8b04a', smoothstep(5200, 5800, time) * fa, 600, 0.7 * u);
+        drawText(ctx, 'DE REVOLUTIONIBUS · 1543', W / 2, H * 0.93, 2 * u, '#f3d9a4', smoothstep(5800, 6400, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#e8b04a', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#fff6e0', '#e8b04a');
+    }
+};
+// Rg: a Crookes tube flickers and an X-ray reveals a hand wearing a gold ring
+CUTSCENES.Rg = {
+    z: 111, dur: 10000,
+    snd(audio, start) {
+        playTone(audio, 50, start + 0.1, 5.6, 0.02, 'sawtooth', null, 0.1, 0, 0.3);
+        playTone(audio, 100, start + 0.1, 5.6, 0.012, 'square', null, 0.1, 0, 0.3);
+        for (let i = 0; i < 14; i++) {
+            playNoise(audio, start + 0.3 + Math.random() * 2.2, 0.04, 0.05, 9000, 3000, 'highpass', 1, 0.1, 0.002);
+        }
+        playNoise(audio, start + 2.6, 3, 0.03, 600, 5000, 'bandpass', 3, 0.3, 1.2);
+        playTone(audio, 1318.5, start + 6, 2.4, 0.03, 'sine', null, 0.8, 0, 0.003);
+        playTone(audio, 2637, start + 6.05, 1.8, 0.014, 'sine', null, 0.8, 0, 0.003);
+        boom(audio, start + 6, 0.08, 1.4);
+        padChord(audio, start + 7, [164.8, 246.9, 329.6, 493.9], 3.4, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.6, 12, 2, 0.017, [1318.5, 1568, 1975.5, 2637]);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        ctx.fillStyle = '#04080b';
+        ctx.fillRect(0, 0, W, H);
+        // the tube, glowing green and flickering
+        const tube = smoothstep(200, 700, time) * (1 - smoothstep(2600, 3400, time));
+        const fl = 0.65 + 0.35 * Math.sin(time / 37) * Math.sin(time / 113);
+        const tx = W / 2;
+        const ty = H * 0.16;
+        drawGlow(ctx, tx, ty, 22 * u, '#5dff8a', 0.5 * tube * fl);
+        ctx.strokeStyle = 'rgba(170,255,190,' + 0.7 * tube + ')';
+        ctx.lineWidth = 0.35 * u;
+        ctx.beginPath();
+        ctx.ellipse(tx, ty, 11 * u, 6 * u, 0, 0, TAU);
+        ctx.moveTo(tx - 11 * u, ty);
+        ctx.lineTo(tx - 19 * u, ty);
+        ctx.moveTo(tx + 11 * u, ty);
+        ctx.lineTo(tx + 19 * u, ty);
+        ctx.stroke();
+        // the screen, then the hand revealed by a sweep
+        const sw = Math.min(W * 0.8, H * 0.62);
+        const sh = sw * 1.15;
+        const scx = W / 2;
+        const scy = H * 0.52;
+        const scr = smoothstep(1800, 2600, time) * fa;
+        ctx.fillStyle = 'rgba(14,26,34,' + scr + ')';
+        ctx.fillRect(scx - sw / 2, scy - sh / 2, sw, sh);
+        ctx.strokeStyle = 'rgba(120,200,255,' + 0.4 * scr + ')';
+        ctx.lineWidth = 0.3 * u;
+        ctx.strokeRect(scx - sw / 2, scy - sh / 2, sw, sh);
+        const sweep = clamp((time - 2600) / 3000);
+        const cut = scy - sh / 2 + sh * sweep;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(scx - sw / 2, scy - sh / 2, sw, sh * sweep);
+        ctx.clip();
+        const k = sw / 100;
+        const wx = scx;
+        const wy = scy + sh * 0.42;
+        const bone = (x1, y1, x2, y2, w) => {
+            ctx.lineWidth = w * k;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        };
+        ctx.lineCap = 'round';
+        // soft tissue
+        ctx.strokeStyle = 'rgba(110,170,210,' + 0.16 * fa + ')';
+        const fingers = [[-48, 26, [14, 11]], [-16, 38, [24, 14, 10]], [-3, 40, [27, 16, 11]], [9, 38, [25, 15, 10]], [21, 34, [19, 11, 9]]];
+        const joints = [];
+        fingers.forEach(([deg, meta, ph], f) => {
+            const a = (deg - 90) * Math.PI / 180;
+            const bx = wx + (f - 2) * 5.2 * k + (f === 0 ? -4 * k : 0);
+            const by = wy - 14 * k + (f === 0 ? 6 * k : 0);
+            const mx = bx + Math.cos(a) * meta * k;
+            const my = by + Math.sin(a) * meta * k;
+            const pts = [[bx, by], [mx, my]];
+            let x = mx;
+            let y = my;
+            const a2 = a + (f === 0 ? 0.25 : (f - 2) * 0.04);
+            ph.forEach(l => {
+                x += Math.cos(a2) * l * k;
+                y += Math.sin(a2) * l * k;
+                pts.push([x, y]);
+            });
+            joints.push(pts);
+            bone(pts[0][0], pts[0][1], pts[pts.length - 1][0], pts[pts.length - 1][1], 9.5);
+        });
+        bone(wx - 20 * k, wy - 12 * k, wx + 18 * k, wy - 14 * k, 26);
+        bone(wx - 9 * k, wy + 2 * k, wx - 9 * k, wy + 20 * k, 13);
+        bone(wx + 9 * k, wy + 2 * k, wx + 9 * k, wy + 20 * k, 13);
+        // bones
+        ctx.strokeStyle = 'rgba(220,240,255,' + 0.85 * fa + ')';
+        joints.forEach(pts => {
+            for (let i = 0; i + 1 < pts.length; i++) {
+                const [x1, y1] = pts[i];
+                const [x2, y2] = pts[i + 1];
+                const g = 0.12;
+                bone(x1 + (x2 - x1) * g, y1 + (y2 - y1) * g, x2 - (x2 - x1) * g, y2 - (y2 - y1) * g, i === 0 ? 3.4 : 3 - i * 0.4);
+            }
+        });
+        for (let i = 0; i < 8; i++) {
+            const x = wx + (i % 4 - 1.5) * 5.6 * k;
+            const y = wy - 6 * k + Math.floor(i / 4) * 5.4 * k;
+            ctx.fillStyle = 'rgba(220,240,255,' + 0.8 * fa + ')';
+            ctx.beginPath();
+            ctx.ellipse(x, y, 2.4 * k, 2.1 * k, 0, 0, TAU);
+            ctx.fill();
+        }
+        bone(wx - 9 * k, wy + 4 * k, wx - 9 * k, wy + 24 * k, 4.2);
+        bone(wx + 9 * k, wy + 4 * k, wx + 9 * k, wy + 24 * k, 3.4);
+        // the ring, on the ring finger's first bone
+        const rp = joints[3];
+        const rx = rp[1][0] + (rp[2][0] - rp[1][0]) * 0.45;
+        const ry = rp[1][1] + (rp[2][1] - rp[1][1]) * 0.45;
+        const glint = smoothstep(5900, 6200, time) * (1 - smoothstep(6400, 7600, time));
+        drawGlow(ctx, rx, ry, (4 + 14 * glint) * k, '#ffcf5a', (0.5 + 0.5 * glint) * fa);
+        ctx.strokeStyle = 'rgba(255,214,110,' + fa + ')';
+        ctx.lineWidth = 1.6 * k;
+        ctx.beginPath();
+        ctx.ellipse(rx, ry, 3.6 * k, 1.5 * k, -0.15, 0, TAU);
+        ctx.stroke();
+        ctx.restore();
+        if (sweep > 0 && sweep < 1) {
+            ctx.fillStyle = 'rgba(160,220,255,.8)';
+            ctx.fillRect(scx - sw / 2, cut - 0.3 * u, sw, 0.6 * u);
+            drawGlow(ctx, scx, cut, sw * 0.4, '#7fd0ff', 0.3);
+        }
+        drawText(ctx, 'X-RAYS', W / 2, H * 0.05, 2.1 * u, '#9fe8b4', smoothstep(300, 900, time) * (1 - smoothstep(2600, 3200, time)), 600, 0.7 * u);
+        drawText(ctx, 'WÜRZBURG · 1895', W / 2, H * 0.95, 2 * u, '#bfe4ff', smoothstep(6000, 6600, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#6fd2ff', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#f2fbff', '#6fd2ff');
+    }
+};
+// Ds: one atom lands in a detector in slow motion and lives for a fraction of a millisecond
+CUTSCENES.Ds = {
+    z: 110, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [61.7, 92.5, 123.5], 6.2, 0.013, 'sine', 600);
+        playNoise(audio, start + 0.4, 0.8, 0.05, 300, 6000, 'bandpass', 2, 0.2, 0.6);
+        playNoise(audio, start + 1.2, 0.08, 0.08, 4000, 800, 'lowpass', 1, 0.3, 0.002);
+        playTone(audio, 1760, start + 1.2, 0.6, 0.02, 'sine', 880, 0.5, 0, 0.003);
+        for (let i = 0; i < 16; i++) {
+            playTone(audio, 2093, start + 1.6 + i * 0.28, 0.04, 0.008, 'square', null, 0.05, 0, 0.002);
+        }
+        playTone(audio, 220, start + 1.4, 4.6, 0.012, 'sine', 330, 0.4, 0, 1.5);
+        playNoise(audio, start + 6, 0.1, 0.1, 9000, 2000, 'highpass', 1, 0.3, 0.001);
+        boom(audio, start + 6, 0.16, 1.8);
+        arp(audio, start + 6.1, [554.4, 659.3, 830.6, 1108.7], 0.1, 0.026, 'sine');
+        padChord(audio, start + 7.4, [138.6, 207.7, 277.2, 415.3], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        ctx.fillStyle = '#06070d';
+        ctx.fillRect(0, 0, W, H);
+        const n = 14;
+        const cs = Math.min(W * 0.78, H * 0.56) / n;
+        const gx = W / 2 - cs * n / 2;
+        const gy = H * 0.52 - cs * n / 2;
+        const hi = 8;
+        const hj = 5;
+        const hit = [gx + (hi + 0.5) * cs, gy + (hj + 0.5) * cs];
+        const decay = time >= 6000;
+        const dAge = time - 6000;
+        // detector grid
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                const d = Math.abs(i - hi) + Math.abs(j - hj);
+                let lit = 0;
+                if (decay && (i === hi || j === hj)) {
+                    lit = Math.max(0, 1 - smoothstep(0, 1200, dAge - d * 60)) * (d < 7 ? 1 - d / 7 : 0);
+                }
+                ctx.fillStyle = 'rgba(' + (40 + 180 * lit) + ',' + (48 + 140 * lit) + ',' + (80 + 175 * lit) + ',' + (0.35 + 0.6 * lit) * fa + ')';
+                ctx.fillRect(gx + i * cs + 0.12 * u, gy + j * cs + 0.12 * u, cs - 0.24 * u, cs - 0.24 * u);
+            }
+        }
+        // the incoming ion
+        const fly = clamp((time - 600) / 600);
+        if (fly > 0 && fly < 1) {
+            const x = -0.05 * W + (hit[0] + 0.05 * W) * fly;
+            const y = H * 0.2 + (hit[1] - H * 0.2) * fly;
+            ctx.strokeStyle = 'rgba(200,190,255,.7)';
+            ctx.lineWidth = 0.4 * u;
+            ctx.beginPath();
+            ctx.moveTo(x - (hit[0] + 0.05 * W) * 0.12, y - (hit[1] - H * 0.2) * 0.12);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            drawGlow(ctx, x, y, 4 * u, '#c8beff', 0.9);
+        }
+        // the atom, alive in its pixel
+        if (time >= 1200 && !decay) {
+            const p = 0.6 + 0.4 * Math.sin(time / 160);
+            drawGlow(ctx, hit[0], hit[1], cs * 1.6, '#8a7dff', 0.6 * p);
+            ctx.fillStyle = 'rgba(205,195,255,' + (0.7 + 0.3 * p) + ')';
+            ctx.fillRect(hit[0] - cs / 2 + 0.12 * u, hit[1] - cs / 2 + 0.12 * u, cs - 0.24 * u, cs - 0.24 * u);
+        }
+        // the decay
+        if (decay) {
+            const r = clamp(dAge / 1100);
+            drawGlow(ctx, hit[0], hit[1], (4 + 30 * r) * u, '#ffffff', (1 - r) * fa);
+            ctx.strokeStyle = 'rgba(230,225,255,' + (1 - r) * fa + ')';
+            ctx.lineWidth = (1 - r) * 1.2 * u;
+            ctx.beginPath();
+            ctx.arc(hit[0], hit[1], r * 40 * u, 0, TAU);
+            ctx.stroke();
+        }
+        // slow-motion timer
+        const life = clamp((time - 1200) / 4800);
+        const us = Math.round(life * 180);
+        const ta = smoothstep(1000, 1400, time) * fa;
+        drawText(ctx, 'SLOW MOTION', W / 2, H * 0.07, 2.1 * u, '#b8b0ff', smoothstep(300, 900, time) * fa * (1 - smoothstep(5800, 6200, time)), 600, 0.7 * u);
+        drawText(ctx, 'ONE ATOM · DECAYED', W / 2, H * 0.07, 2.1 * u, '#b8b0ff', smoothstep(6100, 6500, time) * fa, 600, 0.7 * u);
+        drawText(ctx, (us / 1e6).toFixed(6) + ' s', W / 2, H * 0.13, 3.6 * u, decay ? '#ffffff' : '#e6e2ff', ta, 700, 0.3 * u);
+        drawText(ctx, 'GSI · DARMSTADT · 1994', W / 2, H * 0.93, 2 * u, '#b8b0ff', smoothstep(6300, 6900, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#8a7dff', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#f0eeff', '#8a7dff');
     }
 };
 </script>
