@@ -115,6 +115,7 @@ p {
   letter-spacing: .02em;
 }
 .link-btn {
+  white-space: nowrap;
   background: none;
   border: 0;
   padding: 6px 0;
@@ -1493,27 +1494,83 @@ body.fx-warping .screen.active {
   opacity: .7;
   white-space: nowrap;
 }
-.quark-box {
+.top-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.quark-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 9px 0 0;
+  border: 1px solid #46534f;
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 15px;
+  color: #eef3ef;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.quark-chip .q-sym {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--hazard);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+  padding-bottom: 2px;
+}
+@media (max-width: 480px) {
+  .top-left {
+    gap: 10px;
+  }
+  .wordmark {
+    display: none;
+  }
+  .topband-in {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+.fold > summary {
+  font-family: var(--head);
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  gap: 14px;
-  padding: 10px 14px;
-  background: var(--panel);
-  border: 2px solid var(--ink);
-  box-shadow: inset 6px 0 var(--hazard);
+  align-items: center;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
 }
-.quark-box span {
-  font-family: var(--head);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink-2);
+.fold > summary::-webkit-details-marker {
+  display: none;
 }
-.quark-box strong {
+.fold > summary::after {
+  content: "+";
   font-family: var(--head);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+}
+.fold[open] > summary::after {
+  content: "\2212";
+}
+.fold > summary:hover::after {
+  background: var(--ink);
+  color: var(--bench);
+}
+.roll-side > .fold:first-child > summary {
+  margin-top: 0;
 }
 .rank-tabs {
   display: flex;
@@ -1525,8 +1582,10 @@ body.fx-warping .screen.active {
   color: var(--bench);
 }
 .history {
-  max-height: 340px;
+  --row: 34px;
+  height: calc(var(--row) * 5 + 4px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 2px solid var(--ink);
   background: var(--panel);
 }
@@ -1534,8 +1593,9 @@ body.fx-warping .screen.active {
   display: grid;
   grid-template-columns: auto minmax(0,1fr) auto;
   gap: 10px;
-  align-items: baseline;
-  padding: 6px 10px;
+  align-items: center;
+  height: var(--row);
+  padding: 0 10px;
 }
 .history-row:nth-child(even) {
   background: var(--band);
@@ -1551,13 +1611,16 @@ body.fx-warping .screen.active {
   font-family: var(--head);
   font-weight: 700;
   font-size: 17px;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .history-row .h-val {
   font-family: var(--head);
   font-weight: 600;
   font-size: 14px;
   text-align: right;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .history .empty-line {
@@ -1569,7 +1632,7 @@ body.fx-warping .screen.active {
 </head>
 <body>
 <div class="topband"><div class="topband-in">
-<button class="brand" data-go="menu" aria-label="Elemental home"><span class="mark">El</span><span class="wordmark">Elemental</span></button>
+<div class="top-left"><button class="brand" data-go="menu" aria-label="Elemental home"><span class="mark">El</span><span class="wordmark">Elemental</span></button><div class="quark-chip" title="Quarks" aria-label="Quarks"><span class="q-sym" aria-hidden="true">q</span><span id="quarkCount">0</span></div></div>
 <button class="link-btn" data-go="achievements">Achievements <span id="achievementHeaderCount">0/100</span></button>
 </div></div>
 <div class="app">
@@ -1609,10 +1672,7 @@ body.fx-warping .screen.active {
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
 </section>
 <aside class="roll-side">
-<h2 class="side-h">Quarks</h2>
-<div class="quark-box" title="Each roll earns its score ÷ 100"><span>Balance</span><strong id="quarkCount">0</strong></div>
-<h2 class="side-h">Current bonuses</h2>
-<dl class="stats" id="rollStats"></dl>
+<details class="fold" id="bonusFold"><summary class="side-h">Current bonuses</summary><dl class="stats" id="rollStats"></dl></details>
 <h2 class="side-h">Last 1,000 rolls</h2>
 <div class="history" id="rollHistory"></div>
 <h2 class="side-h">How a roll works</h2>
@@ -3990,7 +4050,7 @@ function renderHistory() {
         el.innerHTML = '<div class="empty-line">Your rolls will be listed here.</div>';
         return;
     }
-    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula">${h.f}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
+    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula" title="${h.f}">${h.f}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
 }
 // Older saves stored buffed odds, so convert them back to base odds.
 (function () {
@@ -4571,6 +4631,14 @@ $('displaySetting').onchange = () => {
 };
 renderQuarks();
 renderHistory();
+try {
+    $('bonusFold').open = localStorage.getItem('elementalBonusOpen') === 'true';
+} catch (e) { }
+$('bonusFold').addEventListener('toggle', () => {
+    try {
+        localStorage.setItem('elementalBonusOpen', $('bonusFold').open ? 'true' : 'false');
+    } catch (e) { }
+});
 $('chainSetting').onchange = () => {
     try {
         localStorage.setItem('elementalChain', $('chainSetting').value);
