@@ -1479,6 +1479,77 @@ body.fx-warping .screen.active {
 .reel.reveal.cut .reel-symbol {
   animation: none;
 }
+.head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.ver {
+  font-family: var(--head);
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+  opacity: .7;
+  white-space: nowrap;
+}
+.quark-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  margin-bottom: 22px;
+  background: var(--readout);
+  color: #eef3ef;
+  border-left: 5px solid var(--hazard);
+}
+.quark-box .q-icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.quark-box .q-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.quark-box .q-label {
+  font-family: var(--head);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--hazard);
+}
+.quark-box strong {
+  font-family: var(--head);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.quark-box .q-note {
+  font-size: 12px;
+  opacity: .65;
+}
+.rank-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.rank-tab {
+  padding: 6px 14px;
+  background: none;
+  border: 2px solid var(--ink);
+  font-family: var(--head);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.rank-tab.active {
+  background: var(--ink);
+  color: var(--panel);
+}
 </style>
 </head>
 <body>
@@ -1502,7 +1573,7 @@ body.fx-warping .screen.active {
 <button class="nav-row" data-go="achievements"><span>Achievements</span><span class="val" id="homeAch">0 / 0</span></button>
 <button class="nav-row" data-go="settings"><span>Settings</span><span class="val">Sound, effects, save</span></button>
 </nav>
-<h2 class="side-h">Rarest find</h2>
+<h2 class="side-h" id="homeRarestH">Rarest find</h2>
 <div id="homeRarest"></div>
 <dl class="stats" style="margin-top:18px">
 <div><dt>Rolls logged</dt><dd id="homeRolls">0</dd></div>
@@ -1523,6 +1594,7 @@ body.fx-warping .screen.active {
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
 </section>
 <aside class="roll-side">
+<div class="quark-box" title="Quarks can't be spent yet."><svg class="q-icon" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="4.5" fill="#f0c419"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="#f0c419" stroke-width="1.6"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="#f0c419" stroke-width="1.6" transform="rotate(60 16 16)"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="#f0c419" stroke-width="1.6" transform="rotate(120 16 16)"/></svg><div class="q-text"><span class="q-label">Quarks</span><strong id="quarkCount">0</strong><span class="q-note">Each roll earns its score ÷ 100</span></div></div>
 <h2 class="side-h">Current bonuses</h2>
 <dl class="stats" id="rollStats"></dl>
 <h2 class="side-h">How a roll works</h2>
@@ -1536,8 +1608,8 @@ body.fx-warping .screen.active {
 <main id="inventory" class="screen">
 <div class="page-head"><div><h1>Collection</h1><p class="sub">Every formula you have rolled, and the elements behind them.</p></div><button class="ghost" data-go="menu">Back</button></div>
 <section class="inventory-panel">
-<div class="tabs"><button class="tab active" data-tab="compounds">Rarest ten</button><button class="tab" data-tab="completionist">All elements</button></div>
-<div id="compoundView"><div class="toolbar"><span class="stat" id="collectionStats">0 rolls logged</span></div><div id="compoundGrid" class="rank-list"></div></div>
+<div class="tabs"><button class="tab active" data-tab="compounds">Top ten</button><button class="tab" data-tab="completionist">All elements</button></div>
+<div id="compoundView"><div class="rank-tabs"><button class="rank-tab active" data-rank="odds">Top 10 by odds</button><button class="rank-tab" data-rank="score">Top 10 by score</button></div><div class="toolbar"><span class="stat" id="collectionStats">0 rolls logged</span></div><div id="compoundGrid" class="rank-list"></div></div>
 <div id="completionView" style="display:none">
 <div class="toolbar"><strong id="elementStats">0 / 118 elements found</strong></div>
 <div class="periodic-wrap"><div class="periodic full" id="periodic"></div></div>
@@ -1557,62 +1629,63 @@ body.fx-warping .screen.active {
 </main>
 
 <main id="settings" class="screen">
-<div class="page-head"><div><h1>Settings</h1><p class="sub">Display, sound and saved progress.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<div class="page-head"><div><h1>Settings</h1><p class="sub">Display, sound and saved progress.</p></div><div class="head-right"><span class="ver" id="appVersion"></span><button class="ghost" data-go="menu">Back</button></div></div>
 <section class="inventory-panel">
 <div class="setting"><h3>Chain details</h3><div class="body"><p>Show how many elements were chained under each result.</p><select id="chainSetting"><option value="on" selected>Show chain details</option><option value="off">Result only</option></select></div></div>
+<div class="setting"><h3>Rarity display</h3><div class="body"><p>Show each roll's rarity as its odds, or as its score. Score is the base odds of every element in the roll added together.</p><select id="displaySetting"><option value="odds" selected>Odds</option><option value="score">Score</option></select></div></div>
 <div class="setting"><h3>Sound</h3><div class="body"><p>A soft tick while the reel spins and a chime on the result. Rarer results get a fuller chime. Sound starts after you press Roll.</p>
 <label class="check"><input type="checkbox" id="audioEnabled" checked>Play roll sounds</label>
-<p>Choose which rarity tiers get a sound and a full-screen effect.</p>
+<p>Choose which rarity tiers get a sound and a full-screen effect. Tiers are set by the roll's score.</p>
 <table class="tier-table"><thead><tr><th>Rarity</th><th>Sound</th><th>Effect</th></tr></thead><tbody>
 <tr>
-<td><b>Tier 1</b>1 in 10,000 to 1 in 100,000</td>
+<td><b>Tier 1</b>Score 10,000 to 30,000</td>
 <td><input type="checkbox" data-sound-tier="1" checked aria-label="Tier 1 sound"></td>
 <td><input type="checkbox" data-effect-tier="1" checked aria-label="Tier 1 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 2</b>1 in 100,000 to 1 in 1,000,000</td>
+<td><b>Tier 2</b>Score 30,000 to 100,000</td>
 <td><input type="checkbox" data-sound-tier="2" checked aria-label="Tier 2 sound"></td>
 <td><input type="checkbox" data-effect-tier="2" checked aria-label="Tier 2 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 3</b>1 in 1,000,000 to 1 in 10,000,000</td>
+<td><b>Tier 3</b>Score 100,000 to 250,000</td>
 <td><input type="checkbox" data-sound-tier="3" checked aria-label="Tier 3 sound"></td>
 <td><input type="checkbox" data-effect-tier="3" checked aria-label="Tier 3 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 4</b>1 in 10,000,000 to 1 in 100,000,000</td>
+<td><b>Tier 4</b>Score 250,000 to 500,000</td>
 <td><input type="checkbox" data-sound-tier="4" checked aria-label="Tier 4 sound"></td>
 <td><input type="checkbox" data-effect-tier="4" checked aria-label="Tier 4 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 5</b>1 in 100,000,000 to 1 in 1,000,000,000</td>
+<td><b>Tier 5</b>Score 500,000 to 1,000,000</td>
 <td><input type="checkbox" data-sound-tier="5" checked aria-label="Tier 5 sound"></td>
 <td><input type="checkbox" data-effect-tier="5" checked aria-label="Tier 5 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 6</b>1 in 1 billion to 1 in 10 billion</td>
+<td><b>Tier 6</b>Score 1,000,000 to 1,500,000</td>
 <td><input type="checkbox" data-sound-tier="6" checked aria-label="Tier 6 sound"></td>
 <td><input type="checkbox" data-effect-tier="6" checked aria-label="Tier 6 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 7</b>1 in 10 billion to 1 in 100 billion</td>
+<td><b>Tier 7</b>Score 1,500,000 to 3,000,000</td>
 <td><input type="checkbox" data-sound-tier="7" checked aria-label="Tier 7 sound"></td>
 <td><input type="checkbox" data-effect-tier="7" checked aria-label="Tier 7 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 8</b>1 in 100 billion to 1 in 1 trillion</td>
+<td><b>Tier 8</b>Score 3,000,000 to 12,000,000</td>
 <td><input type="checkbox" data-sound-tier="8" checked aria-label="Tier 8 sound"></td>
 <td><input type="checkbox" data-effect-tier="8" checked aria-label="Tier 8 effect"></td>
 </tr>
 <tr>
-<td><b>Tier 9</b>1 in 1 trillion and rarer</td>
+<td><b>Tier 9</b>Score 12,000,000 and above</td>
 <td><input type="checkbox" data-sound-tier="9" checked aria-label="Tier 9 sound"></td>
 <td><input type="checkbox" data-effect-tier="9" checked aria-label="Tier 9 effect"></td>
 </tr>
 </tbody></table></div></div>
 <div class="setting"><h3>Backup</h3><div class="body"><p>Save your progress to a file, or restore it from one.</p><div class="btn-row"><button class="ghost" id="exportBtn">Export save</button><button class="ghost" id="importBtn">Import save</button><input type="file" id="importFile" accept="application/json" hidden></div></div></div>
 <div class="setting"><h3>Start over</h3><div class="body"><p>Delete your collection, found elements and achievements. This cannot be undone.</p><button class="ghost" id="resetBtn">Reset all progress</button></div></div>
-<p class="footnote">Odds are always shown as base odds: the odds of each element and of that exact chain length before any luck, chain or other bonuses.</p>
+<p class="footnote">Odds and score are always worked out from base odds, before any luck, chain or other bonuses. Odds multiply each element's base odds, with ×8 for each chained element. Score adds the base odds together.</p>
 </section>
 </main>
 
@@ -2208,36 +2281,16 @@ function stopRollTicks() {
     }
 }
 // Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion.
-function getRarityTier(log) {
-    const r = -log;
-    if (r >= 12) {
-        return 9;
-    }
-    if (r >= 11) {
-        return 8;
-    }
-    if (r >= 10) {
-        return 7;
-    }
-    if (r >= 9) {
-        return 6;
-    }
-    if (r >= 8) {
-        return 5;
-    }
-    if (r >= 7) {
-        return 4;
-    }
-    if (r >= 6) {
-        return 3;
-    }
-    if (r >= 5) {
-        return 2;
-    }
-    if (r >= 4) {
-        return 1;
-    }
-    return 0;
+// Effect tiers are set by score: the base odds of every element in the roll added together.
+const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000];
+function getRarityTier(score) {
+    let t = 0;
+    TIER_SCORES.forEach((min, i) => {
+        if (score >= min) {
+            t = i + 1;
+        }
+    });
+    return t;
 }
 function getSfxBus(ctx) {
     if (ctx._bus) {
@@ -2478,12 +2531,12 @@ function playBuildup(tier, seconds) {
         playTone(ctx, 55, t, d, 0.05, 'sine', 90, 0.3, 0, d * 0.6);
     }
 }
-function playResultChime(log) {
+function playResultChime(score) {
     stopRollTicks();
     if (!$('audioEnabled').checked) {
         return;
     }
-    const tier = getRarityTier(log);
+    const tier = getRarityTier(score);
     if (tier > 0 && soundTiers[tier] === false) {
         const ctx = prepareAudio();
         if (ctx) {
@@ -2604,10 +2657,10 @@ function stopFx() {
     }
     document.body.classList.remove('fx-warping');
 }
-function fxBanner(ov, T, tier, log, delay, dur, topVh, calm) {
+function fxBanner(ov, T, tier, rec, delay, dur, topVh, calm) {
     const b = createFxElement(ov, 'fx-banner', 'top:' + topVh + 'vh');
     const fs = 'font-size:clamp(' + Math.round(20 + tier * 2.6) + 'px,' + (3 + tier * 0.55).toFixed(1) + 'vw,' + (30 + tier * 6) + 'px)';
-    b.innerHTML = '<small>Tier ' + tier + '</small><strong class="' + (tier === 9 ? 'iri' : '') + '" style="' + fs + '">' + T.name + '</strong><i></i><span>' + rarityText(log).replace('1/', '1 in ') + '</span>';
+    b.innerHTML = '<small>Tier ' + tier + '</small><strong class="' + (tier === 9 ? 'iri' : '') + '" style="' + fs + '">' + T.name + '</strong><i></i><span>' + (displayMode === 'score' ? 'Score ' + fmtScore(rec.score) : rarityText(rec.log).replace('1/', '1 in ')) + '</span>';
     animateFx(b, [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.78 }, { opacity: 0 }], { duration: dur, delay, easing: 'linear' });
     const q = s => b.querySelector(s);
     if (calm) {
@@ -2758,8 +2811,8 @@ function fxMotes(cv, o) {
         }
     })(t0);
 }
-function triggerRarityEffect(log) {
-    const tier = getRarityTier(log);
+function triggerRarityEffect(rec) {
+    const tier = getRarityTier(rec.score);
     if (!tier || rarityEffects[tier] === false) {
         return;
     }
@@ -2795,7 +2848,7 @@ function triggerRarityEffect(log) {
         const e = E('fx-fill', 'box-shadow:inset 0 0 0 1px ' + c + ',inset 0 0 90px 6px ' + c2);
         animateFx(e, [{ opacity: 0 }, { opacity: 0.8, offset: 0.15 }, { opacity: 0 }], { duration: 1600, easing: 'linear' });
         if (tier >= 3) {
-            fxBanner(ov, T, tier, log, 0, 2600, 14, true);
+            fxBanner(ov, T, tier, rec, 0, 2600, 14, true);
         }
         done();
         return;
@@ -2925,7 +2978,7 @@ function triggerRarityEffect(log) {
         });
     }
     if (tier >= 3) {
-        fxBanner(ov, T, tier, log, D + 250, Math.max(2200, T.ms - 600), bannerTop, false);
+        fxBanner(ov, T, tier, rec, D + 250, Math.max(2200, T.ms - 600), bannerTop, false);
     }
     const app = document.querySelector('.app');
     if (onGame && app) {
@@ -2988,7 +3041,7 @@ function warpFx(tok, delay, dur, peak, mode) {
         })(performance.now());
     }, delay);
 }
-function scanField(reel, syms, labels, logs, dur) {
+function scanField(reel, syms, labels, scores, dur) {
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -3015,7 +3068,7 @@ function scanField(reel, syms, labels, logs, dur) {
         syms.forEach((e, i) => e.style.fontSize = fsA[i] + 'px');
     }
     const ACC = ['#f0c419'].concat(RARITY_FX.slice(1).map(x => x.c));
-    const tiers = logs.map(getRarityTier);
+    const tiers = scores.map(getRarityTier);
     const tier = Math.max(...tiers);
     const acc = ACC[tier];
     const Pp = H * 0.9;
@@ -3239,7 +3292,7 @@ function addRecord(r) {
     x.count = (x.count || 1) + 1;
     if (r.log < x.log || !Number.isFinite(x.log)) {
         Object.assign(x, {
-            log: r.log, rarity: r.rarity, when: r.when, elements: r.elements, id: r.id, name: r.name
+            log: r.log, rarity: r.rarity, score: r.score, when: r.when, elements: r.elements, id: r.id, name: r.name
         });
     }
 }
@@ -3856,12 +3909,56 @@ function rarityText(log) {
     }
     return '≈ 1/' + value.toExponential(2).replace('+', '');
 }
+// Score = the base odds of every element in the roll added together.
+function rollScore(elements) {
+    return elements.reduce((sum, e) => sum + ELEMENTS[SYM_IDX[e[0]]][2], 0);
+}
+function fmtScore(n) {
+    return Math.round(n).toLocaleString('en-US');
+}
+let displayMode = 'odds';
+try {
+    displayMode = localStorage.getItem('elementalDisplay') === 'score' ? 'score' : 'odds';
+} catch (e) { }
+// The rarity shown for a record, as odds or score depending on the setting (or a forced mode).
+function rarityShown(rec, mode = displayMode) {
+    if (mode === 'score') {
+        return fmtScore(Number.isFinite(rec.score) ? rec.score : rollScore(rec.elements));
+    }
+    return Number.isFinite(rec.log) ? rarityText(rec.log) : (rec.rarity || '');
+}
+function rarityWord(mode = displayMode) {
+    return mode === 'score' ? 'Score' : 'Odds';
+}
+const APP_VERSION = '1.0';
+let quarks = 0;
+try {
+    quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
+} catch (e) { }
+function renderQuarks() {
+    const el = $('quarkCount');
+    if (el) {
+        el.textContent = quarks.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+}
+function addQuarks(n) {
+    quarks += n;
+    try {
+        localStorage.setItem('elementalQuarks', String(quarks));
+    } catch (e) { }
+    renderQuarks();
+}
 // Older saves stored buffed odds, so convert them back to base odds.
 (function () {
     let ch = false;
     collection.forEach(r => {
         if (!r || !Array.isArray(r.elements) || !r.elements.length) {
             return;
+        }
+        const sc = rollScore(r.elements);
+        if (r.score !== sc) {
+            r.score = sc;
+            ch = true;
         }
         const lg = exactRarity(r.elements, 0);
         if (Number.isFinite(lg) && r.log !== lg) {
@@ -3958,15 +4055,15 @@ function renderHome() {
     $('homeAch').textContent = unlockedAchievements.length + ' / ' + ACHIEVEMENTS.length;
     $('homeRolls').textContent = total.toLocaleString();
     $('homeChain').textContent = '1 in ' + (+s.chainDenom.toFixed(2));
-    const r = list[0];
+    $('homeRarestH').textContent = displayMode === 'score' ? 'Highest score' : 'Rarest find';
+    const r = (displayMode === 'score' ? scoreRanked() : list)[0];
     const box = $('homeRarest');
     if (!r) {
         box.innerHTML = '<p class="muted">Nothing logged yet. Roll once to start the log.</p>';
         return;
     }
     const rr = r.rarestRecord;
-    const odds = Number.isFinite(rr.log) ? rarityText(rr.log) : (rr.rarity || r.rarity);
-    box.innerHTML = `<div class="big-formula">${r.formula}</div><div class="big-name">${r.name}</div><div class="big-odds">Odds ${odds}</div>`;
+    box.innerHTML = `<div class="big-formula">${r.formula}</div><div class="big-name">${r.name}</div><div class="big-odds">${rarityWord()} ${rarityShown(rr)}</div>`;
 }
 function renderPeriodic() {
     const found = discoveredSymbols();
@@ -4001,12 +4098,15 @@ function groupedCollection() {
     const L = c => Number.isFinite(c.rarestRecord.log) ? c.rarestRecord.log : 0;
     return [...g.values()].sort((a, b) => L(a) - L(b));
 }
-function rankRow(c, rank) {
+function scoreRanked() {
+    return groupedCollection().map(c => ({ ...c, score: rollScore(c.elements) })).sort((a, b) => b.score - a.score);
+}
+function rankRow(c, rank, mode = displayMode) {
     const r = c.rarestRecord;
     const el = document.createElement('div');
     const joined = c.elements.map(e => e[1]).join(' + ');
     el.className = 'rank-row';
-    el.innerHTML = `<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}</div><div class="rank-name">${c.name}${c.elements.length > 1 && c.name !== joined ? ': ' + joined : ''}</div></div><div class="rank-odds"><b>${Number.isFinite(r.log) ? rarityText(r.log) : (r.rarity || c.rarity)}</b><span>× ${c.count.toLocaleString()}</span></div>`;
+    el.innerHTML = `<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}</div><div class="rank-name">${c.name}${c.elements.length > 1 && c.name !== joined ? ': ' + joined : ''}</div></div><div class="rank-odds"><b>${mode === 'score' ? 'Score ' + rarityShown(r, 'score') : rarityShown(r, 'odds')}</b><span>× ${c.count.toLocaleString()}</span></div>`;
     return el;
 }
 function compoundCard(c, rank) {
@@ -4026,8 +4126,14 @@ function renderInventory() {
         root.querySelector('[data-go]').addEventListener('click', () => go('game'));
         return;
     }
-    list.slice(0, 10).forEach((c, i) => root.appendChild(rankRow(c, i + 1)));
+    (rankMode === 'score' ? scoreRanked() : list).slice(0, 10).forEach((c, i) => root.appendChild(rankRow(c, i + 1, rankMode)));
 }
+let rankMode = 'odds';
+document.querySelectorAll('[data-rank]').forEach(b => b.addEventListener('click', () => {
+    rankMode = b.dataset.rank;
+    document.querySelectorAll('[data-rank]').forEach(x => x.classList.toggle('active', x === b));
+    renderInventory();
+}));
 let elemMode = 'start';
 function renderElemCompounds() {
     const root = $('elemCompounds');
@@ -4036,9 +4142,9 @@ function renderElemCompounds() {
     const found = discoveredSymbols().has(el[0]);
     const starts = c => (c.formula.match(/^[A-Z][a-z]?/) || [''])[0] === el[0];
     $('elemTitle').textContent = `${el[1]} (${el[0]})`;
-    $('elemSub').textContent = `${FAMILY_NAMES[familyOf(el[0])]}, atomic number ${ELEMENTS.indexOf(el) + 1}. Base odds 1 in ${el[2].toLocaleString()}. ${found ? 'Found.' : 'Not found yet.'}`;
-    const list = found ? groupedCollection().filter(c => elemMode === 'start' ? starts(c) : c.elements.some(x => x[0] === el[0])) : [];
-    root.innerHTML = `<div class="toolbar"><strong>${el[1]} finds, rarest first</strong><span class="stat">${list.length} found</span><button class="ghost" id="elemModeBtn">${elemMode === 'start' ? 'Formula starts with ' + el[0] : 'Formula contains ' + el[0]}</button></div><div class="rank-list" id="elemGrid"></div>`;
+    $('elemSub').textContent = `${FAMILY_NAMES[familyOf(el[0])]}, atomic number ${ELEMENTS.indexOf(el) + 1}. ${displayMode === 'score' ? 'Score ' + el[2].toLocaleString() : 'Base odds 1 in ' + el[2].toLocaleString()}. ${found ? 'Found.' : 'Not found yet.'}`;
+    const list = !found ? [] : (displayMode === 'score' ? scoreRanked() : groupedCollection()).filter(c => elemMode === 'start' ? starts(c) : c.elements.some(x => x[0] === el[0]));
+    root.innerHTML = `<div class="toolbar"><strong>${el[1]} finds, ${displayMode === 'score' ? 'highest score' : 'rarest'} first</strong><span class="stat">${list.length} found</span><button class="ghost" id="elemModeBtn">${elemMode === 'start' ? 'Formula starts with ' + el[0] : 'Formula contains ' + el[0]}</button></div><div class="rank-list" id="elemGrid"></div>`;
     $('elemModeBtn').onclick = () => {
         elemMode = elemMode === 'start' ? 'contains' : 'start';
         renderElemCompounds();
@@ -4086,7 +4192,7 @@ async function doRoll() {
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
             return {
-                elements, formula, log, rarity: rarityText(log)
+                elements, formula, log, rarity: rarityText(log), score: rollScore(elements)
             };
         });
         const cut = pickCutscene(rolls);
@@ -4094,8 +4200,8 @@ async function doRoll() {
             stopRollTicks();
             await playCutscene(cut.sym, reel, rolls.map(r => r.formula), cut.idx, syms);
         } else {
-            playBuildup(Math.max(...rolls.map(r => getRarityTier(r.log))), (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.log), delay);
+            playBuildup(Math.max(...rolls.map(r => getRarityTier(r.score))), (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
+            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -4103,13 +4209,13 @@ async function doRoll() {
             reel.classList.add('cut');
         }
         rolls.forEach((r, i) => {
-            const { elements, formula, log, rarity } = r;
+            const { elements, formula, log, rarity, score } = r;
             const card = cards[i];
             const names = elements.map(e => e[1]);
             const known = ACHIEVEMENTS.find(a => a.hill === formula);
             const name = elements.length === 1 ? elements[0][1] : (known ? known.name : names.join(' + '));
             const record = {
-                id: Date.now() + Math.random(), formula, name, elements, rarity, log, when: new Date().toISOString()
+                id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString()
             };
             addRecord(record);
             records.push(record);
@@ -4117,11 +4223,12 @@ async function doRoll() {
             checkAchievements(record);
             syms[i].textContent = formula;
             card.querySelector('.result-name').textContent = name;
-            card.querySelector('.rarity').textContent = 'Odds ' + rarity;
+            card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(record);
             card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
-            playResultChime(log);
+            playResultChime(score);
+            addQuarks(score / 100);
         });
-        triggerRarityEffect(Math.min(...rolls.map(r => r.log)));
+        triggerRarityEffect(rolls.reduce((a, b) => b.score > a.score ? b : a));
         stopRollTicks();
         $('rollToast').textContent = '';
         renderInventory();
@@ -4268,6 +4375,11 @@ $('resetBtn').addEventListener('click', () => {
         } catch (e) { }
         collection = [];
         save();
+        quarks = 0;
+        try {
+            localStorage.removeItem('elementalQuarks');
+        } catch (e) { }
+        renderQuarks();
         updateAutoBtn();
         unlockedAchievements = [];
         try {
@@ -4397,6 +4509,17 @@ document.addEventListener('keydown', e => {
 try {
     $('chainSetting').value = localStorage.getItem('elementalChain') || 'on';
 } catch (e) { }
+$('appVersion').textContent = 'Jamiemek - Elemental - version ' + APP_VERSION;
+$('displaySetting').value = displayMode;
+$('displaySetting').onchange = () => {
+    displayMode = $('displaySetting').value === 'score' ? 'score' : 'odds';
+    try {
+        localStorage.setItem('elementalDisplay', displayMode);
+    } catch (e) { }
+    renderInventory();
+    renderPeriodic();
+};
+renderQuarks();
 $('chainSetting').onchange = () => {
     try {
         localStorage.setItem('elementalChain', $('chainSetting').value);
