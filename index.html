@@ -2510,7 +2510,7 @@ body.fx-warping .screen.active {
 <div class="history" id="rollHistory"></div>
 <h2 class="side-h">How a roll works</h2>
 <p>Each element has its own odds. Rarer elements come up less often, and luck bonuses nudge the weighting toward them.</p>
-<p>After every element there is a 1 in 8 chance of adding another, up to 30. Some rare elements improve that to 1 in 3.</p>
+<p>After every element there is a 1 in 8 chance of adding another, up to 30. Four rare elements and four deep bond lines each improve that, up to 1 in 3.</p>
 <p>A chain is written as one formula in Hill order: carbon first, then hydrogen, then the rest alphabetically.</p>
 </aside>
 </div>
@@ -5152,21 +5152,21 @@ document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click',
     }
 }));
 // Exactly three elements grant an extra roll per click.
-const EXTRA_ROLL_SYMBOLS = new Set(['Tc', 'Fr', 'Lr']);
-const CHAIN_SYMBOLS = new Set(['Xe', 'Ir', 'Rn', 'U', 'Og', 'Tb', 'Ra', 'Ds']);
-const AUTO_UNLOCK_SYMBOL = 'Ru';
+const EXTRA_ROLL_SYMBOLS = new Set(['Ho']);
+const CHAIN_SYMBOLS = new Set(['Rn', 'Bk', 'Ds', 'Og']);
+const AUTO_UNLOCK_SYMBOL = 'Pt';
 const AUTO_TIME_SYMBOLS = new Set(['Cs', 'Sm', 'Os', 'Tm', 'Ac']);
 const AUTO_COOL_SYMBOLS = new Set(['Pr', 'Lu', 'Rh', 'Pa', 'Po']);
 // Autoroll waits AUTO_BASE_GAP seconds between rolls; autoroll speed shortens the wait,
 // down to AUTO_MIN_GAP (the old back-to-back pace), which is the fastest it can go.
 const AUTO_BASE_GAP = 5;
 const AUTO_MIN_GAP = 0.5;
-const AUTO_SPEED_STEP = 30;
+const AUTO_SPEED_STEP = 10;
 function buildBuffs() {
     const raw = e => Math.log10(e[2] + 1) + 0.5;
     const kind = (e, i) => EXTRA_ROLL_SYMBOLS.has(e[0]) ? 'extra' : CHAIN_SYMBOLS.has(e[0]) ? 'chain' : e[0] === AUTO_UNLOCK_SYMBOL ? 'autounlock' : AUTO_TIME_SYMBOLS.has(e[0]) || AUTO_COOL_SYMBOLS.has(e[0]) ? 'autospeed' : i % 4 === 1 ? 'speed' : 'luck';
     const sum = { speed: 0, luck: 0 };
-    const goal = { speed: 400, luck: 150 };
+    const goal = { speed: 200, luck: 100 };
     ELEMENTS.forEach((e, i) => {
         const k = kind(e, i);
         if (k in sum) {
@@ -5179,7 +5179,7 @@ function buildBuffs() {
             return [
                 e[0],
                 {
-                    type: 'extra', value: 1, desc: 'Bonus roll +1: every click launches one separate additional roll, with its own independent chance of a chain reaction. Stacks with the other two bonus-roll elements.'
+                    type: 'extra', value: 1, desc: 'Bonus roll +1: every click launches one separate additional roll, with its own independent chance of a chain reaction. Two more bonus rolls come from deep lines in the bond network, for a maximum of three.'
                 }
             ];
         }
@@ -5187,7 +5187,7 @@ function buildBuffs() {
             return [
                 e[0],
                 {
-                    type: 'chain', value: 1, desc: 'Chain chance +1 step: makes chain reactions more likely. Eight of these rare buffs improve the odds from 1 in 8 to 1 in 3.'
+                    type: 'chain', value: 1, desc: 'Chain chance +1 step: makes chain reactions more likely. Four rare elements and four deep bond lines each give a step, together taking the odds from 1 in 8 to 1 in 3.'
                 }
             ];
         }
@@ -5226,14 +5226,21 @@ function discoveredSymbols() {
 // so roll totals, finds and records never change).
 // ---------------------------------------------------------------------------
 const NET_SEED = 20261021;
+const NET_QTY = 23;
+const NET_FAM_QTY = 23;
+const NET_QTY_GROWTH = 1.42;
+// how strongly each line buff is weighted toward the outer rings
+const NET_WEIGHT = { luck: 2.5, auto: 1.6, price: 0.6, refresh: 0.6, stock: 0.6 };
 const NET_RINGS = 24;
 const NET_STEP = 130;
 const NET_MIN_GAP = 74;
 const NET_TOTALS = {
-    luck: 80, auto: 600, price: 30, refresh: 8, stock: 60
+    luck: 120, auto: 800, price: 30, refresh: 8, stock: 60
 };
-const NET_MULTS = [1.04, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12];
+const NET_MULTS = [1.04, 1.05, 1.06, 1.08, 1.1, 1.2, 1.35, 1.5];
 const NET_SLOT_RINGS = [4, 10, 17];
+const NET_CHAIN_RINGS = [13, 17, 20, 23];
+const NET_EXTRA_RINGS = [10, 15];
 const NET_RING_COL = ['#f0c419', '#7ddc5a', '#7ddc5a', '#7ddc5a', '#2fe0b0', '#2fe0b0', '#2fe0b0', '#35d0e0', '#35d0e0', '#35d0e0', '#5aa8ff', '#5aa8ff', '#5aa8ff', '#9b8cff', '#9b8cff', '#9b8cff', '#c77dff', '#e060ff', '#e060ff', '#ff5a8a', '#ff5a8a', '#ff7a5a', '#ff7a5a', '#ffb35a', '#ffe08a'];
 const FAMILY_ONE = {
     alkali: 'alkali metal', alkaline: 'alkaline earth metal', transition: 'transition metal', post: 'post-transition metal', metalloid: 'metalloid', nonmetal: 'nonmetal', halogen: 'halogen', noble: 'noble gas', lanth: 'lanthanide', actin: 'actinide', unknown: 'superheavy'
@@ -5336,11 +5343,11 @@ function genNetwork() {
             n.req = { t: 'el', k: pickEl(r, 0.55, 1), n: 1 };
         } else if (roll < 0.6) {
             const k = pickEl(Math.max(1, r * 0.45), 0, 0.6);
-            n.req = { t: 'el', k, n: Math.max(2, Math.round(3 * Math.pow(1.42, rr) / Math.pow(ELEMENTS.find(e => e[0] === k)[2], 0.55))) };
+            n.req = { t: 'el', k, n: Math.max(2, Math.round(NET_QTY * 3 * Math.pow(NET_QTY_GROWTH, rr) / Math.pow(ELEMENTS.find(e => e[0] === k)[2], 0.55))) };
         } else if (roll < 0.74 && r >= 2) {
             const ok = fams.filter(f => famMin(f) <= Math.pow(10, 1 + rr * 0.33));
             const f = ok[Math.floor(rnd() * ok.length)];
-            n.req = { t: 'fam', k: f, n: Math.max(1, Math.round(Math.pow(1.3, rr) / Math.pow(famMin(f), 0.3))) };
+            n.req = { t: 'fam', k: f, n: Math.max(1, Math.round(NET_FAM_QTY * Math.pow(1.3, rr) / Math.pow(famMin(f), 0.3))) };
         } else if (roll < 0.9 && r >= 3) {
             const span = comps.length;
             const at = Math.min(span - 1, Math.floor(Math.pow((r - 2) / (NET_RINGS - 2), 1.1) * span * (0.6 + rnd() * 0.4)));
@@ -5360,17 +5367,40 @@ function genNetwork() {
             ringFirst[r] = i;
         }
     });
-    edges.forEach((e, i) => {
-        const r = e.ring;
-        const keyRing = r >= 3 && r % 3 === 0 && ringFirst[r] === i;
-        if (keyRing) {
-            e.kind = 'mult';
-            e.val = NET_MULTS[r / 3 - 1];
-            return;
+    // The big rewards (luck multipliers, bonus rolls, chain steps, shop slots) sit behind the
+    // hardest grind in their ring: the line leading to that ring's largest quantity slot.
+    const grind = n => {
+        const q = n.req;
+        return q.t === 'el' ? q.n * ELEMENTS.find(x => x[0] === q.k)[2] : q.t === 'fam' ? q.n * 60 : 0;
+    };
+    const used = new Set();
+    const special = (r, kind, val) => {
+        let best = -1;
+        let bc = -1;
+        edges.forEach((e, i) => {
+            if (e.ring !== r || used.has(i)) {
+                return;
+            }
+            const c = grind(nodes[nodes[e.a].ring >= nodes[e.b].ring ? e.a : e.b]);
+            if (c > bc) {
+                bc = c;
+                best = i;
+            }
+        });
+        if (best >= 0) {
+            used.add(best);
+            edges[best].kind = kind;
+            edges[best].val = val;
         }
-        if (NET_SLOT_RINGS.includes(r) && ringFirst[r] + 1 === i) {
-            e.kind = 'slot';
-            e.val = 1;
+    };
+    for (let r = 3; r <= NET_RINGS; r += 3) {
+        special(r, 'mult', NET_MULTS[r / 3 - 1]);
+    }
+    NET_EXTRA_RINGS.forEach(r => special(r, 'extra', 1));
+    NET_CHAIN_RINGS.forEach(r => special(r, 'chain', 1));
+    NET_SLOT_RINGS.forEach(r => special(r, 'slot', 1));
+    edges.forEach((e, i) => {
+        if (used.has(i)) {
             return;
         }
         const x = rnd();
@@ -5378,9 +5408,9 @@ function genNetwork() {
     });
     ['luck', 'auto', 'price', 'refresh', 'stock'].forEach(kind => {
         const list = edges.filter(e => e.kind === kind);
-        const wsum = list.reduce((s, e) => s + Math.pow(e.ring, 0.6), 0);
+        const wsum = list.reduce((s, e) => s + Math.pow(e.ring, NET_WEIGHT[kind]), 0);
         const dp = kind === 'auto' ? 10 : 100;
-        list.forEach(e => e.val = Math.max(1 / dp, Math.round(NET_TOTALS[kind] * Math.pow(e.ring, 0.6) / wsum * dp) / dp));
+        list.forEach(e => e.val = Math.max(1 / dp, Math.round(NET_TOTALS[kind] * Math.pow(e.ring, NET_WEIGHT[kind]) / wsum * dp) / dp));
     });
     const adj = nodes.map(() => []);
     edges.forEach((e, i) => {
@@ -5396,7 +5426,7 @@ const netFilled = id => !!netState[id];
 const edgeLit = e => netFilled(e.a) && netFilled(e.b);
 function edgeDesc(e) {
     const v = e.val;
-    return e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot';
+    return e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot';
 }
 function reqText(q) {
     const n = q.n > 1 ? q.n + ' ' : '';
@@ -5495,7 +5525,7 @@ function fillSlot(id) {
 // totals from every lit line
 function bondBonus() {
     const r = {
-        add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0
+        add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0
     };
     net().edges.forEach(e => {
         if (!edgeLit(e)) {
@@ -5629,12 +5659,12 @@ function netDraw() {
         if (on) {
             lit.push([ax, ay, bx, by, ringCol(e.ring)]);
         } else {
-            const p = e.kind === 'mult' || e.kind === 'slot' || far ? solid : dashed;
+            const p = e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain' || far ? solid : dashed;
             p.moveTo(ax, ay);
             p.lineTo(bx, by);
         }
         if (z > 0.8) {
-            const relevant = on || netFilled(e.a) || netFilled(e.b) || e.kind === 'mult' || e.kind === 'slot';
+            const relevant = on || netFilled(e.a) || netFilled(e.b) || e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain';
             const mx = (ax + bx) / 2;
             const my = (ay + by) / 2;
             if ((relevant || z > 1.6) && vis(mx, my)) {
@@ -5673,7 +5703,7 @@ function netDraw() {
             const w = g.measureText(txt).width + 10;
             g.fillStyle = 'rgba(10,16,14,.85)';
             g.fillRect(mx - w / 2, my - 9 * k, w, 18 * k);
-            g.fillStyle = on ? ringCol(e.ring) : (e.kind === 'mult' || e.kind === 'slot') ? '#f0c419' : 'rgba(232,239,233,.55)';
+            g.fillStyle = on ? ringCol(e.ring) : (e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain') ? '#f0c419' : 'rgba(232,239,233,.55)';
             g.fillText(txt, mx, my + 0.5);
         });
     }
@@ -5933,7 +5963,7 @@ function netJump() {
 }
 function netTotalsHtml() {
     const b = bondBonus();
-    const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots]];
+    const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots], ['Bonus rolls', '+' + b.extra], ['Chain steps', '+' + b.chain]];
     return rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
 }
 // tapping a slot fills it straight away when you can; otherwise the slot flashes red
@@ -6111,7 +6141,7 @@ const CATALYSTS = [
     { id: 'post', name: 'Post-transition Catalyst', tier: 1, min: 15, fx: { fam: 'post', pct: 200 }, price: 70 },
     { id: 'kindling', name: 'Kindling', tier: 1, min: 15, fx: { luck: 60 }, price: 120 },
     { id: 'accelerant', name: 'Accelerant', tier: 1, min: 15, fx: { speed: 25 }, price: 60 },
-    { id: 'primer', name: 'Chain Primer', tier: 1, min: 15, fx: { chain: 2 }, price: 100 },
+    { id: 'primer', name: 'Chain Primer', tier: 1, min: 15, fx: { chain: 1 }, price: 100 },
     { id: 'lanth', name: 'Lanthanide Catalyst', tier: 2, min: 20, fx: { fam: 'lanth', pct: 300 }, price: 500 },
     { id: 'actin', name: 'Actinide Catalyst', tier: 2, min: 20, fx: { fam: 'actin', pct: 300 }, price: 800 },
     { id: 'ignition', name: 'Ignition', tier: 2, min: 20, fx: { luck: 150 }, price: 700 },
@@ -6125,10 +6155,10 @@ const CATALYSTS = [
     { id: 'storm', name: 'Chain Storm', tier: 4, min: 30, fx: { chainMax: true }, price: 25000 },
     { id: 'engine', name: 'Quark Engine', tier: 4, min: 60, fx: { quark: 400 }, price: 30000 },
     { id: 'prism', name: 'Focus Prism', tier: 4, rolls: 1, fx: { rollLuck: 1500 }, price: 40000 },
-    { id: 'fusion', name: 'Fusion Core', tier: 5, min: 30, fx: { luck: 1000 }, price: 400000 },
-    { id: 'horizon', name: 'Event Horizon', tier: 5, rolls: 1, fx: { rollLuck: 3000 }, price: 250000 },
-    { id: 'singularity', name: 'Singularity', tier: 6, rolls: 1, fx: { rollLuck: 10000 }, price: 2500000 },
-    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 2000000 }
+    { id: 'fusion', name: 'Fusion Core', tier: 5, min: 30, fx: { luck: 600 }, price: 220000 },
+    { id: 'horizon', name: 'Event Horizon', tier: 5, rolls: 1, fx: { rollLuck: 3000 }, price: 160000 },
+    { id: 'singularity', name: 'Singularity', tier: 6, rolls: 1, fx: { rollLuck: 10000 }, price: 500000 },
+    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 400000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
 function catEffect(c) {
@@ -6146,13 +6176,13 @@ function catEffect(c) {
         return `+${f.speed}% scanner speed`;
     }
     if (f.chain) {
-        return 'Chain chance one step better (1 in 8 to 1 in 6 at base)';
+        return 'Chain chance one step better (1 in 8 to 1 in 7 at base, never past 1 in 3)';
     }
     if (f.chainMax) {
         return 'Chain chance at its maximum, 1 in 3';
     }
     if (f.extra) {
-        return '+1 bonus roll on every roll, past the usual 3';
+        return '+1 bonus roll on every roll, up to the maximum of 3';
     }
     if (f.linked) {
         return 'Each roll chains at least once';
@@ -6584,9 +6614,9 @@ function computeBuffs() {
     });
     const bd = bondBonus();
     const cb = catBonus();
-    const denom = Math.max(3, 8 - 0.625 * Math.min(8, chainSteps));
+    const denom = Math.max(3, 8 - 0.625 * Math.min(8, chainSteps + bd.chain));
     return {
-        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra) + cb.extra, chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark, exp: catNextExpiry()
+        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark, exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
@@ -6674,6 +6704,12 @@ function rarityText(log) {
     }
     return '≈ 1/' + value.toExponential(2).replace('+', '');
 }
+// Quarks earned by one roll: grows with the roll's score, but gently, so rare rolls
+// pay well without one lucky roll buying out the shop.
+const QUARK_RATE = 0.1;
+function quarksFor(score, mult) {
+    return Math.sqrt(score) * QUARK_RATE * mult;
+}
 // Score = the base odds of every element in the roll added together.
 function rollScore(elements) {
     return elements.reduce((sum, e) => sum + ELEMENTS[SYM_IDX[e[0]]][2], 0);
@@ -6695,7 +6731,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.5';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -7106,7 +7142,7 @@ async function doRoll() {
                 card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
             }
             playResultChime(score, secret && i === bestIdx);
-            addQuarks(score / 100 * (1 + (buffs.quark || 0) / 100));
+            addQuarks(quarksFor(score, 1 + (buffs.quark || 0) / 100));
         });
         if (multi) {
             showMultiRoll(col, records, feat, bestIdx, false);
@@ -7119,7 +7155,7 @@ async function doRoll() {
         renderPeriodic();
         if (!buffs.autoUnlocked && activeBuffStats().autoUnlocked) {
             setTimeout(() => showAchievementToast({
-                kicker: 'New feature', name: 'Autoroll unlocked', flavor: 'Ruthenium discovered: autoroll is now available on the roll screen, and stays on until you switch it off.'
+                kicker: 'New feature', name: 'Autoroll unlocked', flavor: elementBySymbol[AUTO_UNLOCK_SYMBOL][1] + ' discovered: autoroll is now available on the roll screen, and stays on until you switch it off.'
             }), 1800);
         }
     } finally {
