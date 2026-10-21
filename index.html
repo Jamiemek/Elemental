@@ -1495,60 +1495,75 @@ body.fx-warping .screen.active {
 }
 .quark-box {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 14px;
-  padding: 12px 16px;
-  margin-bottom: 22px;
-  background: var(--readout);
-  color: #eef3ef;
-  border-left: 5px solid var(--hazard);
-}
-.quark-box .q-icon {
-  width: 30px;
-  height: 30px;
-  flex: none;
-}
-.quark-box .q-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.quark-box .q-label {
-  font-family: var(--head);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--hazard);
-}
-.quark-box strong {
-  font-family: var(--head);
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-}
-.quark-box .q-note {
-  font-size: 12px;
-  opacity: .65;
-}
-.rank-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.rank-tab {
-  padding: 6px 14px;
-  background: none;
+  padding: 10px 14px;
+  background: var(--panel);
   border: 2px solid var(--ink);
+  box-shadow: inset 6px 0 var(--hazard);
+}
+.quark-box span {
   font-family: var(--head);
   font-size: 15px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ink-2);
+}
+.quark-box strong {
+  font-family: var(--head);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rank-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 .rank-tab.active {
   background: var(--ink);
-  color: var(--panel);
+  color: var(--bench);
+}
+.history {
+  max-height: 340px;
+  overflow-y: auto;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+}
+.history-row {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 10px;
+}
+.history-row:nth-child(even) {
+  background: var(--band);
+}
+.history-row .h-num {
+  font-family: var(--head);
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  min-width: 3.2em;
+}
+.history-row .h-formula {
+  font-family: var(--head);
+  font-weight: 700;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.history-row .h-val {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 14px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.history .empty-line {
+  padding: 12px 10px;
+  color: var(--ink-2);
+  font-size: 15px;
 }
 </style>
 </head>
@@ -1594,9 +1609,12 @@ body.fx-warping .screen.active {
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
 </section>
 <aside class="roll-side">
-<div class="quark-box" title="Quarks can't be spent yet."><svg class="q-icon" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="4.5" fill="#f0c419"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="#f0c419" stroke-width="1.6"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="#f0c419" stroke-width="1.6" transform="rotate(60 16 16)"/><ellipse cx="16" cy="16" rx="13" ry="5" fill="none" stroke="#f0c419" stroke-width="1.6" transform="rotate(120 16 16)"/></svg><div class="q-text"><span class="q-label">Quarks</span><strong id="quarkCount">0</strong><span class="q-note">Each roll earns its score ÷ 100</span></div></div>
+<h2 class="side-h">Quarks</h2>
+<div class="quark-box" title="Each roll earns its score ÷ 100"><span>Balance</span><strong id="quarkCount">0</strong></div>
 <h2 class="side-h">Current bonuses</h2>
 <dl class="stats" id="rollStats"></dl>
+<h2 class="side-h">Last 1,000 rolls</h2>
+<div class="history" id="rollHistory"></div>
 <h2 class="side-h">How a roll works</h2>
 <p>Each element has its own odds. Rarer elements come up less often, and luck bonuses nudge the weighting toward them.</p>
 <p>After every element there is a 1 in 8 chance of adding another, up to 30. Some rare elements improve that to 1 in 3.</p>
@@ -1609,7 +1627,7 @@ body.fx-warping .screen.active {
 <div class="page-head"><div><h1>Collection</h1><p class="sub">Every formula you have rolled, and the elements behind them.</p></div><button class="ghost" data-go="menu">Back</button></div>
 <section class="inventory-panel">
 <div class="tabs"><button class="tab active" data-tab="compounds">Top ten</button><button class="tab" data-tab="completionist">All elements</button></div>
-<div id="compoundView"><div class="rank-tabs"><button class="rank-tab active" data-rank="odds">Top 10 by odds</button><button class="rank-tab" data-rank="score">Top 10 by score</button></div><div class="toolbar"><span class="stat" id="collectionStats">0 rolls logged</span></div><div id="compoundGrid" class="rank-list"></div></div>
+<div id="compoundView"><div class="rank-tabs"><button class="ghost rank-tab active" data-rank="odds">Top 10 by odds</button><button class="ghost rank-tab" data-rank="score">Top 10 by score</button></div><div class="toolbar"><span class="stat" id="collectionStats">0 rolls logged</span></div><div id="compoundGrid" class="rank-list"></div></div>
 <div id="completionView" style="display:none">
 <div class="toolbar"><strong id="elementStats">0 / 118 elements found</strong></div>
 <div class="periodic-wrap"><div class="periodic full" id="periodic"></div></div>
@@ -3948,6 +3966,32 @@ function addQuarks(n) {
     } catch (e) { }
     renderQuarks();
 }
+// The most recent rolls, newest first: { n: roll number, f: formula, l: odds log, s: score }.
+const HISTORY_MAX = 1000;
+let rollHistory = [];
+try {
+    rollHistory = JSON.parse(localStorage.getItem('elementalHistory') || '[]');
+} catch (e) { }
+function addHistory(rec, n) {
+    rollHistory.unshift({ n, f: rec.formula, l: rec.log, s: rec.score });
+    if (rollHistory.length > HISTORY_MAX) {
+        rollHistory.length = HISTORY_MAX;
+    }
+    try {
+        localStorage.setItem('elementalHistory', JSON.stringify(rollHistory));
+    } catch (e) { }
+}
+function renderHistory() {
+    const el = $('rollHistory');
+    if (!el) {
+        return;
+    }
+    if (!rollHistory.length) {
+        el.innerHTML = '<div class="empty-line">Your rolls will be listed here.</div>';
+        return;
+    }
+    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula">${h.f}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
+}
 // Older saves stored buffed odds, so convert them back to base odds.
 (function () {
     let ch = false;
@@ -4218,6 +4262,7 @@ async function doRoll() {
                 id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString()
             };
             addRecord(record);
+            addHistory(record, collection.reduce((n, c) => n + (c.count || 1), 0));
             records.push(record);
             save();
             checkAchievements(record);
@@ -4228,6 +4273,7 @@ async function doRoll() {
             playResultChime(score);
             addQuarks(score / 100);
         });
+        renderHistory();
         triggerRarityEffect(rolls.reduce((a, b) => b.score > a.score ? b : a));
         stopRollTicks();
         $('rollToast').textContent = '';
@@ -4378,8 +4424,11 @@ $('resetBtn').addEventListener('click', () => {
         quarks = 0;
         try {
             localStorage.removeItem('elementalQuarks');
+            localStorage.removeItem('elementalHistory');
         } catch (e) { }
         renderQuarks();
+        rollHistory = [];
+        renderHistory();
         updateAutoBtn();
         unlockedAchievements = [];
         try {
@@ -4518,8 +4567,10 @@ $('displaySetting').onchange = () => {
     } catch (e) { }
     renderInventory();
     renderPeriodic();
+    renderHistory();
 };
 renderQuarks();
+renderHistory();
 $('chainSetting').onchange = () => {
     try {
         localStorage.setItem('elementalChain', $('chainSetting').value);
