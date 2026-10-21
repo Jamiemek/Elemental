@@ -268,7 +268,7 @@ p {
   justify-content: space-between;
   align-items: baseline;
   width: 100%;
-  padding: 12px 6px;
+  padding: 12px 10px 12px 14px;
   background: none;
   border: 0;
   border-bottom: 1px solid var(--soft);
@@ -512,10 +512,25 @@ p {
 }
 .roll-controls {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   align-items: center;
   margin-top: 24px;
+}
+.roll-controls #rollBtn {
+  width: 160px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+.roll-controls .ghost {
+  padding: 8px 13px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.roll-controls #autoRollBtn {
+  min-width: 150px;
 }
 #autoHint {
   margin-top: 10px;
@@ -972,6 +987,119 @@ input[type=checkbox] {
   100% {
     transform: none;
     filter: none;
+  }
+}
+/* multiroll: one featured result and a strip of every roll */
+.reel.multi .mr-main {
+  margin-bottom: 70px;
+  white-space: nowrap;
+  padding: 0;
+}
+.reel.multi .mr-main.swap {
+  animation: mrSwap .28s ease-out;
+}
+@keyframes mrSwap {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.mr-strip {
+  position: absolute;
+  left: 38px;
+  right: 38px;
+  bottom: 22px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.mr-chip {
+  position: relative;
+  flex: 1 1 0;
+  max-width: 128px;
+  min-width: 0;
+  height: 52px;
+  padding: 0 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  color: #eef3ef;
+  font-family: var(--head);
+  cursor: pointer;
+}
+.mr-chip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(8,13,11,.55);
+  border: 1px solid rgba(232,239,233,.16);
+  box-shadow: inset 0 2px 0 var(--tc,transparent);
+  transition: border-color .15s, background .15s;
+}
+.mr-chip:hover::before {
+  border-color: rgba(232,239,233,.4);
+}
+.mr-chip.sel::before {
+  border-color: var(--hazard);
+  background: rgba(240,196,25,.1);
+}
+.mr-chip b,
+.mr-chip span {
+  position: relative;
+  max-width: 100%;
+  white-space: nowrap;
+  line-height: 1;
+}
+.mr-chip b {
+  font-size: 18px;
+  font-weight: 700;
+}
+.mr-chip span {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(232,239,233,.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mr-chip.best span {
+  color: var(--hazard);
+}
+.reel.multi.rolling .mr-chip::before,
+.reel.multi.rolling .mr-chip > * {
+  opacity: 0;
+}
+.reel.multi.reveal .mr-chip::before {
+  animation: mrChip .4s cubic-bezier(.2,.8,.2,1) both;
+  animation-delay: calc(var(--k) * 70ms);
+}
+.reel.multi.reveal .mr-chip span,
+.reel.multi.reveal .mr-chip.feat b {
+  animation: mrFade .35s ease-out both;
+  animation-delay: calc(var(--k) * 70ms + 140ms);
+}
+@keyframes mrChip {
+  from { opacity: 0; transform: scaleY(.4); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mrFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (max-width:600px) {
+  .mr-strip {
+    left: 32px;
+    right: 32px;
+    bottom: 18px;
+    gap: 4px;
+  }
+  .mr-chip {
+    height: 46px;
+  }
+  .reel.multi .mr-main {
+    margin-bottom: 60px;
   }
 }
 .reel .slots {
@@ -1728,7 +1856,7 @@ body.fx-warping .screen.active {
 :root[data-theme="dark"] .nav-row:hover {
   background: var(--band);
   color: var(--ink);
-  box-shadow: inset 5px 0 var(--hazard);
+  box-shadow: inset 3px 0 var(--hazard);
 }
 :root[data-theme="dark"] .topband {
   border-bottom: 1px solid var(--soft);
@@ -2063,15 +2191,22 @@ body.fx-warping .screen.active {
 .roll-bonds.alert {
   border-color: var(--hazard);
   color: var(--ink);
+}
+.roll-bonds.alert::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  box-shadow: 0 0 12px 1px rgba(240,196,25,.7);
   animation: bonds-glow 1.6s ease-in-out infinite;
 }
 .roll-bonds.alert::after {
   content: "!";
   position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 20px;
-  height: 20px;
+  top: -11px;
+  right: -11px;
+  width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
   background: var(--hazard);
@@ -2082,13 +2217,13 @@ body.fx-warping .screen.active {
   line-height: 1;
 }
 @keyframes bonds-glow {
-  0%, 100% { box-shadow: 0 0 0 1px var(--hazard), 0 0 6px rgba(240,196,25,.35); }
-  50% { box-shadow: 0 0 0 2px var(--hazard), 0 0 18px rgba(240,196,25,.75); }
+  0%, 100% { opacity: .35; }
+  50% { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .roll-bonds.alert {
+  .roll-bonds.alert::before {
     animation: none;
-    box-shadow: 0 0 0 2px var(--hazard), 0 0 12px rgba(240,196,25,.6);
+    opacity: .8;
   }
 }
 #autoRollBtn.auto-on {
@@ -2097,7 +2232,7 @@ body.fx-warping .screen.active {
   border-color: var(--hazard);
 }
 #autoRollBtn.auto-on:hover {
-  background: var(--ink);
+  background: var(--night);
   color: var(--hazard);
 }
 /* catalyst inventory */
@@ -4734,7 +4869,7 @@ function warpFx(tok, delay, dur, peak, mode) {
         })(performance.now());
     }, delay);
 }
-function scanField(reel, syms, labels, scores, dur) {
+function scanField(reel, syms, labels, scores, dur, targets) {
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -4752,12 +4887,12 @@ function scanField(reel, syms, labels, scores, dur) {
     const fam = cs.fontFamily;
     const base = Math.min(parseFloat(cs.fontSize) || 80, N > 1 ? 84 : 999);
     g.font = '700 ' + base + 'px ' + fam;
-    const fsA = labels.map(l => {
+    const fsA = targets ? targets.map(t => t.fs) : labels.map(l => {
         const room = W / N - (N > 1 ? 24 : 30);
         const tw = g.measureText(l).width;
         return tw > room ? base * room / tw : base;
     });
-    if (N > 1) {
+    if (N > 1 && !targets) {
         syms.forEach((e, i) => e.style.fontSize = fsA[i] + 'px');
     }
     const ACC = ['#f0c419'].concat(RARITY_FX.slice(1).map(x => x.c));
@@ -4849,8 +4984,8 @@ function scanField(reel, syms, labels, scores, dur) {
             const st = 0.45 + 0.55 * sm((u - 0.55) / 0.1);
             T.forEach((tg, i) => {
                 const [px, py] = pr(tg.x, tg.y, dt);
-                const sx = px + (W * (i + 0.5) / N - px) * w2;
-                const sy = py + (H / 2 - py) * w2;
+                const sx = px + ((targets ? targets[i].x : W * (i + 0.5) / N) - px) * w2;
+                const sy = py + ((targets ? targets[i].y : H / 2) - py) * w2;
                 const sz = fsA[i] * st / dt;
                 const o = i * 40;
                 const ac = ACC[tiers[i]];
@@ -6826,6 +6961,44 @@ function renderElemCompounds() {
 $('elemBack').addEventListener('click', () => go(elemReturn || 'inventory'));
 $('achievementSearch').addEventListener('input', renderAchievements);
 $('achievementFilter').addEventListener('change', renderAchievements);
+// shrink an element's font so `text` fits in `room` pixels
+function fitText(el, text, room, base) {
+    const cs = getComputedStyle(el);
+    const b = base || parseFloat(cs.fontSize) || 80;
+    const m = fitText.c || (fitText.c = document.createElement('canvas').getContext('2d'));
+    m.font = cs.fontWeight + ' ' + b + 'px ' + cs.fontFamily;
+    const w = m.measureText(text).width;
+    el.style.fontSize = (w > room ? Math.max(9, b * room / w) : b) + 'px';
+}
+const MR_TIER_COL = ['rgba(232,239,233,.35)', '#7cc8ff', '#5eead4', '#b39dff', '#f78fd8', '#ffd166', '#ff9a5c', '#ff5d7a', '#c9b8ff', '#fff6d6'];
+// multiroll: show one roll large with its details; the strip picks which
+function showMultiRoll(col, records, i, best, swap) {
+    const r = records[i];
+    const main = col.querySelector('.mr-main');
+    const card = col.querySelector('.result-card');
+    const reel = col.querySelector('.reel');
+    if (swap && main.textContent !== r.formula) {
+        main.classList.remove('swap');
+        void main.offsetWidth;
+        main.classList.add('swap');
+    }
+    main.textContent = r.formula;
+    fitText(main, r.formula, reel.clientWidth - 48, parseFloat(getComputedStyle(reel).getPropertyValue('--mr-fs')) || undefined);
+    col.querySelectorAll('.mr-chip').forEach((c, k) => c.classList.toggle('sel', k === i));
+    card.querySelector('.eyebrow').textContent = `Roll ${i + 1} of ${records.length}` + (i === best ? ' · best' : '');
+    card.querySelector('.result-name').textContent = r.name;
+    card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(r);
+    card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : r.elements.length > 1 ? `${r.elements.length} elements chained` : 'No chain';
+    col._mr = { records, best };
+}
+$('rollResults').addEventListener('click', e => {
+    const c = e.target.closest('.mr-chip');
+    const col = c && c.closest('.roll-result-column');
+    if (!c || !col || !col._mr || col.querySelector('.reel.rolling')) {
+        return;
+    }
+    showMultiRoll(col, col._mr.records, +c.dataset.i, col._mr.best, true);
+});
 async function doRoll() {
     if (rolling) {
         return;
@@ -6841,13 +7014,15 @@ async function doRoll() {
     const results = $('rollResults');
     results.innerHTML = '';
     results.style.gridTemplateColumns = rollCount > 1 ? '1fr' : 'repeat(1,minmax(0,1fr))';
-    const cardHtml = n => `<div class="result-card">${n ? `<div class="eyebrow">Roll ${n} of ${rollCount}</div>` : ''}<h2 class="result-name">Rolling…</h2><div class="rarity">&nbsp;</div><div class="sub"></div></div>`;
+    const multi = rollCount > 1;
+    const cardHtml = () => `<div class="result-card"><div class="eyebrow">${multi ? `${rollCount} rolls` : ''}</div><h2 class="result-name">Rolling…</h2><div class="rarity">&nbsp;</div><div class="sub"></div></div>`;
     const col = document.createElement('div');
     col.className = 'roll-result-column';
-    col.innerHTML = rollCount === 1 ? `<div class="reel rolling"><div class="reel-symbol">?</div></div>${cardHtml(0)}` : `<div class="reel rolling"><div class="slots">${'<div class="reel-symbol">?</div>'.repeat(rollCount)}</div></div><div class="cards-row" style="grid-template-columns:repeat(${rollCount},minmax(0,1fr))">${Array.from({ length: rollCount }, (_, k) => cardHtml(k + 1)).join('')}</div>`;
+    col.innerHTML = !multi ? `<div class="reel rolling"><div class="reel-symbol">?</div></div>${cardHtml()}` : `<div class="reel rolling multi"><div class="reel-symbol mr-main">?</div><div class="mr-strip">${Array.from({ length: rollCount }, (_, k) => `<button type="button" class="mr-chip" data-i="${k}" style="--k:${k}"><b>?</b><span>&nbsp;</span></button>`).join('')}</div></div>${cardHtml()}`;
     results.appendChild(col);
     const reel = col.querySelector('.reel');
     const syms = [...col.querySelectorAll('.reel-symbol')];
+    const chips = [...col.querySelectorAll('.mr-chip')];
     const cards = [...col.querySelectorAll('.result-card')];
     let records = [];
     try {
@@ -6877,12 +7052,26 @@ async function doRoll() {
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
         const cut = pickCutscene(rolls);
+        // multiroll: the cutscene roll, or else the highest score, is shown large; the rest sit in the strip
+        const feat = cut ? cut.idx : bestIdx;
+        let targets = null;
+        if (multi) {
+            reel.style.setProperty('--mr-fs', getComputedStyle(syms[0]).fontSize);
+            fitText(syms[0], rolls[feat].formula, reel.clientWidth - 48);
+            chips.forEach((c, i) => fitText(c.querySelector('b'), rolls[i].formula, c.clientWidth - 10, 18));
+            const rr = reel.getBoundingClientRect();
+            const mid = el => {
+                const q = el.getBoundingClientRect();
+                return { x: q.left + q.width / 2 - rr.left, y: q.top + q.height / 2 - rr.top, fs: parseFloat(el.style.fontSize) };
+            };
+            targets = rolls.map((r, i) => mid(i === feat ? syms[0] : chips[i].querySelector('b')));
+        }
         if (cut) {
             stopRollTicks();
-            await playCutscene(cut.sym, reel, rolls.map(r => r.formula), cut.idx, syms);
+            await playCutscene(cut.sym, reel, multi ? [rolls[feat].formula] : rolls.map(r => r.formula), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(Math.max(...rolls.map(r => getRarityTier(r.score))), (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay);
+            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay, targets);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -6891,7 +7080,7 @@ async function doRoll() {
         }
         rolls.forEach((r, i) => {
             const { elements, formula, log, rarity, score } = r;
-            const card = cards[i];
+            const card = cards[multi ? 0 : i];
             const names = elements.map(e => e[1]);
             const known = ACHIEVEMENTS.find(a => a.hill === formula);
             const name = elements.length === 1 ? elements[0][1] : (known ? known.name : names.join(' + '));
@@ -6903,13 +7092,25 @@ async function doRoll() {
             records.push(record);
             save();
             checkAchievements(record);
-            syms[i].textContent = formula;
-            card.querySelector('.result-name').textContent = name;
-            card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(record);
-            card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
+            if (multi) {
+                const c = chips[i];
+                c.querySelector('b').textContent = formula;
+                c.querySelector('span').textContent = rarityShown(record);
+                c.style.setProperty('--tc', MR_TIER_COL[getRarityTier(score)]);
+                c.classList.toggle('feat', i === feat);
+                c.classList.toggle('best', i === bestIdx);
+            } else {
+                syms[i].textContent = formula;
+                card.querySelector('.result-name').textContent = name;
+                card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(record);
+                card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
+            }
             playResultChime(score, secret && i === bestIdx);
             addQuarks(score / 100 * (1 + (buffs.quark || 0) / 100));
         });
+        if (multi) {
+            showMultiRoll(col, records, feat, bestIdx, false);
+        }
         renderHistory();
         triggerRarityEffect(rolls[bestIdx], secret);
         stopRollTicks();
@@ -6966,17 +7167,17 @@ function updateAutoBtn() {
         const onRoll = $('game').classList.contains('active');
         hint.textContent = `Autoroll keeps rolling with a ${fmtGap(s.autoGap)} break between rolls${s.autoGap <= AUTO_MIN_GAP ? ' (its fastest)' : ''}. It waits while you are away from this screen.`;
         if (!autoWanted) {
-            label = 'Autoroll: off';
+            label = 'Autoroll off';
             status = 'Off';
         } else if (!onRoll) {
-            label = 'Autoroll: on';
+            label = 'Autoroll on';
             status = 'On, waiting for the roll screen';
         } else if (rolling || !autoFrom) {
-            label = 'Autoroll: on';
+            label = 'Autoroll on';
             status = 'On, rolling';
         } else {
             const left = Math.max(0, (autoNext() - Date.now()) / 1000);
-            label = 'Autoroll: on · next in ' + fmtGap(left);
+            label = 'Autoroll on · ' + fmtGap(left);
             status = 'On, next roll in ' + fmtGap(left);
         }
     }
