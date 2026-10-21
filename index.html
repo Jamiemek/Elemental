@@ -3841,12 +3841,12 @@ function baseWeightTable() {
     return baseWeightCache = { w, total };
 }
 // Odds are always base odds: no luck, chain or other buffs are counted.
+// Shown odds = element 1 base odds x 8 x element 2 base odds x 8 x ... using each
+// element's listed base odds and the base chain chance of 1 in 8.
 function exactRarity(elements, guaranteedExtras = 0) {
-    const d = BASE_CHAIN;
     const n = Math.max(1, elements.length - guaranteedExtras);
-    let log10 = (elements.length < 30 ? Math.log10((d - 1) / d) : 0) - (n - 1) * Math.log10(d);
-    const t = baseWeightTable();
-    elements.forEach(e => log10 += Math.log10(t.w[SYM_IDX[e[0]]] / t.total));
+    let log10 = -(n - 1) * Math.log10(BASE_CHAIN);
+    elements.forEach(e => log10 -= Math.log10(ELEMENTS[SYM_IDX[e[0]]][2]));
     return log10;
 }
 function rarityText(log) {
