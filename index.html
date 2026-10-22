@@ -892,6 +892,37 @@ input[type=checkbox] {
   color: #fff;
 }
 
+/* storage */
+.store-bar {
+  height: 10px;
+  max-width: 420px;
+  margin: -4px 0 14px;
+  border: 2px solid var(--ink);
+}
+.store-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--ink-2);
+}
+.store-bar span.full {
+  background: var(--red);
+}
+.btn-row[hidden] {
+  display: none;
+}
+.adm-find button {
+  white-space: nowrap;
+  flex: none;
+}
+.ghost.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+.ghost.danger:hover {
+  background: var(--red);
+  color: #fff;
+}
 /* account dialogs */
 .dlg-wrap {
   position: fixed;
@@ -2836,7 +2867,11 @@ body.fx-warping .screen.active {
 <td><input type="checkbox" data-effect-tier="9" checked aria-label="Tier 9 effect"></td>
 </tr>
 </tbody></table></div></div>
-<div class="setting"><h3>Backup</h3><div class="body"><p>Save your progress to a file, or restore it from one.</p><div class="btn-row"><button class="ghost" id="exportBtn">Export save</button><button class="ghost" id="importBtn">Import save</button><input type="file" id="importFile" accept="application/json" hidden></div></div></div>
+<div class="setting"><h3>Storage</h3><div class="body"><p id="storeUse"></p><div class="store-bar"><span id="storeBar"></span></div>
+<p>If your save gets full, clear old finds you no longer need. Every find scoring below the minimum you choose is removed, except single elements, achievement formulas, your top 10s, and anything your bonds still need. Your roll total, elements found and achievements don't change.</p>
+<div class="adm-find"><input id="clearMin" class="adm-input" type="number" min="1" inputmode="numeric" placeholder="Minimum score to keep" aria-label="Minimum score to keep"><button class="ghost" id="clearBtn">Clear redundant finds</button></div>
+<p class="adm-msg" id="clearMsg"></p>
+<div class="btn-row" id="clearConfirm" hidden><button class="ghost danger" id="clearYes">Remove finds</button><button class="ghost" id="clearNo">Cancel</button></div></div></div>
 <div class="setting"><h3>Start over</h3><div class="body"><p>Delete your collection, found elements and achievements. This cannot be undone.</p><button class="ghost" id="resetBtn">Reset all progress</button></div></div>
 <p class="footnote">Odds and score are always worked out from base odds, before any luck, chain or other bonuses. Odds multiply each element's base odds, with ×8 for each chained element. Score adds the base odds together.</p>
 </section>
@@ -5421,11 +5456,85 @@ function renderAchievements() {
         root.appendChild(row);
     });
 }
+// The collection is saved compactly: one [formula, count, spent] per formula, about
+// 20 bytes each. Elements, name, odds and score are rebuilt from the formula on load,
+// so they always match the current element odds. Older saves (one full object per
+// formula, about 300 bytes each) are read the same way and shrink on the next save.
+let achNameByFormula = null;
+function recordFromFormula(formula, count, spent) {
+    if (typeof formula !== 'string' || !formula) {
+        return null;
+    }
+    const elements = [];
+    const re = /([A-Z][a-z]?)(\d*)/g;
+    let m;
+    while ((m = re.exec(formula))) {
+        const e = elementBySymbol[m[1]];
+        if (!e) {
+            return null;
+        }
+        for (let i = 0; i < (+m[2] || 1); i++) {
+            elements.push(e);
+        }
+    }
+    if (!elements.length) {
+        return null;
+    }
+    if (!achNameByFormula) {
+        achNameByFormula = new Map(ACHIEVEMENTS.map(a => [normalizeFormula(a.formula), a.name]));
+    }
+    // the same odds and score sums as exactRarity and rollScore
+    let log = -(elements.length - 1) * Math.log10(8);
+    let score = 0;
+    elements.forEach(e => {
+        log -= Math.log10(e[2]);
+        score += e[2];
+    });
+    const name = elements.length === 1 ? elements[0][1] : (achNameByFormula.get(formula) || elements.map(e => e[1]).join(' + '));
+    const r = { formula, name, elements, rarity: rarityText(log), log, score, count: Math.max(1, Math.floor(+count) || 1) };
+    if (spent > 0) {
+        r.spent = Math.floor(+spent);
+    }
+    return r;
+}
+function unpackCollection(raw) {
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+    const out = [];
+    const seen = new Map();
+    raw.forEach(x => {
+        const r = Array.isArray(x) ? recordFromFormula(x[0], x[1], x[2]) : x && recordFromFormula(x.formula, x.count, x.spent);
+        if (!r) {
+            return;
+        }
+        const dup = seen.get(r.formula);
+        if (dup) {
+            dup.count += r.count;
+            dup.spent = (dup.spent || 0) + (r.spent || 0) || undefined;
+            return;
+        }
+        seen.set(r.formula, r);
+        out.push(r);
+    });
+    return out;
+}
+function packCollection() {
+    return JSON.stringify(collection.map(c => c.spent > 0 ? [c.formula, c.count || 1, c.spent] : [c.formula, c.count || 1]));
+}
 let collection = [];
 try {
-    collection = JSON.parse(localStorage.getItem('elementalCollection') || '[]');
+    collection = unpackCollection(JSON.parse(localStorage.getItem('elementalCollection') || '[]'));
 } catch (e) {
     collection = [];
+}
+// rolls and finds removed with "Clear redundant finds", so roll totals don't drop
+let clearCleared = { rolls: 0, formulas: 0 };
+try {
+    clearCleared = Object.assign(clearCleared, JSON.parse(localStorage.getItem('elementalCleared') || '{}'));
+} catch (e) { }
+function totalRolls() {
+    return collection.reduce((n, c) => n + (c.count || 1), 0) + (clearCleared.rolls || 0);
 }
 let rolling = false;
 let autoRolling = false;
@@ -5438,8 +5547,14 @@ function save() {
         netVer++;
     }
     try {
-        localStorage.setItem('elementalCollection', JSON.stringify(collection));
-    } catch (e) { }
+        localStorage.setItem('elementalCollection', packCollection());
+    } catch (e) {
+        // the device's storage is full: say so once, rather than silently losing progress
+        if (!save.warned) {
+            save.warned = true;
+            setTimeout(() => showAchievementToast({ kicker: 'Storage full', name: "Progress isn't saving", flavor: 'This browser has run out of space for Elemental. Clear redundant finds in Settings to make room.' }), 0);
+        }
+    }
 }
 function addRecord(r) {
     const x = collection.find(c => c.formula === r.formula);
@@ -5467,6 +5582,9 @@ function go(screen) {
     }
     if (screen === 'catinv') {
         renderCatInv();
+    }
+    if (screen === 'settings' && typeof renderStorage === 'function') {
+        renderStorage();
     }
     if (screen === 'admin' && typeof renderAdmin === 'function') {
         renderAdmin();
@@ -7227,7 +7345,7 @@ function renderHome() {
         return;
     }
     const list = groupedCollection();
-    const total = collection.reduce((n, c) => n + (c.count || 1), 0);
+    const total = totalRolls();
     const found = discoveredSymbols().size;
     const s = activeBuffStats();
     buildTable($('homeMap'), 'compact');
@@ -7301,7 +7419,7 @@ function renderInventory() {
     const root = $('compoundGrid');
     const list = groupedCollection();
     root.innerHTML = '';
-    $('collectionStats').textContent = `${collection.reduce((n, c) => n + (c.count || 1), 0).toLocaleString()} total rolls, ${list.length} unique formulas`;
+    $('collectionStats').textContent = `${totalRolls().toLocaleString()} total rolls, ${list.length} unique formulas`;
     if (!list.length) {
         root.innerHTML = '<div class="empty"><strong>Nothing logged yet.</strong><p>Roll once to record your first formula.</p><button class="primary" data-go="game">Roll</button></div>';
         root.querySelector('[data-go]').addEventListener('click', () => go('game'));
@@ -7474,7 +7592,7 @@ async function doRoll() {
                 id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString()
             };
             addRecord(record);
-            addHistory(record, collection.reduce((n, c) => n + (c.count || 1), 0));
+            addHistory(record, totalRolls());
             records.push(record);
             save();
             checkAchievements(record);
@@ -7658,6 +7776,8 @@ $('resetBtn').addEventListener('click', () => {
         try {
             localStorage.removeItem('elementalQuarks');
             localStorage.removeItem('elementalHistory');
+            localStorage.removeItem('elementalCleared');
+            clearCleared = { rolls: 0, formulas: 0 };
         } catch (e) { }
         renderQuarks();
         rollHistory = [];
@@ -7760,28 +7880,6 @@ function assignAchievementRarities() {
     renderAchievements();
 }
 assignAchievementRarities();
-$('exportBtn').onclick = () => {
-    const d = {};
-    Object.keys(localStorage).filter(k => k.startsWith('elemental')).forEach(k => d[k] = localStorage.getItem(k));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(d)], { type: 'application/json' }));
-    a.download = 'elemental-save.json';
-    a.click();
-};
-$('importBtn').onclick = () => $('importFile').click();
-$('importFile').onchange = async (e) => {
-    try {
-        const d = JSON.parse(await e.target.files[0].text());
-        if (!confirm('Replace current progress with this save?')) {
-            return;
-        }
-        Object.keys(d).filter(k => k.startsWith('elemental') && !k.startsWith('elementalCloud')).forEach(k => localStorage.setItem(k, d[k]));
-        localStorage.setItem('elementalSaveVersion', SAVE_VERSION);
-        location.reload();
-    } catch (err) {
-        alert('That file is not a valid save.');
-    }
-};
 document.addEventListener('keydown', e => {
     if (e.code === 'Space' && $('game').classList.contains('active') && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) {
         e.preventDefault();
@@ -9783,6 +9881,120 @@ CUTSCENES.Db = {
     }
 };
 // ---------------------------------------------------------------------------
+// Storage: how much of the browser's space the save uses, and clearing finds
+// that are no longer needed. Rolls from cleared finds still count in the roll total.
+// ---------------------------------------------------------------------------
+const STORE_LIMIT = 5 * 1024 * 1024;
+function storageBytes() {
+    let n = 0;
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            n += (k.length + (localStorage.getItem(k) || '').length) * 2;
+        }
+    } catch (e) { }
+    return n;
+}
+const fmtBytes = n => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+// Which finds go: everything scoring below the minimum, except
+//  · single elements (they fill element and family bonds, and keep elements found)
+//  · achievement formulas (they fill compound bonds)
+//  · your top 10 by odds and top 10 by score
+//  · enough compounds containing each element to fill every unfilled "compound with X" bond
+//  · at least one find for every element you've found
+function planClear(minScore) {
+    const keep = new Set();
+    const ach = new Set(ACHIEVEMENTS.map(a => normalizeFormula(a.formula)));
+    collection.forEach(c => {
+        if (c.score >= minScore || c.elements.length === 1 || ach.has(c.formula)) {
+            keep.add(c);
+        }
+    });
+    groupedCollection().slice(0, 10).forEach(g => keep.add(collection.find(c => c.formula === g.formula)));
+    scoreRanked().slice(0, 10).forEach(g => keep.add(collection.find(c => c.formula === g.formula)));
+    const avail = c => (c.count || 1) - (c.spent || 0);
+    // compounds each element's unfilled bonds still need
+    const need = {};
+    net().nodes.forEach(n => {
+        if (n.req && n.req.t === 'has' && !netFilled(n.id)) {
+            need[n.req.k] = (need[n.req.k] || 0) + n.req.n;
+        }
+    });
+    Object.keys(need).forEach(k => {
+        const list = collection.filter(c => c.elements.length > 1 && c.elements.some(e => e[0] === k) && avail(c) > 0);
+        let have = list.filter(c => keep.has(c)).reduce((s, c) => s + avail(c), 0);
+        list.filter(c => !keep.has(c)).sort((a, b) => avail(b) - avail(a)).forEach(c => {
+            if (have < need[k]) {
+                keep.add(c);
+                have += avail(c);
+            }
+        });
+    });
+    // every found element stays found
+    const covered = new Set();
+    keep.forEach(c => c && c.elements.forEach(e => covered.add(e[0])));
+    discoveredSymbols().forEach(s => {
+        if (!covered.has(s)) {
+            const best = collection.filter(c => c.elements.some(e => e[0] === s)).sort((a, b) => b.score - a.score)[0];
+            if (best) {
+                keep.add(best);
+                best.elements.forEach(e => covered.add(e[0]));
+            }
+        }
+    });
+    const remove = collection.filter(c => !keep.has(c));
+    const bytes = remove.reduce((s, c) => s + JSON.stringify(c.spent > 0 ? [c.formula, c.count || 1, c.spent] : [c.formula, c.count || 1]).length + 1, 0) * 2;
+    return { remove, rolls: remove.reduce((s, c) => s + (c.count || 1), 0), bytes };
+}
+function renderStorage() {
+    const used = storageBytes();
+    const pct = Math.min(100, used / STORE_LIMIT * 100);
+    $('storeUse').textContent = 'Your save uses ' + fmtBytes(used) + ' of the roughly 5 MB this browser allows' + (pct >= 80 ? '. It is nearly full.' : '.');
+    $('storeBar').style.width = pct.toFixed(1) + '%';
+    $('storeBar').classList.toggle('full', pct >= 80);
+    $('clearConfirm').hidden = true;
+    $('clearBtn').hidden = false;
+}
+let clearPending = null;
+$('clearBtn').onclick = () => {
+    const min = Math.floor(+$('clearMin').value);
+    if (!(min > 0)) {
+        admMsg('clearMsg', 'Type the minimum score to keep, for example 10,000.', true);
+        return;
+    }
+    const plan = planClear(min);
+    if (!plan.remove.length) {
+        admMsg('clearMsg', 'Nothing to clear: every find below that score is still needed.', false);
+        return;
+    }
+    clearPending = plan;
+    admMsg('clearMsg', 'This removes ' + formatNumber(plan.remove.length) + ' of your ' + formatNumber(collection.length) + ' finds and frees about ' + fmtBytes(plan.bytes) +
+        '. Your roll total, elements found, achievements and bonds stay the same. This can\'t be undone.', false);
+    $('clearBtn').hidden = true;
+    $('clearConfirm').hidden = false;
+    $('clearYes').textContent = 'Remove ' + formatNumber(plan.remove.length) + ' finds';
+};
+$('clearNo').onclick = () => {
+    clearPending = null;
+    admMsg('clearMsg', '');
+    renderStorage();
+};
+$('clearYes').onclick = () => {
+    if (!clearPending) {
+        return;
+    }
+    const gone = new Set(clearPending.remove);
+    clearCleared.rolls += clearPending.rolls;
+    clearCleared.formulas += gone.size;
+    collection = collection.filter(c => !gone.has(c));
+    try {
+        localStorage.setItem('elementalCleared', JSON.stringify(clearCleared));
+    } catch (e) { }
+    save.warned = false;
+    save();
+    location.reload();
+};
+// ---------------------------------------------------------------------------
 // Accounts and cloud saves (Supabase). Signing in is optional: signed out, or
 // offline, the game runs exactly as before from this device's own storage.
 // Only progress is synced; display settings stay per device.
@@ -9793,7 +10005,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive'];
 const CLOUD_EVERY = 45000;
 let sb = null;
 let cloudUser = null;
@@ -9841,13 +10053,16 @@ function cloudSummary(d) {
     let col = [];
     let ach = [];
     try {
-        col = JSON.parse(d.elementalCollection || '[]');
+        col = unpackCollection(JSON.parse(d.elementalCollection || '[]'));
     } catch (e) { }
     try {
         ach = JSON.parse(d.elementalAchievements || '[]');
     } catch (e) { }
     const syms = new Set();
     let rolls = 0;
+    try {
+        rolls = JSON.parse(d.elementalCleared || '{}').rolls || 0;
+    } catch (e) { }
     col.forEach(c => {
         rolls += c.count || 1;
         (c.elements || []).forEach(e => syms.add(e[0]));
@@ -9945,7 +10160,9 @@ async function cloudSync() {
     cloudBusy = true;
     cloudState = 'syncing';
     renderAccount();
-    const { data: row, error } = await sb.from('saves').select('data, updated_at').eq('user_id', cloudUser.id).maybeSingle();
+    // ask only when the cloud save last changed (a few bytes); the save itself is
+    // downloaded only when another device has changed it
+    const { data: head, error } = await sb.from('saves').select('updated_at').eq('user_id', cloudUser.id).maybeSingle();
     if (error) {
         cloudFail(error);
         return;
@@ -9954,13 +10171,13 @@ async function cloudSync() {
     const hash = cloudHash(local);
     const linked = cloudGet('elementalCloudUser') === cloudUser.id;
     const localChanged = !linked || hash !== cloudGet('elementalCloudHash');
-    if (!row) {
+    if (!head) {
         // first time on this account: this device's save becomes the cloud save
         cloudBusy = false;
         await cloudUpload(true);
         return;
     }
-    const cloudChanged = !linked || row.updated_at !== cloudGet('elementalCloudAt');
+    const cloudChanged = !linked || head.updated_at !== cloudGet('elementalCloudAt');
     const fresh = cloudGet('elementalCloudFresh') === '1';
     cloudSet('elementalCloudFresh', null);
     if (!cloudChanged) {
@@ -9969,8 +10186,13 @@ async function cloudSync() {
         if (localChanged && !fresh) {
             await cloudUpload(false);
         } else {
-            cloudDone(row.updated_at, hash);
+            cloudDone(head.updated_at, hash);
         }
+        return;
+    }
+    const { data: row, error: err2 } = await sb.from('saves').select('data, updated_at').eq('user_id', cloudUser.id).maybeSingle();
+    if (err2 || !row) {
+        cloudFail(err2);
         return;
     }
     if (!localChanged || cloudSummary(local).rolls === 0) {
@@ -10285,7 +10507,7 @@ function globalConsider(rec, old) {
     globalSubmit({
         f: rec.formula,
         label: rec.name || globalName(rec.formula),
-        rolls: collection.reduce((n, c) => n + (c.count || 1), 0),
+        rolls: totalRolls(),
         luck: Math.round(st.luck || 0),
         cats: activeList().map(x => x.c && x.c.name).filter(Boolean).join(', '),
         old: !!old
