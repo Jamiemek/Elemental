@@ -1,7 +1,4 @@
-// ---------------------------------------------------------------------------
-// Cutscene and effect viewer (Settings): replay any cutscene or rarity effect you've
-// seen. Secret effects stay completely hidden here until you've seen one.
-// ---------------------------------------------------------------------------
+// Cutscene and effect viewer (Settings): replay any cutscene or rarity effect you've seen
 let seenData = null;
 function seenLoad() {
     if (seenData) {
@@ -13,8 +10,6 @@ function seenLoad() {
         seenData = null;
     }
     if (!seenData || typeof seenData !== 'object') {
-        // first time: cutscenes for elements already found (they play every time),
-        // and the normal effect of every tier already reached. Secret effects can't be known.
         const found = discoveredSymbols();
         const tiers = new Set();
         collection.forEach(c => {
@@ -85,8 +80,6 @@ async function viewerPlay(btn) {
         viewerPlay(b);
     }
 }));
-// Donation links stay out of app-store versions (an Android app's built-in browser,
-// or a page opened with ?app=play), where store rules don't allow outside payments.
 if (/[?&]app=play\b/.test(location.search) || /; wv\)/.test(navigator.userAgent)) {
     document.querySelectorAll('.donate-only').forEach(e => e.remove());
 }

@@ -19,7 +19,7 @@ async def run(b, hours, unlock=True, mode=None):
     await pg.evaluate(SETUP, ['H','O','C','N','Fe','Pt','Ho'] if unlock else ['H','O','C'])
     expected=await pg.evaluate(f"awayRollsFor({hours*3600 if hours<24 else 86400})")
     before=await pg.evaluate(STATE)
-    # simulate having closed the game `hours` ago
+    # simulate having closed the game hours ago
     await pg.goto('http://127.0.0.1:8771/privacy.html')
     await pg.evaluate(f"localStorage.setItem('awayLastSeen', JSON.stringify({{t:Date.now()-{hours}*3600*1000}}))")
     await pg.goto(URL); await pg.wait_for_timeout(500)

@@ -79,8 +79,7 @@ async def m():
         await pb.click('#acctIn'); await pb.wait_for_timeout(1500)
         print('2 B after sign-in:', await summ(pb), '| dialog', await pb.evaluate("!!$('dlg')"))
         await pb.fill('#nameInput','jamie_1') if await pb.evaluate("!!$('nameInput')") else None
-        # B already has a name, so no dialog expected
-        # 3. B plays and saves
+        # B already has a name, so no dialog expected 3. B plays and saves
         await rolls(pb,'O',7); await pb.evaluate("cloudTick()"); await pb.wait_for_timeout(300)
         print('3 server rolls after B:', srvsum())
         # 4. A comes back and picks up B's progress

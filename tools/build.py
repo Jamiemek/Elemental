@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
-"""Build Elemental for the web.
+"""Joins js/*.js into game.js and updates the ?v= tags in index.html.
 
-The game's code is edited as separate files in js/ and css/. Players load one joined
-file, game.js, so the game runs exactly as a single script: no file can start running
-before the others have arrived.
-
-  python3 tools/build.py                   join js/*.js into game.js and update the
-                                           ?v= tags in index.html (run before every push)
-  python3 tools/build.py --check           fail if game.js or the tags are out of date
-  python3 tools/build.py --single OUT      one self-contained .html file (rollback / offline)
-  python3 tools/build.py --preview OUT     the preview copy: one file, accounts switched off,
-                                           test tools added (tools/preview/)
+  python3 tools/build.py
+  python3 tools/build.py --check
+  python3 tools/build.py --single OUT
+  python3 tools/build.py --preview OUT
 """
 import hashlib
 import json
@@ -20,8 +14,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The order the files run in. It is the order of the original single script, so
-# anything a file needs at load time comes from a file above it.
+# The order the files run in
 JS_FILES = [
     'data.js',       # save-version check, elements, table layout, achievements
     'sound.js',      # settings toggles, the $ helper, audio, rarity tiers, sounds
@@ -45,18 +38,15 @@ JS_FILES = [
 ]
 CSS = 'css/style.css'
 BUNDLE = 'game.js'
-HEADER = '// Built by tools/build.py from the files in js/. Edit those, not this file.\n'
-
+HEADER = ''
 
 def read(rel):
     with open(os.path.join(ROOT, rel), encoding='utf-8') as f:
         return f.read()
 
-
 def write(path, text):
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write(text)
-
 
 def joined_js():
     parts = []
@@ -66,10 +56,8 @@ def joined_js():
         parts.append(s)
     return ''.join(parts)
 
-
 def tag(text):
     return hashlib.sha256(text.encode('utf-8')).hexdigest()[:10]
-
 
 def stamped_index(bundle):
     page = read('index.html')
@@ -80,13 +68,11 @@ def stamped_index(bundle):
     page = js_ref.sub('<script src="game.js?v=%s"></script>' % tag(bundle), page)
     return page
 
-
 def single(bundle_body):
     page = read('index.html')
     page = re.sub(r'<link rel="stylesheet" href="css/style\.css(\?v=[0-9a-f]*)?">', lambda m: '<style>\n' + read(CSS) + '</style>', page)
     page = re.sub(r'<script src="game\.js(\?v=[0-9a-f]*)?"></script>', lambda m: '<script>\n' + bundle_body + '</script>', page)
     return page
-
 
 def preview(page):
     for old, new in json.loads(read('tools/preview/patches.json')):
@@ -94,7 +80,6 @@ def preview(page):
         page = page.replace(old, new)
     k = page.rindex('</body></html>')
     return page[:k] + read('tools/preview/panel.html') + page[k:]
-
 
 def main(argv):
     body = joined_js()
@@ -117,7 +102,6 @@ def main(argv):
     write(os.path.join(ROOT, 'index.html'), stamped_index(bundle))
     print('game.js %d KB, %d files | index.html tags updated' % (len(bundle.encode('utf-8')) // 1024, len(JS_FILES)))
     return 0
-
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

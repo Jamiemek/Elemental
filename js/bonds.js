@@ -1,9 +1,4 @@
-// ---------------------------------------------------------------------------
-// Bond network. One fixed-seed network grows outward from a single oxygen.
-// Every line between two slots holds a buff, switched on once both ends are filled.
-// Filling a slot spends what it asks for (tracked as `spent` on collection records,
-// so roll totals, finds and records never change).
-// ---------------------------------------------------------------------------
+// Bond network
 const NET_SEED = 20261021;
 const NET_QTY = 23;
 const NET_FAM_QTY = 23;
@@ -146,8 +141,6 @@ function genNetwork() {
             ringFirst[r] = i;
         }
     });
-    // The big rewards (luck multipliers, bonus rolls, chain steps, shop slots) sit behind the
-    // hardest grind in their ring: the line leading to that ring's largest quantity slot.
     const grind = n => {
         const q = n.req;
         return q.t === 'el' ? q.n * ELEMENTS.find(x => x[0] === q.k)[2] : q.t === 'fam' ? q.n * 60 : 0;
@@ -314,7 +307,7 @@ function bondSummary() {
     const f = Object.keys(netState).length;
     $('homeBonds').textContent = f + ' / ' + N + ' slots';
 }
-// ---- the network view
+// the network view
 const netView = { x: 0, y: 0, z: 1, anim: null };
 let netCanvas = null;
 let netSel = null;

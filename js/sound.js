@@ -101,8 +101,7 @@ function stopRollTicks() {
         tickTimer = null;
     }
 }
-// Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion.
-// Effect tiers are set by score: the base odds of every element in the roll added together.
+// Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion
 const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000];
 function getRarityTier(score) {
     let t = 0;
@@ -262,7 +261,7 @@ function sparkle(ctx, when, count, span, volume, scale) {
 function arp(ctx, when, notes, step, volume, type = 'triangle') {
     notes.forEach((f, i) => playTone(ctx, f, when + i * step, 0.7, volume, type, null, 0.45, 0, 0.008));
 }
-// ---- secret (dark) sounds: no chimes, nothing in tune
+// secret (dark) sounds: no chimes, nothing in tune
 // breaking glass: a hard crack, then a spray of inharmonic shards and falling debris
 function glassBreak(ctx, when, vol, size) {
     playNoise(ctx, when, 0.08, vol * 1.4, 12000, 3000, 'highpass', 0.8, 0.3, 0.001);

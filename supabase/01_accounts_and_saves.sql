@@ -1,5 +1,4 @@
--- Elemental database, part 1: accounts, display names and cloud saves.
--- Run in the Supabase SQL Editor. Safe to run more than once.
+-- Elemental database, part 1: accounts, display names and cloud saves
 
 -- Players' public display names (one row per signed-in player)
 create table if not exists public.profiles (
@@ -39,8 +38,6 @@ alter table public.profiles enable row level security;
 alter table public.saves enable row level security;
 alter table public.name_blocklist enable row level security;
 
--- Anyone can read display names (the leaderboard needs them); names are only
--- ever changed through set_display_name below, which checks them
 drop policy if exists "names are public" on public.profiles;
 create policy "names are public" on public.profiles
   for select using (true);
@@ -60,8 +57,7 @@ create policy "update own save" on public.saves
 grant select on public.profiles to anon, authenticated;
 grant select, insert, update on public.saves to authenticated;
 
--- Choosing or changing a display name.
--- Returns 'ok', 'invalid', 'blocked', 'taken' or 'signed_out'.
+-- Choosing or changing a display name. Returns 'ok', 'invalid', 'blocked', 'taken' or 'signed_out'.
 create or replace function public.set_display_name(new_name text)
 returns text language plpgsql security definer set search_path = '' as $$
 declare
@@ -95,9 +91,7 @@ end $$;
 revoke all on function public.set_display_name(text) from public, anon;
 grant execute on function public.set_display_name(text) to authenticated;
 
--- Starting blocklist. Short words that hide inside normal ones (like "ass" in
--- "classic") are left out on purpose. Add more any time with:
---   insert into public.name_blocklist values ('word');
+-- Starting blocklist
 insert into public.name_blocklist (word) values
   ('fuck'), ('shit'), ('cunt'), ('bitch'), ('bastard'), ('whore'), ('slut'),
   ('wank'), ('twat'), ('bollock'), ('pussy'), ('dildo'), ('penis'), ('vagina'),

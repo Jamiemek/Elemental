@@ -1,5 +1,3 @@
-// Rarity labels come from the estimated number of rolls needed to land each formula,
-// assuming 150% luck and a 1 in 3 chain chance.
 function assignAchievementRarities() {
     const weights = ELEMENTS.map(e => (1 / e[2]) * (1 + 1.5 * (Math.log10(e[2] + 1) / 3)));
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);

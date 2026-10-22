@@ -1,9 +1,6 @@
--- Elemental database, part 2: element odds and the global top 10 board.
--- Run in the Supabase SQL Editor after part 1. Safe to run more than once.
--- The boards and submit_roll are defined in part 3.
+-- Elemental database, part 2: element odds and the global top 10 board
 
--- Every element's base odds, exactly as the game uses them (after its own adjustment). The server works out a roll's
--- odds and score itself from these, so a player can't send a made-up number.
+-- Every element's base odds, exactly as the game uses them (after its own adjustment)
 create table if not exists public.elements (
   symbol text primary key,
   odds numeric not null
@@ -31,8 +28,7 @@ insert into public.elements (symbol, odds) values
   ('Mc', 1162612), ('Lv', 1200945), ('Ts', 1238754), ('Og', 1312915)
 on conflict (symbol) do update set odds = excluded.odds;
 
--- Rolls that made it onto (or once made it onto) the global top 10.
--- odds_log is log10 of the odds: 6.5 means about 1 in 3.2 million.
+-- Rolls that made it onto (or once made it onto) the global top 10
 create table if not exists public.global_rolls (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users (id) on delete cascade,

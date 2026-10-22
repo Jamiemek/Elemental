@@ -1,7 +1,3 @@
-// ---------------------------------------------------------------------------
-// Storage: how much of the browser's space the save uses, and clearing finds
-// that are no longer needed. Rolls from cleared finds still count in the roll total.
-// ---------------------------------------------------------------------------
 const STORE_LIMIT = 5 * 1024 * 1024;
 function storageBytes() {
     let n = 0;
@@ -14,12 +10,6 @@ function storageBytes() {
     return n;
 }
 const fmtBytes = n => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
-// Which finds go: everything scoring below the minimum, except
-//  · single elements (they fill element and family bonds, and keep elements found)
-//  · achievement formulas (they fill compound bonds)
-//  · your top 10 by odds and top 10 by score
-//  · enough compounds containing each element to fill every unfilled "compound with X" bond
-//  · at least one find for every element you've found
 function planClear(minScore) {
     const keep = new Set();
     const ach = new Set(ACHIEVEMENTS.map(a => normalizeFormula(a.formula)));

@@ -1,14 +1,5 @@
-// ---------------------------------------------------------------------------
-// While you were away: when the game is opened again after being closed, it rolls
-// for the time away as if autoroll had been running ten times slower, up to 24 hours.
-// Every roll is added to the collection (so it counts for bonds, achievements, the
-// roll total and quarks), but only the rarest is shown, played and announced.
-// ---------------------------------------------------------------------------
 const AWAY_MAX = 24 * 3600;
 const AWAY_SLOWER = 10;
-// Time away is measured with the server's clock, carried forward by the browser's own
-// timer, which changing the device clock doesn't affect. So a device clock that's
-// wrong, or moved forward on purpose, makes no difference.
 const trustedNow = () => clockBase ? clockBase.server + (performance.now() - clockBase.perf) : null;
 async function clockSync() {
     if (!CLOUD.enabled) {

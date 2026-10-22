@@ -1,6 +1,4 @@
-// Built by tools/build.py from the files in js/. Edit those, not this file.
-// Builds with a new SAVE_VERSION start from a blank slate. Old progress is kept under
-// 'legacyElementalBackup' instead of being deleted.
+// a new SAVE_VERSION starts from a blank slate (old progress is kept as a backup)
 const SAVE_VERSION = '2';
 try {
     if (localStorage.getItem('elementalSaveVersion') !== SAVE_VERSION) {
@@ -570,8 +568,7 @@ function stopRollTicks() {
         tickTimer = null;
     }
 }
-// Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion.
-// Effect tiers are set by score: the base odds of every element in the roll added together.
+// Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion
 const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000];
 function getRarityTier(score) {
     let t = 0;
@@ -731,7 +728,7 @@ function sparkle(ctx, when, count, span, volume, scale) {
 function arp(ctx, when, notes, step, volume, type = 'triangle') {
     notes.forEach((f, i) => playTone(ctx, f, when + i * step, 0.7, volume, type, null, 0.45, 0, 0.008));
 }
-// ---- secret (dark) sounds: no chimes, nothing in tune
+// secret (dark) sounds: no chimes, nothing in tune
 // breaking glass: a hard crack, then a spray of inharmonic shards and falling debris
 function glassBreak(ctx, when, vol, size) {
     playNoise(ctx, when, 0.08, vol * 1.4, 12000, 3000, 'highpass', 0.8, 0.3, 0.001);
@@ -1075,8 +1072,6 @@ const RARITY_DARK = [
 let rarityEffectTimer = null;
 let fxRunId = 0;
 let runningFx = [];
-// Reduce flashing: full-screen layers can't change brightness faster than about
-// 0.4 opacity per quarter second, never pass 45%, and stepped flickers become smooth.
 let calmFx = false;
 function tameFlash(frames, dur) {
     if (!frames.length || frames.some(f => f.opacity == null)) {
@@ -1147,18 +1142,7 @@ function stopFx() {
     }
     document.body.classList.remove('fx-warping');
 }
-// ---------------------------------------------------------------------------
-// Rarity effects. Fully visual, no text. Each tier builds on the one below it:
-//  1  a light sweep and a soft ring around the roll window
-//  2  light traces the roll window's edge and the window breathes
-//  3  the page falls out of focus around the roll window, which lifts forward
-//  4  a shockwave pushes the page outward and it springs back
-//  5  the page tips back in 3D under a fall of golden light
-//  6  an impact shakes and ripples the page, embers and sparks
-//  7  two impacts: the page flashes to negative and scatters, then reassembles
-//  8  the page is drawn into the roll window over a heartbeat, then released
-//  9  the page comes apart and drifts into a starfield, then reforms in white light
-// ---------------------------------------------------------------------------
+// Rarity effects
 let runningPageFx = [];
 function stopPageFx() {
     runningPageFx.splice(0).forEach(a => {
@@ -1201,8 +1185,7 @@ function fxSprite(col, flat) {
     x.fillRect(0, 0, 48, 48);
     return fxSprite.cache[key] = s;
 }
-// Particle field. `plan` is a list of emitters:
-//  { type: 'burst'|'spiral'|'embers'|'rain'|'stars'|'galaxy', at, until, n, rate, cols, ... }
+// Particle field
 function fxParticles(cv, o) {
     const dpr = Math.min(1.5, devicePixelRatio || 1);
     const W = innerWidth;
@@ -1474,7 +1457,7 @@ function playRarityFx(tier, dark) {
         const d = Math.hypot(dx, dy) || 1;
         return { dx: dx / d, dy: dy / d, d };
     };
-    // ---- building blocks
+    // building blocks
     const ring = (delay, dur, to, col, w, glow, from) => {
         const r = E('fx-ring', at + 'width:12vmin;height:12vmin;border-width:' + (w || 1.5) + 'px;border-color:' + col + ';box-shadow:0 0 ' + (glow || 14) + 'px ' + col + ',inset 0 0 ' + (glow || 14) + 'px ' + col);
         A(r, [{ opacity: 0, transform: TR + 'scale(' + (from || 0.3) + ')' }, { opacity: 1, offset: 0.08 }, { opacity: 0, transform: TR + 'scale(' + to + ')' }], { duration: dur, delay, easing: 'cubic-bezier(.15,.75,.25,1)' });
@@ -1609,9 +1592,9 @@ function playRarityFx(tier, dark) {
         ov.appendChild(cv);
         fxParticles(cv, { cx, cy, tok, plan, end: end || total });
     };
-    // ---- secret (dark) variants for tiers 5 to 9
+    // secret (dark) variants for tiers 5 to 9
     if (dark) {
-        // jagged crack lines spreading out from a point, drawn on over `dur`
+        // jagged crack lines spreading out from a point, drawn on over dur
         const cracks = (delay, dur, n, reach, col, w, ox, oy, keep) => {
             const sx = ox == null ? cx : ox;
             const sy = oy == null ? cy : oy;
@@ -1977,7 +1960,7 @@ function playRarityFx(tier, dark) {
         done();
         return;
     }
-    // ---- the tiers
+    // the tiers
     if (tier === 1) {
         sweep(0, 1100, c);
         ring(80, 1300, 5, c, 1.2, 10);
@@ -2263,8 +2246,6 @@ function warpFx(tok, delay, dur, peak, mode) {
         })(performance.now());
     }, delay);
 }
-// Quark Storm particles: small glowing quarks in the three colour charges, some alone and some
-// bound in threes by wiggly gluon lines, swirling round the scan as they fly in.
 const QS_COLS = ['#ff5a6e', '#5ef0a0', '#5aa8ff'];
 let qsSprites = null;
 function qsSprite(i) {
@@ -2599,10 +2580,6 @@ function renderAchievements() {
         root.appendChild(row);
     });
 }
-// The collection is saved compactly: one [formula, count, spent] per formula, about
-// 20 bytes each. Elements, name, odds and score are rebuilt from the formula on load,
-// so they always match the current element odds. Older saves (one full object per
-// formula, about 300 bytes each) are read the same way and shrink on the next save.
 let achNameByFormula = null;
 function recordFromFormula(formula, count, spent) {
     if (typeof formula !== 'string' || !formula) {
@@ -2762,8 +2739,6 @@ const CHAIN_SYMBOLS = new Set(['Rn', 'Bk', 'Ds', 'Og']);
 const AUTO_UNLOCK_SYMBOL = 'Pt';
 const AUTO_TIME_SYMBOLS = new Set(['Cs', 'Sm', 'Os', 'Tm', 'Ac']);
 const AUTO_COOL_SYMBOLS = new Set(['Pr', 'Lu', 'Rh', 'Pa', 'Po']);
-// Autoroll waits AUTO_BASE_GAP seconds between rolls; autoroll speed shortens the wait,
-// down to AUTO_MIN_GAP (rolling back to back), which is the fastest it can go.
 const AUTO_BASE_GAP = 5;
 const AUTO_MIN_GAP = 0.5;
 const AUTO_SPEED_STEP = 10;
@@ -2824,12 +2799,7 @@ function discoveredSymbols() {
     collection.forEach(c => (c.elements || []).forEach(e => set.add(e[0])));
     return set;
 }
-// ---------------------------------------------------------------------------
-// Bond network. One fixed-seed network grows outward from a single oxygen.
-// Every line between two slots holds a buff, switched on once both ends are filled.
-// Filling a slot spends what it asks for (tracked as `spent` on collection records,
-// so roll totals, finds and records never change).
-// ---------------------------------------------------------------------------
+// Bond network
 const NET_SEED = 20261021;
 const NET_QTY = 23;
 const NET_FAM_QTY = 23;
@@ -2972,8 +2942,6 @@ function genNetwork() {
             ringFirst[r] = i;
         }
     });
-    // The big rewards (luck multipliers, bonus rolls, chain steps, shop slots) sit behind the
-    // hardest grind in their ring: the line leading to that ring's largest quantity slot.
     const grind = n => {
         const q = n.req;
         return q.t === 'el' ? q.n * ELEMENTS.find(x => x[0] === q.k)[2] : q.t === 'fam' ? q.n * 60 : 0;
@@ -3140,7 +3108,7 @@ function bondSummary() {
     const f = Object.keys(netState).length;
     $('homeBonds').textContent = f + ' / ' + N + ' slots';
 }
-// ---- the network view
+// the network view
 const netView = { x: 0, y: 0, z: 1, anim: null };
 let netCanvas = null;
 let netSel = null;
@@ -3706,11 +3674,7 @@ function renderBonds() {
     $('netCentre').onclick = () => netGlideTo(0, 0, innerWidth < 600 ? 0.8 : 1);
     $('netTotalsBtn').onclick = () => $('netTotalsWrap').classList.toggle('open');
 }
-// ---------------------------------------------------------------------------
-// Catalyst shop. Restocks on fixed real-time boundaries; bought catalysts go to an
-// inventory; one active catalyst per tier; the same catalyst extends; timers run
-// in real time; single-roll catalysts cover one individual roll each.
-// ---------------------------------------------------------------------------
+// Catalyst shop
 const CAT_TIERS = [
     { name: 'Common', col: '#9fb0a8', p: 60 },
     { name: 'Uncommon', col: '#6fcf8a', p: 26 },
@@ -3785,7 +3749,7 @@ function catEffect(c) {
     return "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
 }
 const catLength = c => c.rolls ? (c.rolls === 1 ? 'Single roll' : `Next ${c.rolls} rolls`) : `Timed, ${c.min} min`;
-// ---- saved state
+// saved state
 function loadJSON(k, d) {
     try {
         return JSON.parse(localStorage.getItem(k) || 'null') || d;
@@ -3803,7 +3767,7 @@ function saveCats() {
         localStorage.setItem('elementalCatActive', JSON.stringify(catActive));
     } catch (e) { }
 }
-// ---- active catalysts
+// active catalysts
 function pruneActive() {
     let ch = false;
     const now = Date.now();
@@ -3943,7 +3907,7 @@ function clearCatalyst(tier) {
     saveCats();
     buffCache = weightCache = null;
 }
-// ---- the shop
+// the shop
 function shopPeriodMs() {
     const b = bondBonus();
     return Math.max(5, 20 - b.refresh) * 60000;
@@ -3952,15 +3916,11 @@ const shopSlots = () => Math.min(5, 2 + bondBonus().slots);
 function shopPrice(c) {
     return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
 }
-// The shop's clock: the server's time once known (see "While you were away"), so moving
-// the device clock forward doesn't restock it. Declared here so the shop can use it early.
 var clockBase = null;
 var clockTried = false;
 function shopNow() {
     return clockBase ? clockBase.server + (performance.now() - clockBase.perf) : Date.now();
 }
-// The time of the next restock is saved, so a change to the restock time (bonds can
-// shorten it) applies from the next restock rather than restocking on the spot.
 function shopCheck() {
     const P = shopPeriodMs();
     const now = shopNow();
@@ -4065,7 +4025,7 @@ $('shopStock').addEventListener('click', e => {
         buyStock(+b.dataset.i);
     }
 });
-// ---- the inventory page: a grid of owned catalysts and a detail panel for the selected one
+// the inventory page: a grid of owned catalysts and a detail panel for the selected one
 let invSel = null;
 const catMark = c => {
     const w = c.name.replace(/Catalyst|'s/g, '').trim().split(/[\s-]+/);
@@ -4255,7 +4215,7 @@ function weightTable(extraLuck, only) {
     }
     return t;
 }
-// one element, with the active buffs; `extraLuck` and `only` come from single-roll catalysts
+// one element, with the active buffs; extraLuck and only come from single-roll catalysts
 function weightedElement(extraLuck, only) {
     const { w, total } = weightTable(extraLuck, only);
     let r = Math.random() * total;
@@ -4290,9 +4250,7 @@ function hillFormula(elements) {
 }
 const BASE_CHAIN = 8;
 const SYM_IDX = Object.fromEntries(ELEMENTS.map((e, i) => [e[0], i]));
-// Odds are always base odds: no luck, chain or other buffs are counted.
-// Shown odds = element 1 base odds x 8 x element 2 base odds x 8 x ... using each
-// element's listed base odds and the base chain chance of 1 in 8.
+// Odds are always base odds: no luck, chain or other buffs are counted
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
     let log10 = -(n - 1) * Math.log10(BASE_CHAIN);
@@ -4306,10 +4264,7 @@ function rarityText(log) {
     }
     return '≈ 1/' + value.toExponential(2).replace('+', '');
 }
-// Quarks earned by one roll. Everyday rolls (score up to 10,000) earn √score × 0.1.
-// Above that the curve steepens (score^0.75), so rare finds feel like a reward:
-// Flerovium about 345, Uranium about 2,000. Even with a quark catalyst, no single roll
-// pays enough for a legendary catalyst, so one lucky roll can't buy out the shop.
+// Quarks earned by one roll
 const QUARK_RATE = 0.1;
 const QUARK_KNEE = 10000;
 function quarksFor(score, mult) {
@@ -4355,10 +4310,8 @@ function addQuarks(n) {
     } catch (e) { }
     renderQuarks();
 }
-// ---- Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
-// lasts the next 100 presses. While it lasts, every roll earns 2 to 30 extra quarks on top
-// of its usual quarks (quark catalysts don't multiply these). A storm can't start while one
-// is already running. Away rolls count too.
+// Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
+// lasts the next 100 presses
 const QSTORM_CHANCE = 1 / 8000;
 const QSTORM_PRESSES = 100;
 const QSTORM_MIN = 2;
@@ -4378,8 +4331,7 @@ function qStormSave() {
     } catch (e) { }
 }
 const qStormOn = () => !!(qStorm && qStorm.left > 0);
-// One press of Roll with `count` rolls. Returns { add: storm quarks for each roll, sum, ended }
-// while a storm runs, { started: true } when this press starts one, otherwise null.
+// One press of Roll with count rolls
 function qStormPress(count) {
     if (qStormOn()) {
         const add = Array.from({ length: count }, () => QSTORM_MIN + Math.floor(Math.random() * (QSTORM_MAX - QSTORM_MIN + 1)));
@@ -4652,7 +4604,7 @@ function renderElemCompounds() {
 $('elemBack').addEventListener('click', () => go(elemReturn || 'inventory'));
 $('achievementSearch').addEventListener('input', renderAchievements);
 $('achievementFilter').addEventListener('change', renderAchievements);
-// shrink an element's font so `text` fits in `room` pixels
+// shrink an element's font so text fits in room pixels
 function fitText(el, text, room, base) {
     const cs = getComputedStyle(el);
     const b = base || parseFloat(cs.fontSize) || 80;
@@ -4869,7 +4821,7 @@ function fmtDur(s) {
     s = Math.max(0, Math.ceil(s));
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
-// ---- autoroll: once unlocked it stays on until switched off, with a break between rolls.
+// autoroll: once unlocked it stays on until switched off, with a break between rolls.
 // It runs while the roll screen is open and waits while you are on another screen.
 let autoWanted = false;
 let autoFrom = 0;
@@ -5053,8 +5005,6 @@ function normalizeFormula(f) {
     return hillFormula(a);
 }
 ACHIEVEMENTS.forEach(a => a.hill = normalizeFormula(a.formula));
-// Rarity labels come from the estimated number of rolls needed to land each formula,
-// assuming 150% luck and a 1 in 3 chain chance.
 function assignAchievementRarities() {
     const weights = ELEMENTS.map(e => (1 / e[2]) * (1 + 1.5 * (Math.log10(e[2] + 1) / 3)));
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
@@ -7103,10 +7053,6 @@ CUTSCENES.Db = {
         drawCard(ctx, scene, time, 7900, '#f8ffe6', '#c6f03a');
     }
 };
-// ---------------------------------------------------------------------------
-// Storage: how much of the browser's space the save uses, and clearing finds
-// that are no longer needed. Rolls from cleared finds still count in the roll total.
-// ---------------------------------------------------------------------------
 const STORE_LIMIT = 5 * 1024 * 1024;
 function storageBytes() {
     let n = 0;
@@ -7119,12 +7065,6 @@ function storageBytes() {
     return n;
 }
 const fmtBytes = n => n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
-// Which finds go: everything scoring below the minimum, except
-//  · single elements (they fill element and family bonds, and keep elements found)
-//  · achievement formulas (they fill compound bonds)
-//  · your top 10 by odds and top 10 by score
-//  · enough compounds containing each element to fill every unfilled "compound with X" bond
-//  · at least one find for every element you've found
 function planClear(minScore) {
     const keep = new Set();
     const ach = new Set(ACHIEVEMENTS.map(a => normalizeFormula(a.formula)));
@@ -7217,10 +7157,7 @@ $('clearYes').onclick = () => {
     save();
     location.reload();
 };
-// ---------------------------------------------------------------------------
-// Cutscene and effect viewer (Settings): replay any cutscene or rarity effect you've
-// seen. Secret effects stay completely hidden here until you've seen one.
-// ---------------------------------------------------------------------------
+// Cutscene and effect viewer (Settings): replay any cutscene or rarity effect you've seen
 let seenData = null;
 function seenLoad() {
     if (seenData) {
@@ -7232,8 +7169,6 @@ function seenLoad() {
         seenData = null;
     }
     if (!seenData || typeof seenData !== 'object') {
-        // first time: cutscenes for elements already found (they play every time),
-        // and the normal effect of every tier already reached. Secret effects can't be known.
         const found = discoveredSymbols();
         const tiers = new Set();
         collection.forEach(c => {
@@ -7304,16 +7239,10 @@ async function viewerPlay(btn) {
         viewerPlay(b);
     }
 }));
-// Donation links stay out of app-store versions (an Android app's built-in browser,
-// or a page opened with ?app=play), where store rules don't allow outside payments.
 if (/[?&]app=play\b/.test(location.search) || /; wv\)/.test(navigator.userAgent)) {
     document.querySelectorAll('.donate-only').forEach(e => e.remove());
 }
-// ---------------------------------------------------------------------------
-// Accounts and cloud saves (Supabase). Signing in is optional: signed out, or
-// offline, the game runs exactly as before from this device's own storage.
-// Only progress is synced; display settings stay per device.
-// ---------------------------------------------------------------------------
+// Accounts and cloud saves (Supabase)
 const CLOUD = {
     enabled: true,
     url: 'https://svfscvtskwuaygjgszog.supabase.co',
@@ -7417,8 +7346,7 @@ async function cloudInit() {
         renderAccount();
         return;
     }
-    // Supabase reports the starting session first, then any sign-in or sign-out.
-    // Work is deferred so it never runs inside the auth callback itself.
+    // Supabase reports the starting session first, then any sign-in or sign-out
     sb.auth.onAuthStateChange((event, session) => {
         setTimeout(() => cloudOnSession(session), 0);
     });
@@ -7476,8 +7404,6 @@ async function cloudSync() {
     cloudBusy = true;
     cloudState = 'syncing';
     renderAccount();
-    // ask only when the cloud save last changed (a few bytes); the save itself is
-    // downloaded only when another device has changed it
     const { data: head, error } = await sb.from('saves').select('updated_at').eq('user_id', cloudUser.id).maybeSingle();
     if (error) {
         cloudFail(error);
@@ -7520,8 +7446,7 @@ async function cloudSync() {
     renderAccount();
     cloudChoose(local, row);
 }
-// Sends this device's progress up. Unless forced, it only overwrites the cloud
-// save this device last saw, so two devices never silently undo each other.
+// Sends this device's progress up
 async function cloudUpload(force) {
     if (!sb || !cloudUser || cloudBusy) {
         return;
@@ -7610,7 +7535,7 @@ async function cloudSignOut() {
     await cloudTick();
     await sb.auth.signOut();
 }
-// ---- dialogs (name choice and save conflict)
+// dialogs (name choice and save conflict)
 function openDialog(html) {
     closeDialog();
     const wrap = document.createElement('div');
@@ -7692,7 +7617,7 @@ function cloudChoose(local, row) {
         cloudApply(row);
     };
 }
-// ---- the Account section in Settings
+// the Account section in Settings
 function cloudAgo() {
     const s = Math.round((Date.now() - cloudLastSync) / 1000);
     return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : 'over an hour ago';
@@ -7740,11 +7665,7 @@ setInterval(() => {
         renderAccount();
     }
 }, 30000);
-// ---------------------------------------------------------------------------
-// Global top 10 and globals. The game only sends a roll's formula; the server
-// works out its odds and score itself. A roll is sent when it would make the
-// board, or when its tier counts as a global (set from the admin tab).
-// ---------------------------------------------------------------------------
+// Global top 10 and globals
 let globalBoard = { odds: null, score: null, at: 0, error: false };
 let globalSettings = { min_tier: 7, announce_top10: true, discord_enabled: true, banner_enabled: true };
 let globalMode = 'odds';
@@ -7871,10 +7792,7 @@ function globalFlushPending() {
     globalSetPending([]);
     list.forEach(p => globalSubmit(p));
 }
-// After signing in: your best finds so far get a chance at the board too.
-// They're marked as old, so they aren't announced as new finds.
-// Runs once per account on each device, so later rolls (like the ones made while
-// away) are never sent this way: only rolls as they happen, or an away session's rarest.
+// After signing in: your best finds so far get a chance at the board too
 function globalBackfill() {
     if (!cloudUser || !cloudName || !globalBoard.odds) {
         return;
@@ -7952,7 +7870,7 @@ setInterval(() => {
         globalLoad();
     }
 }, 60000);
-// ---- the banner: other players' globals, live. The connection is only open while
+// the banner: other players' globals, live. The connection is only open while
 // the game is on screen, so idle tabs don't use up the server's live connections.
 let rtChannel = null;
 const bannerQueue = [];
@@ -8000,7 +7918,7 @@ function bannerNext() {
         }, 450);
     }, 5500);
 }
-// ---- gifts from the admin, handed over when you sign in or come back to the game
+// gifts from the admin, handed over when you sign in or come back to the game
 async function giftsClaim() {
     if (!sb || !cloudUser || !cloudName) {
         return;
@@ -8043,10 +7961,7 @@ function cloudAfterProfile() {
     giftsClaim();
     adminCheck();
 }
-// ---------------------------------------------------------------------------
-// Admin tab: only shown to the admin account. Every action is checked again by
-// the server, so the tab being visible gives nobody else any power.
-// ---------------------------------------------------------------------------
+// Admin tab: only shown to the admin account
 let isAdmin = false;
 async function adminCheck() {
     if (!sb || !cloudUser) {
@@ -8236,17 +8151,8 @@ async function admGifts() {
         list.appendChild(el);
     });
 }
-// ---------------------------------------------------------------------------
-// While you were away: when the game is opened again after being closed, it rolls
-// for the time away as if autoroll had been running ten times slower, up to 24 hours.
-// Every roll is added to the collection (so it counts for bonds, achievements, the
-// roll total and quarks), but only the rarest is shown, played and announced.
-// ---------------------------------------------------------------------------
 const AWAY_MAX = 24 * 3600;
 const AWAY_SLOWER = 10;
-// Time away is measured with the server's clock, carried forward by the browser's own
-// timer, which changing the device clock doesn't affect. So a device clock that's
-// wrong, or moved forward on purpose, makes no difference.
 const trustedNow = () => clockBase ? clockBase.server + (performance.now() - clockBase.perf) : null;
 async function clockSync() {
     if (!CLOUD.enabled) {

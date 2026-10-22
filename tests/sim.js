@@ -1,7 +1,4 @@
-// Elemental balance simulator.
-// Loads the game's own data and rules from an index.html, then plays a virtual player:
-// rolls (manual, then autoroll), fills bond slots greedily, buys and uses catalysts.
-// Usage: node sim.js <index.html> [runs] [maxHours] [overrides.json]
+// Elemental balance simulator
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -84,7 +81,7 @@ function simulate(G, seed, maxHours, opts) {
     const FAM = SYM.map(x => G.familyOf(x));
     const famList = {};
     SYM.forEach((x, i) => (famList[FAM[i]] = famList[FAM[i]] || []).push(i));
-    // ---- player state
+    // player state
     let t = 0; // seconds
     const found = new Uint8Array(NE);
     let foundN = 0;
@@ -102,7 +99,7 @@ function simulate(G, seed, maxHours, opts) {
     let earnedRare = 0, rareN = 0, maxQ = 0, maxQScore = 0;
     let rollsDone = 0;
     let draws = 0;
-    // ---- element buffs from found elements
+    // element buffs from found elements
     let eb = { luck: 0, speed: 0, extra: 0, chain: 0, auto: false, aspeed: 0 };
     function addElementBuff(i) {
         const b = G.ELEMENT_BUFFS.get(SYM[i]);
@@ -123,7 +120,7 @@ function simulate(G, seed, maxHours, opts) {
             eb.aspeed += b.value;
         }
     }
-    // ---- network
+    // network
     const N = G.NET;
     const nn = N.nodes.length;
     const filled = new Uint8Array(nn);
@@ -230,7 +227,7 @@ function simulate(G, seed, maxHours, opts) {
             wCache.clear();
         }
     }
-    // ---- catalysts
+    // catalysts
     const CATS = G.CATALYSTS;
     const CATID = Object.fromEntries(CATS.map(c => [c.id, c]));
     const inv = {};
@@ -369,7 +366,7 @@ function simulate(G, seed, maxHours, opts) {
         }
         return o;
     }
-    // ---- weights
+    // weights
     const LF = RAR.map(n => 1 + 1.5 * (Math.log10(n + 1) / 3));
     const wCache = new Map();
     function table(luck, fam, onlyUnfound) {
@@ -406,7 +403,7 @@ function simulate(G, seed, maxHours, opts) {
         }
         return lo;
     }
-    // ---- milestones
+    // milestones
     const M = { };
     const mark = (k) => {
         if (M[k] == null) {

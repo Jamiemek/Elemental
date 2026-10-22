@@ -1,7 +1,4 @@
 #!/bin/sh
-# Creates a throwaway local Postgres 16 that imitates Supabase, with every file in
-# supabase/ applied, for the tests that run real SQL (admin, cat, clock, glob).
-# Data lives in /tmp/pgtest (port 55432). Run as root; it starts the server as postgres.
 set -e
 cd "$(dirname "$0")/../.."
 PG=/usr/lib/postgresql/16/bin

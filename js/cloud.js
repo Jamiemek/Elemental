@@ -1,8 +1,4 @@
-// ---------------------------------------------------------------------------
-// Accounts and cloud saves (Supabase). Signing in is optional: signed out, or
-// offline, the game runs exactly as before from this device's own storage.
-// Only progress is synced; display settings stay per device.
-// ---------------------------------------------------------------------------
+// Accounts and cloud saves (Supabase)
 const CLOUD = {
     enabled: true,
     url: 'https://svfscvtskwuaygjgszog.supabase.co',
@@ -106,8 +102,7 @@ async function cloudInit() {
         renderAccount();
         return;
     }
-    // Supabase reports the starting session first, then any sign-in or sign-out.
-    // Work is deferred so it never runs inside the auth callback itself.
+    // Supabase reports the starting session first, then any sign-in or sign-out
     sb.auth.onAuthStateChange((event, session) => {
         setTimeout(() => cloudOnSession(session), 0);
     });
@@ -165,8 +160,6 @@ async function cloudSync() {
     cloudBusy = true;
     cloudState = 'syncing';
     renderAccount();
-    // ask only when the cloud save last changed (a few bytes); the save itself is
-    // downloaded only when another device has changed it
     const { data: head, error } = await sb.from('saves').select('updated_at').eq('user_id', cloudUser.id).maybeSingle();
     if (error) {
         cloudFail(error);
@@ -209,8 +202,7 @@ async function cloudSync() {
     renderAccount();
     cloudChoose(local, row);
 }
-// Sends this device's progress up. Unless forced, it only overwrites the cloud
-// save this device last saw, so two devices never silently undo each other.
+// Sends this device's progress up
 async function cloudUpload(force) {
     if (!sb || !cloudUser || cloudBusy) {
         return;
@@ -299,7 +291,7 @@ async function cloudSignOut() {
     await cloudTick();
     await sb.auth.signOut();
 }
-// ---- dialogs (name choice and save conflict)
+// dialogs (name choice and save conflict)
 function openDialog(html) {
     closeDialog();
     const wrap = document.createElement('div');
@@ -381,7 +373,7 @@ function cloudChoose(local, row) {
         cloudApply(row);
     };
 }
-// ---- the Account section in Settings
+// the Account section in Settings
 function cloudAgo() {
     const s = Math.round((Date.now() - cloudLastSync) / 1000);
     return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : 'over an hour ago';

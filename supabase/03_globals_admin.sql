@@ -1,11 +1,8 @@
--- Elemental database, part 3: the boards, globals, Discord posts, bans, giveaways
--- and the admin tab. Run in the Supabase SQL Editor after parts 1 and 2. Safe to run
--- more than once.
 
 -- Discord posts are sent straight from the database
 create extension if not exists pg_net;
 
--- ================================================================ admins
+-- admins
 create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade
 );
@@ -30,7 +27,7 @@ begin
 end $$;
 revoke all on function public.require_admin() from public, anon;
 
--- ================================================================ settings
+-- settings
 -- What counts as a global, and where globals are shown. Everyone can read these.
 create table if not exists public.game_settings (
   id int primary key default 1 check (id = 1),
@@ -45,7 +42,7 @@ drop policy if exists "settings are public" on public.game_settings;
 create policy "settings are public" on public.game_settings for select using (true);
 grant select on public.game_settings to anon, authenticated;
 
--- ================================================================ bans
+-- bans
 create table if not exists public.bans (
   user_id uuid primary key references auth.users (id) on delete cascade,
   reason text,
@@ -76,7 +73,7 @@ create view public.global_top_score with (security_invoker = on) as
   limit 10;
 grant select on public.global_top_odds, public.global_top_score to anon, authenticated;
 
--- ================================================================ globals
+-- globals
 -- Every global, shown as a banner in everyone's game and posted to Discord.
 create table if not exists public.announcements (
   id bigint generated always as identity primary key,
@@ -119,9 +116,7 @@ returns text language sql immutable as $$
     else '≈ 1/' || to_char(power(10::double precision, lg - floor(lg)), 'FM0.00') || 'e' || floor(lg)::int end;
 $$;
 
--- Builds the Discord post for a global and sends it, if a webhook is saved.
--- Never stops a roll being recorded if Discord or the webhook has a problem.
--- The footer logo is IMG_3422.png in the game's repo.
+-- Builds the Discord post for a global and sends it, if a webhook is saved
 create or replace function public.discord_post(a public.announcements, p_rolls bigint, p_luck double precision, p_catalysts text)
 returns void language plpgsql security definer set search_path = '' as $$
 declare
@@ -173,11 +168,8 @@ exception when others then
 end $$;
 revoke all on function public.discord_post(public.announcements, bigint, double precision, text) from public, anon, authenticated;
 
--- ================================================================ submitting rolls
--- The game calls this when a roll might make the top 10 or count as a global. It
--- checks the formula, works out the odds and score itself, applies a rate limit and
--- bans, and returns the roll's ranks. The extra details (rolls, luck, catalysts,
--- name) are only used for display.
+-- submitting rolls
+-- The game calls this when a roll might make the top 10 or count as a global
 create or replace function public.submit_roll(p_formula text, p_label text default null,
   p_rolls bigint default null, p_luck double precision default null, p_catalysts text default null,
   p_old boolean default false)
@@ -249,8 +241,7 @@ begin
 
   select * into s from public.game_settings where id = 1;
   t := public.tier_for(sc);
-  -- p_old: a find from before signing in, checked against the board. It can still
-  -- enter the top 10 (and be announced as that), but isn't announced as a new find.
+  -- p_old: a find from before signing in, checked against the board
   is_global := (t >= s.min_tier and not coalesce(p_old, false)) or (s.announce_top10 and added);
   if is_global then
     clean_label := left(regexp_replace(coalesce(p_label, ''), '[^A-Za-z0-9 +×,.()-]', '', 'g'), 80);
@@ -265,7 +256,7 @@ end $$;
 revoke all on function public.submit_roll(text, text, bigint, double precision, text, boolean) from public, anon;
 grant execute on function public.submit_roll(text, text, bigint, double precision, text, boolean) to authenticated;
 
--- ================================================================ giveaways
+-- giveaways
 create table if not exists public.gifts (
   id bigint generated always as identity primary key,
   user_id uuid references auth.users (id) on delete cascade, -- empty = everyone
@@ -283,8 +274,7 @@ create table if not exists public.gift_claims (
 alter table public.gifts enable row level security;
 alter table public.gift_claims enable row level security;
 
--- The game calls this after signing in: hands over any gifts not yet received.
--- "Everyone" gifts go to players who had an account when the gift was made.
+-- The game calls this after signing in: hands over any gifts not yet received
 create or replace function public.claim_gifts()
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -314,7 +304,7 @@ end $$;
 revoke all on function public.claim_gifts() from public, anon;
 grant execute on function public.claim_gifts() to authenticated;
 
--- ================================================================ admin tab
+-- admin tab
 create or replace function public.admin_settings(p_min_tier int, p_top10 boolean, p_discord boolean, p_banner boolean)
 returns void language plpgsql security definer set search_path = '' as $$
 begin

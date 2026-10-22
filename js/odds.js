@@ -72,7 +72,7 @@ function weightTable(extraLuck, only) {
     }
     return t;
 }
-// one element, with the active buffs; `extraLuck` and `only` come from single-roll catalysts
+// one element, with the active buffs; extraLuck and only come from single-roll catalysts
 function weightedElement(extraLuck, only) {
     const { w, total } = weightTable(extraLuck, only);
     let r = Math.random() * total;
@@ -107,9 +107,7 @@ function hillFormula(elements) {
 }
 const BASE_CHAIN = 8;
 const SYM_IDX = Object.fromEntries(ELEMENTS.map((e, i) => [e[0], i]));
-// Odds are always base odds: no luck, chain or other buffs are counted.
-// Shown odds = element 1 base odds x 8 x element 2 base odds x 8 x ... using each
-// element's listed base odds and the base chain chance of 1 in 8.
+// Odds are always base odds: no luck, chain or other buffs are counted
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
     let log10 = -(n - 1) * Math.log10(BASE_CHAIN);
@@ -123,10 +121,7 @@ function rarityText(log) {
     }
     return '≈ 1/' + value.toExponential(2).replace('+', '');
 }
-// Quarks earned by one roll. Everyday rolls (score up to 10,000) earn √score × 0.1.
-// Above that the curve steepens (score^0.75), so rare finds feel like a reward:
-// Flerovium about 345, Uranium about 2,000. Even with a quark catalyst, no single roll
-// pays enough for a legendary catalyst, so one lucky roll can't buy out the shop.
+// Quarks earned by one roll
 const QUARK_RATE = 0.1;
 const QUARK_KNEE = 10000;
 function quarksFor(score, mult) {
@@ -172,10 +167,8 @@ function addQuarks(n) {
     } catch (e) { }
     renderQuarks();
 }
-// ---- Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
-// lasts the next 100 presses. While it lasts, every roll earns 2 to 30 extra quarks on top
-// of its usual quarks (quark catalysts don't multiply these). A storm can't start while one
-// is already running. Away rolls count too.
+// Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
+// lasts the next 100 presses
 const QSTORM_CHANCE = 1 / 8000;
 const QSTORM_PRESSES = 100;
 const QSTORM_MIN = 2;
@@ -195,8 +188,7 @@ function qStormSave() {
     } catch (e) { }
 }
 const qStormOn = () => !!(qStorm && qStorm.left > 0);
-// One press of Roll with `count` rolls. Returns { add: storm quarks for each roll, sum, ended }
-// while a storm runs, { started: true } when this press starts one, otherwise null.
+// One press of Roll with count rolls
 function qStormPress(count) {
     if (qStormOn()) {
         const add = Array.from({ length: count }, () => QSTORM_MIN + Math.floor(Math.random() * (QSTORM_MAX - QSTORM_MIN + 1)));

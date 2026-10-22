@@ -1,8 +1,4 @@
-// ---------------------------------------------------------------------------
-// Global top 10 and globals. The game only sends a roll's formula; the server
-// works out its odds and score itself. A roll is sent when it would make the
-// board, or when its tier counts as a global (set from the admin tab).
-// ---------------------------------------------------------------------------
+// Global top 10 and globals
 let globalBoard = { odds: null, score: null, at: 0, error: false };
 let globalSettings = { min_tier: 7, announce_top10: true, discord_enabled: true, banner_enabled: true };
 let globalMode = 'odds';
@@ -129,10 +125,7 @@ function globalFlushPending() {
     globalSetPending([]);
     list.forEach(p => globalSubmit(p));
 }
-// After signing in: your best finds so far get a chance at the board too.
-// They're marked as old, so they aren't announced as new finds.
-// Runs once per account on each device, so later rolls (like the ones made while
-// away) are never sent this way: only rolls as they happen, or an away session's rarest.
+// After signing in: your best finds so far get a chance at the board too
 function globalBackfill() {
     if (!cloudUser || !cloudName || !globalBoard.odds) {
         return;
@@ -210,7 +203,7 @@ setInterval(() => {
         globalLoad();
     }
 }, 60000);
-// ---- the banner: other players' globals, live. The connection is only open while
+// the banner: other players' globals, live. The connection is only open while
 // the game is on screen, so idle tabs don't use up the server's live connections.
 let rtChannel = null;
 const bannerQueue = [];
@@ -258,7 +251,7 @@ function bannerNext() {
         }, 450);
     }, 5500);
 }
-// ---- gifts from the admin, handed over when you sign in or come back to the game
+// gifts from the admin, handed over when you sign in or come back to the game
 async function giftsClaim() {
     if (!sb || !cloudUser || !cloudName) {
         return;

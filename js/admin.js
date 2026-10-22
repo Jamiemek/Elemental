@@ -1,7 +1,4 @@
-// ---------------------------------------------------------------------------
-// Admin tab: only shown to the admin account. Every action is checked again by
-// the server, so the tab being visible gives nobody else any power.
-// ---------------------------------------------------------------------------
+// Admin tab: only shown to the admin account
 let isAdmin = false;
 async function adminCheck() {
     if (!sb || !cloudUser) {

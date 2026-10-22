@@ -1,5 +1,4 @@
-// Builds with a new SAVE_VERSION start from a blank slate. Old progress is kept under
-// 'legacyElementalBackup' instead of being deleted.
+// a new SAVE_VERSION starts from a blank slate (old progress is kept as a backup)
 const SAVE_VERSION = '2';
 try {
     if (localStorage.getItem('elementalSaveVersion') !== SAVE_VERSION) {

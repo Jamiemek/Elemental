@@ -1,9 +1,4 @@
-# Shared set-up for the browser tests: builds the copies of the game the tests load.
-#   site('preview')  the preview copy (accounts off, test tools on), for tests with no server
-#   site('test')     the preview copy with accounts ON, for tests that stand in for Supabase
-#                    with mocksb.js (and pgserver.py, which runs the real SQL locally)
-#   PREVIEW          the preview copy as a single file, for tests that open it directly
-# Screenshots and built copies go in tests/work/ (not saved in the repo).
+# Shared set-up for the browser tests: builds the copies of the game the tests load
 import os
 import shutil
 import sys
@@ -17,14 +12,12 @@ import build  # noqa: E402
 
 CLOUD_OFF = '    enabled: false, // the preview copy never touches real accounts or saves'
 
-
 def page(kind):
     p = build.preview(build.single(build.joined_js()))
     if kind == 'test':
         assert p.count(CLOUD_OFF) == 1
         p = p.replace(CLOUD_OFF, '    enabled: true,')
     return p
-
 
 def site(kind):
     d = SP + 'site-' + kind
@@ -34,7 +27,6 @@ def site(kind):
     for extra in ('privacy.html', 'IMG_3422.png'):
         shutil.copy(ROOT + extra, d + '/' + extra)
     return d
-
 
 PREVIEW = SP + 'elemental_preview.html'
 with open(PREVIEW, 'w', encoding='utf-8') as _f:

@@ -1,5 +1,3 @@
-// Quark Storm particles: small glowing quarks in the three colour charges, some alone and some
-// bound in threes by wiggly gluon lines, swirling round the scan as they fly in.
 const QS_COLS = ['#ff5a6e', '#5ef0a0', '#5aa8ff'];
 let qsSprites = null;
 function qsSprite(i) {

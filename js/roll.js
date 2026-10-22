@@ -1,4 +1,4 @@
-// shrink an element's font so `text` fits in `room` pixels
+// shrink an element's font so text fits in room pixels
 function fitText(el, text, room, base) {
     const cs = getComputedStyle(el);
     const b = base || parseFloat(cs.fontSize) || 80;
@@ -215,7 +215,7 @@ function fmtDur(s) {
     s = Math.max(0, Math.ceil(s));
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
-// ---- autoroll: once unlocked it stays on until switched off, with a break between rolls.
+// autoroll: once unlocked it stays on until switched off, with a break between rolls.
 // It runs while the roll screen is open and waits while you are on another screen.
 let autoWanted = false;
 let autoFrom = 0;

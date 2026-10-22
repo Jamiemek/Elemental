@@ -1,5 +1,3 @@
-# Answers the stand-in Supabase client by running real SQL against the test database,
-# as the 'authenticated' (or 'anon') role with auth.uid() set, the way Supabase does.
 import json, os, subprocess, secrets
 PSQL=['psql','-h',os.environ.get('ELEMENTAL_PGHOST','/tmp/pgtest'),'-p',os.environ.get('ELEMENTAL_PGPORT','55432'),'-U','postgres','-d','t','-A','-t','-q','-v','ON_ERROR_STOP=1']
 FAIL={'next':0}

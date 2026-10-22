@@ -1,8 +1,4 @@
-// ---------------------------------------------------------------------------
-// Catalyst shop. Restocks on fixed real-time boundaries; bought catalysts go to an
-// inventory; one active catalyst per tier; the same catalyst extends; timers run
-// in real time; single-roll catalysts cover one individual roll each.
-// ---------------------------------------------------------------------------
+// Catalyst shop
 const CAT_TIERS = [
     { name: 'Common', col: '#9fb0a8', p: 60 },
     { name: 'Uncommon', col: '#6fcf8a', p: 26 },
@@ -77,7 +73,7 @@ function catEffect(c) {
     return "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
 }
 const catLength = c => c.rolls ? (c.rolls === 1 ? 'Single roll' : `Next ${c.rolls} rolls`) : `Timed, ${c.min} min`;
-// ---- saved state
+// saved state
 function loadJSON(k, d) {
     try {
         return JSON.parse(localStorage.getItem(k) || 'null') || d;
@@ -95,7 +91,7 @@ function saveCats() {
         localStorage.setItem('elementalCatActive', JSON.stringify(catActive));
     } catch (e) { }
 }
-// ---- active catalysts
+// active catalysts
 function pruneActive() {
     let ch = false;
     const now = Date.now();
@@ -235,7 +231,7 @@ function clearCatalyst(tier) {
     saveCats();
     buffCache = weightCache = null;
 }
-// ---- the shop
+// the shop
 function shopPeriodMs() {
     const b = bondBonus();
     return Math.max(5, 20 - b.refresh) * 60000;
@@ -244,15 +240,11 @@ const shopSlots = () => Math.min(5, 2 + bondBonus().slots);
 function shopPrice(c) {
     return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
 }
-// The shop's clock: the server's time once known (see "While you were away"), so moving
-// the device clock forward doesn't restock it. Declared here so the shop can use it early.
 var clockBase = null;
 var clockTried = false;
 function shopNow() {
     return clockBase ? clockBase.server + (performance.now() - clockBase.perf) : Date.now();
 }
-// The time of the next restock is saved, so a change to the restock time (bonds can
-// shorten it) applies from the next restock rather than restocking on the spot.
 function shopCheck() {
     const P = shopPeriodMs();
     const now = shopNow();
@@ -357,7 +349,7 @@ $('shopStock').addEventListener('click', e => {
         buyStock(+b.dataset.i);
     }
 });
-// ---- the inventory page: a grid of owned catalysts and a detail panel for the selected one
+// the inventory page: a grid of owned catalysts and a detail panel for the selected one
 let invSel = null;
 const catMark = c => {
     const w = c.name.replace(/Catalyst|'s/g, '').trim().split(/[\s-]+/);

@@ -23,8 +23,6 @@ const RARITY_DARK = [
 let rarityEffectTimer = null;
 let fxRunId = 0;
 let runningFx = [];
-// Reduce flashing: full-screen layers can't change brightness faster than about
-// 0.4 opacity per quarter second, never pass 45%, and stepped flickers become smooth.
 let calmFx = false;
 function tameFlash(frames, dur) {
     if (!frames.length || frames.some(f => f.opacity == null)) {
@@ -95,18 +93,7 @@ function stopFx() {
     }
     document.body.classList.remove('fx-warping');
 }
-// ---------------------------------------------------------------------------
-// Rarity effects. Fully visual, no text. Each tier builds on the one below it:
-//  1  a light sweep and a soft ring around the roll window
-//  2  light traces the roll window's edge and the window breathes
-//  3  the page falls out of focus around the roll window, which lifts forward
-//  4  a shockwave pushes the page outward and it springs back
-//  5  the page tips back in 3D under a fall of golden light
-//  6  an impact shakes and ripples the page, embers and sparks
-//  7  two impacts: the page flashes to negative and scatters, then reassembles
-//  8  the page is drawn into the roll window over a heartbeat, then released
-//  9  the page comes apart and drifts into a starfield, then reforms in white light
-// ---------------------------------------------------------------------------
+// Rarity effects
 let runningPageFx = [];
 function stopPageFx() {
     runningPageFx.splice(0).forEach(a => {
@@ -149,8 +136,7 @@ function fxSprite(col, flat) {
     x.fillRect(0, 0, 48, 48);
     return fxSprite.cache[key] = s;
 }
-// Particle field. `plan` is a list of emitters:
-//  { type: 'burst'|'spiral'|'embers'|'rain'|'stars'|'galaxy', at, until, n, rate, cols, ... }
+// Particle field
 function fxParticles(cv, o) {
     const dpr = Math.min(1.5, devicePixelRatio || 1);
     const W = innerWidth;
@@ -422,7 +408,7 @@ function playRarityFx(tier, dark) {
         const d = Math.hypot(dx, dy) || 1;
         return { dx: dx / d, dy: dy / d, d };
     };
-    // ---- building blocks
+    // building blocks
     const ring = (delay, dur, to, col, w, glow, from) => {
         const r = E('fx-ring', at + 'width:12vmin;height:12vmin;border-width:' + (w || 1.5) + 'px;border-color:' + col + ';box-shadow:0 0 ' + (glow || 14) + 'px ' + col + ',inset 0 0 ' + (glow || 14) + 'px ' + col);
         A(r, [{ opacity: 0, transform: TR + 'scale(' + (from || 0.3) + ')' }, { opacity: 1, offset: 0.08 }, { opacity: 0, transform: TR + 'scale(' + to + ')' }], { duration: dur, delay, easing: 'cubic-bezier(.15,.75,.25,1)' });
@@ -557,9 +543,9 @@ function playRarityFx(tier, dark) {
         ov.appendChild(cv);
         fxParticles(cv, { cx, cy, tok, plan, end: end || total });
     };
-    // ---- secret (dark) variants for tiers 5 to 9
+    // secret (dark) variants for tiers 5 to 9
     if (dark) {
-        // jagged crack lines spreading out from a point, drawn on over `dur`
+        // jagged crack lines spreading out from a point, drawn on over dur
         const cracks = (delay, dur, n, reach, col, w, ox, oy, keep) => {
             const sx = ox == null ? cx : ox;
             const sy = oy == null ? cy : oy;
@@ -925,7 +911,7 @@ function playRarityFx(tier, dark) {
         done();
         return;
     }
-    // ---- the tiers
+    // the tiers
     if (tier === 1) {
         sweep(0, 1100, c);
         ring(80, 1300, 5, c, 1.2, 10);

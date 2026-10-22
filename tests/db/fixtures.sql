@@ -1,5 +1,4 @@
--- Test players: U1 is the admin "Jamiemek", U2 is "Other". The webhook is a dummy:
--- posts land in net.sent instead of reaching Discord.
+-- Test players: U1 is the admin "Jamiemek", U2 is "Other"
 insert into public.profiles (id, display_name) values
   ('00000000-0000-0000-0000-000000000001', 'Jamiemek'),
   ('00000000-0000-0000-0000-000000000002', 'Other')

@@ -52,10 +52,6 @@ function renderAchievements() {
         root.appendChild(row);
     });
 }
-// The collection is saved compactly: one [formula, count, spent] per formula, about
-// 20 bytes each. Elements, name, odds and score are rebuilt from the formula on load,
-// so they always match the current element odds. Older saves (one full object per
-// formula, about 300 bytes each) are read the same way and shrink on the next save.
 let achNameByFormula = null;
 function recordFromFormula(formula, count, spent) {
     if (typeof formula !== 'string' || !formula) {
@@ -215,8 +211,6 @@ const CHAIN_SYMBOLS = new Set(['Rn', 'Bk', 'Ds', 'Og']);
 const AUTO_UNLOCK_SYMBOL = 'Pt';
 const AUTO_TIME_SYMBOLS = new Set(['Cs', 'Sm', 'Os', 'Tm', 'Ac']);
 const AUTO_COOL_SYMBOLS = new Set(['Pr', 'Lu', 'Rh', 'Pa', 'Po']);
-// Autoroll waits AUTO_BASE_GAP seconds between rolls; autoroll speed shortens the wait,
-// down to AUTO_MIN_GAP (rolling back to back), which is the fastest it can go.
 const AUTO_BASE_GAP = 5;
 const AUTO_MIN_GAP = 0.5;
 const AUTO_SPEED_STEP = 10;
