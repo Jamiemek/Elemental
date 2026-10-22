@@ -15,7 +15,7 @@ Read README.md for the layout. The owner develops from a phone and doesn't hand-
 - Element rarities don't change.
 - Chain chance is never better than 1 in 3. At most 3 bonus rolls.
 - Displayed odds and score are always base values, before luck and other buffs.
-- The version label stays 1.5 until the owner says otherwise.
+- The version label (APP_VERSION in js/odds.js) only changes when the owner says so. It is 1.51.
 - Keep `IMG_3422.png`: it is the logo, used by Discord posts.
 - The Discord webhook lives only in Supabase Vault. Never put it, the service-role key, the
   database password or the Google client secret in the repo or the game.
