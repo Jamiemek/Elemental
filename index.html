@@ -892,6 +892,26 @@ input[type=checkbox] {
   color: #fff;
 }
 
+/* community and support links */
+a.link-btn {
+  display: inline-block;
+  text-decoration: none;
+}
+a.link-btn:hover {
+  background: var(--ink);
+  color: var(--bench);
+}
+.home-links {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.home-links a {
+  color: inherit;
+}
+.home-links a:hover {
+  color: var(--ink);
+}
 /* storage */
 .store-bar {
   height: 10px;
@@ -2759,6 +2779,7 @@ body.fx-warping .screen.active {
 <div><dt>Chain chance</dt><dd id="homeChain">1 in 8</dd></div>
 <div><dt>Autoroll</dt><dd class="js-auto">Locked</dd></div>
 </dl>
+<p class="home-links"><a href="https://discord.gg/JRjxek33se" target="_blank" rel="noopener">Discord</a><span class="donate-only"> · <a href="https://ko-fi.com/jamiemek" target="_blank" rel="noopener">Support the game</a></span></p>
 </aside>
 </div>
 </main>
@@ -2872,6 +2893,8 @@ body.fx-warping .screen.active {
 <div class="adm-find"><input id="clearMin" class="adm-input" type="number" min="1" inputmode="numeric" placeholder="Minimum score to keep" aria-label="Minimum score to keep"><button class="ghost" id="clearBtn">Clear redundant finds</button></div>
 <p class="adm-msg" id="clearMsg"></p>
 <div class="btn-row" id="clearConfirm" hidden><button class="ghost danger" id="clearYes">Remove finds</button><button class="ghost" id="clearNo">Cancel</button></div></div></div>
+<div class="setting"><h3>Community</h3><div class="body"><p>Join the Elemental Discord to see everyone's discoveries as they happen, share your own finds and suggest ideas.</p><div class="btn-row"><a class="ghost link-btn" href="https://discord.gg/JRjxek33se" target="_blank" rel="noopener">Join the Discord</a></div></div></div>
+<div class="setting donate-only"><h3>Support Elemental</h3><div class="body"><p>Elemental is free, with no ads and nothing to buy. If you'd like to help pay for the servers behind accounts, cloud saves and the global top 10, you can chip in on Ko-fi. It doesn't give you anything in the game, and it's never expected.</p><div class="btn-row"><a class="ghost link-btn" href="https://ko-fi.com/jamiemek" target="_blank" rel="noopener">Support on Ko-fi</a></div></div></div>
 <div class="setting"><h3>Start over</h3><div class="body"><p>Delete your collection, found elements and achievements. This cannot be undone.</p><button class="ghost" id="resetBtn">Reset all progress</button></div></div>
 <p class="footnote">Odds and score are always worked out from base odds, before any luck, chain or other bonuses. Odds multiply each element's base odds, with ×8 for each chained element. Score adds the base odds together.</p>
 </section>
@@ -9994,6 +10017,11 @@ $('clearYes').onclick = () => {
     save();
     location.reload();
 };
+// Donation links stay out of app-store versions (an Android app's built-in browser,
+// or a page opened with ?app=play), where store rules don't allow outside payments.
+if (/[?&]app=play\b/.test(location.search) || /; wv\)/.test(navigator.userAgent)) {
+    document.querySelectorAll('.donate-only').forEach(e => e.remove());
+}
 // ---------------------------------------------------------------------------
 // Accounts and cloud saves (Supabase). Signing in is optional: signed out, or
 // offline, the game runs exactly as before from this device's own storage.
