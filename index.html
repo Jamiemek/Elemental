@@ -7309,11 +7309,15 @@ function rarityText(log) {
     }
     return '≈ 1/' + value.toExponential(2).replace('+', '');
 }
-// Quarks earned by one roll: grows with the roll's score, but gently, so rare rolls
-// pay well without one lucky roll buying out the shop.
+// Quarks earned by one roll. Everyday rolls (score up to 10,000) earn √score × 0.1.
+// Above that the curve steepens (score^0.75), so rare finds feel like a reward:
+// Flerovium about 345, Uranium about 2,000. Even with a quark catalyst, no single roll
+// pays enough for a legendary catalyst, so one lucky roll can't buy out the shop.
 const QUARK_RATE = 0.1;
+const QUARK_KNEE = 10000;
 function quarksFor(score, mult) {
-    return Math.sqrt(score) * QUARK_RATE * mult;
+    const base = score <= QUARK_KNEE ? Math.sqrt(score) : Math.pow(score, 0.75) / Math.pow(QUARK_KNEE, 0.25);
+    return base * QUARK_RATE * mult;
 }
 // Score = the base odds of every element in the roll added together.
 function rollScore(elements) {
