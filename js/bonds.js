@@ -1,0 +1,882 @@
+// ---------------------------------------------------------------------------
+// Bond network. One fixed-seed network grows outward from a single oxygen.
+// Every line between two slots holds a buff, switched on once both ends are filled.
+// Filling a slot spends what it asks for (tracked as `spent` on collection records,
+// so roll totals, finds and records never change).
+// ---------------------------------------------------------------------------
+const NET_SEED = 20261021;
+const NET_QTY = 23;
+const NET_FAM_QTY = 23;
+const NET_QTY_GROWTH = 1.42;
+// how strongly each line buff is weighted toward the outer rings
+const NET_WEIGHT = { luck: 2.5, auto: 1.6, price: 0.6, refresh: 0.6, stock: 0.6 };
+const NET_RINGS = 24;
+const NET_STEP = 130;
+const NET_MIN_GAP = 74;
+const NET_TOTALS = {
+    luck: 120, auto: 800, price: 30, refresh: 8, stock: 60
+};
+const NET_MULTS = [1.04, 1.05, 1.06, 1.08, 1.1, 1.2, 1.35, 1.5];
+const NET_SLOT_RINGS = [4, 10, 17];
+const NET_CHAIN_RINGS = [13, 17, 20, 23];
+const NET_EXTRA_RINGS = [10, 15];
+const NET_RING_COL = ['#f0c419', '#7ddc5a', '#7ddc5a', '#7ddc5a', '#2fe0b0', '#2fe0b0', '#2fe0b0', '#35d0e0', '#35d0e0', '#35d0e0', '#5aa8ff', '#5aa8ff', '#5aa8ff', '#9b8cff', '#9b8cff', '#9b8cff', '#c77dff', '#e060ff', '#e060ff', '#ff5a8a', '#ff5a8a', '#ff7a5a', '#ff7a5a', '#ffb35a', '#ffe08a'];
+const FAMILY_ONE = {
+    alkali: 'alkali metal', alkaline: 'alkaline earth metal', transition: 'transition metal', post: 'post-transition metal', metalloid: 'metalloid', nonmetal: 'nonmetal', halogen: 'halogen', noble: 'noble gas', lanth: 'lanthanide', actin: 'actinide', unknown: 'superheavy'
+};
+var NET = null;
+var netState = {};
+try {
+    netState = JSON.parse(localStorage.getItem('elementalNetwork') || '{}');
+} catch (e) { }
+function saveNet() {
+    try {
+        localStorage.setItem('elementalNetwork', JSON.stringify(netState));
+    } catch (e) { }
+}
+function genNetwork() {
+    const rnd = (a => () => {
+        a |= 0;
+        a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    })(NET_SEED);
+    const nodes = [{ id: 0, x: 0, y: 0, ring: 0, ang: 0 }];
+    const edges = [];
+    const near = (x, y, gap) => nodes.some(n => Math.hypot(n.x - x, n.y - y) < gap);
+    let frontier = [];
+    for (let k = 0; k < 6; k++) {
+        const a = k * Math.PI / 3 - Math.PI / 2;
+        const n = { id: nodes.length, x: Math.cos(a) * NET_STEP, y: Math.sin(a) * NET_STEP, ring: 1, ang: a, twist: (rnd() - 0.5) * 0.5 };
+        nodes.push(n);
+        edges.push({ a: 0, b: n.id });
+        frontier.push(n);
+    }
+    for (let r = 2; r <= NET_RINGS; r++) {
+        const next = [];
+        frontier.forEach(p => {
+            const roll = rnd();
+            const kids = roll < 0.12 ? 0 : roll < 0.55 ? 1 : roll < 0.89 ? 2 : 3;
+            for (let k = 0; k < kids; k++) {
+                let placed = false;
+                for (let tries = 0; tries < 7 && !placed; tries++) {
+                    const spread = kids === 1 ? 0 : (k - (kids - 1) / 2) * (0.85 / r + 0.08);
+                    const a = p.ang + p.twist / r * 3 + spread + (rnd() - 0.5) * (0.35 / r + 0.06) * (1 + tries);
+                    const rad = r * NET_STEP + (rnd() - 0.5) * 40;
+                    const x = Math.cos(a) * rad;
+                    const y = Math.sin(a) * rad;
+                    if (!near(x, y, NET_MIN_GAP)) {
+                        const n = { id: nodes.length, x, y, ring: r, ang: a, twist: p.twist + (rnd() - 0.5) * 0.18 };
+                        nodes.push(n);
+                        edges.push({ a: p.id, b: n.id });
+                        next.push(n);
+                        placed = true;
+                    }
+                }
+            }
+        });
+        // keep the outer rings from thinning out: revive a dead frontier from the ring before
+        if (next.length < 8 && frontier.length) {
+            frontier.slice(0, 8 - next.length).forEach(p => p.twist += 0.2);
+        }
+        frontier = next.length ? next : frontier;
+    }
+    // loops: join some neighbours from different branches
+    const has = new Set(edges.map(e => Math.min(e.a, e.b) + '-' + Math.max(e.a, e.b)));
+    for (let i = 1; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const A = nodes[i];
+            const B = nodes[j];
+            if (Math.abs(A.ring - B.ring) > 1) {
+                continue;
+            }
+            const d = Math.hypot(A.x - B.x, A.y - B.y);
+            if (d < NET_MIN_GAP * 1.45 && !has.has(i + '-' + j) && rnd() < 0.22) {
+                edges.push({ a: i, b: j, join: true });
+                has.add(i + '-' + j);
+            }
+        }
+    }
+    // what each slot asks for, getting rarer and larger further out
+    const els = [...ELEMENTS].sort((a, b) => a[2] - b[2]);
+    const RK = { Common: 0, Uncommon: 1, Rare: 2, Epic: 3, Legendary: 4 };
+    const comps = [...ACHIEVEMENTS].filter(a => normalizeFormula(a.formula).match(/[A-Z]/g).length > 1).sort((a, b) => RK[a.rarity] - RK[b.rarity]);
+    const fams = Object.keys(FAMILY_ONE);
+    const famMin = f => Math.min(...ELEMENTS.filter(e => familyOf(e[0]) === f).map(e => e[2]));
+    const pickEl = (r, lo, hi) => {
+        const f = r / NET_RINGS;
+        const top = Math.min(els.length - 2, Math.floor(els.length * Math.pow(f, 1.25) * hi + 4));
+        const bot = Math.max(0, Math.floor(top * lo));
+        return els[bot + Math.floor(rnd() * Math.max(1, top - bot))][0];
+    };
+    nodes.forEach(n => {
+        const r = n.ring;
+        const rr = r * 18 / NET_RINGS;
+        if (r === 0) {
+            n.req = { t: 'el', k: 'O', n: 1 };
+            return;
+        }
+        const roll = rnd();
+        if (r <= 1 || roll < 0.34) {
+            n.req = { t: 'el', k: pickEl(r, 0.55, 1), n: 1 };
+        } else if (roll < 0.6) {
+            const k = pickEl(Math.max(1, r * 0.45), 0, 0.6);
+            n.req = { t: 'el', k, n: Math.max(2, Math.round(NET_QTY * 3 * Math.pow(NET_QTY_GROWTH, rr) / Math.pow(ELEMENTS.find(e => e[0] === k)[2], 0.55))) };
+        } else if (roll < 0.74 && r >= 2) {
+            const ok = fams.filter(f => famMin(f) <= Math.pow(10, 1 + rr * 0.33));
+            const f = ok[Math.floor(rnd() * ok.length)];
+            n.req = { t: 'fam', k: f, n: Math.max(1, Math.round(NET_FAM_QTY * Math.pow(1.3, rr) / Math.pow(famMin(f), 0.3))) };
+        } else if (roll < 0.9 && r >= 3) {
+            const span = comps.length;
+            const at = Math.min(span - 1, Math.floor(Math.pow((r - 2) / (NET_RINGS - 2), 1.1) * span * (0.6 + rnd() * 0.4)));
+            const a = comps[at];
+            n.req = { t: 'cp', k: normalizeFormula(a.formula), l: a.formula, nm: a.name, n: 1 };
+        } else {
+            n.req = { t: 'has', k: pickEl(r, 0.1, 0.55), n: 1 };
+        }
+    });
+    // what each line gives
+    const outer = e => Math.max(nodes[e.a].ring, nodes[e.b].ring);
+    const ringFirst = {};
+    edges.forEach((e, i) => {
+        const r = outer(e);
+        e.ring = r;
+        if (ringFirst[r] == null) {
+            ringFirst[r] = i;
+        }
+    });
+    // The big rewards (luck multipliers, bonus rolls, chain steps, shop slots) sit behind the
+    // hardest grind in their ring: the line leading to that ring's largest quantity slot.
+    const grind = n => {
+        const q = n.req;
+        return q.t === 'el' ? q.n * ELEMENTS.find(x => x[0] === q.k)[2] : q.t === 'fam' ? q.n * 60 : 0;
+    };
+    const used = new Set();
+    const special = (r, kind, val) => {
+        let best = -1;
+        let bc = -1;
+        edges.forEach((e, i) => {
+            if (e.ring !== r || used.has(i)) {
+                return;
+            }
+            const c = grind(nodes[nodes[e.a].ring >= nodes[e.b].ring ? e.a : e.b]);
+            if (c > bc) {
+                bc = c;
+                best = i;
+            }
+        });
+        if (best >= 0) {
+            used.add(best);
+            edges[best].kind = kind;
+            edges[best].val = val;
+        }
+    };
+    for (let r = 3; r <= NET_RINGS; r += 3) {
+        special(r, 'mult', NET_MULTS[r / 3 - 1]);
+    }
+    NET_EXTRA_RINGS.forEach(r => special(r, 'extra', 1));
+    NET_CHAIN_RINGS.forEach(r => special(r, 'chain', 1));
+    NET_SLOT_RINGS.forEach(r => special(r, 'slot', 1));
+    edges.forEach((e, i) => {
+        if (used.has(i)) {
+            return;
+        }
+        const x = rnd();
+        e.kind = x < 0.45 ? 'luck' : x < 0.7 ? 'auto' : x < 0.8 ? 'price' : x < 0.88 ? 'refresh' : 'stock';
+    });
+    ['luck', 'auto', 'price', 'refresh', 'stock'].forEach(kind => {
+        const list = edges.filter(e => e.kind === kind);
+        const wsum = list.reduce((s, e) => s + Math.pow(e.ring, NET_WEIGHT[kind]), 0);
+        const dp = kind === 'auto' ? 10 : 100;
+        list.forEach(e => e.val = Math.max(1 / dp, Math.round(NET_TOTALS[kind] * Math.pow(e.ring, NET_WEIGHT[kind]) / wsum * dp) / dp));
+    });
+    const adj = nodes.map(() => []);
+    edges.forEach((e, i) => {
+        adj[e.a].push(i);
+        adj[e.b].push(i);
+    });
+    return { nodes, edges, adj };
+}
+function net() {
+    return NET || (NET = genNetwork());
+}
+const netFilled = id => !!netState[id];
+const edgeLit = e => netFilled(e.a) && netFilled(e.b);
+function edgeDesc(e) {
+    const v = e.val;
+    return e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot';
+}
+function reqShort(q) {
+    if (q.t === 'el') {
+        return (q.n > 1 ? q.n + ' ' : '') + q.k;
+    }
+    if (q.t === 'cp') {
+        return q.l;
+    }
+    if (q.t === 'fam') {
+        return (q.n > 1 ? q.n + '× ' : '') + FAMILY_ONE[q.k].split(' ')[0];
+    }
+    return q.k + '–?';
+}
+// collection records that can pay for a slot, most plentiful first
+function eligible(q) {
+    const avail = c => (c.count || 1) - (c.spent || 0);
+    const single = c => c.elements && c.elements.length === 1;
+    let list;
+    if (q.t === 'el') {
+        list = collection.filter(c => c.formula === q.k);
+    } else if (q.t === 'cp') {
+        list = collection.filter(c => normalizeFormula(c.formula) === q.k);
+    } else if (q.t === 'fam') {
+        list = collection.filter(c => single(c) && familyOf(c.elements[0][0]) === q.k);
+    } else {
+        list = collection.filter(c => c.elements && c.elements.length > 1 && c.elements.some(e => e[0] === q.k));
+    }
+    return list.map(c => ({ c, n: avail(c) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+}
+var netVer = 0;
+const payMemo = new Map();
+function canPay(q) {
+    const m = payMemo.get(q);
+    if (m && m.v === netVer) {
+        return m.ok;
+    }
+    const ok = eligible(q).reduce((s, x) => s + x.n, 0) >= q.n;
+    payMemo.set(q, { v: netVer, ok });
+    return ok;
+}
+function payPlan(q) {
+    let need = q.n;
+    const plan = [];
+    eligible(q).forEach(x => {
+        if (need <= 0) {
+            return;
+        }
+        const take = Math.min(need, x.n);
+        plan.push({ c: x.c, take });
+        need -= take;
+    });
+    return need > 0 ? null : plan;
+}
+const netReachable = id => id === 0 || net().adj[id].some(i => {
+    const e = net().edges[i];
+    return netFilled(e.a === id ? e.b : e.a);
+});
+const netFillable = id => !netFilled(id) && netReachable(id) && canPay(net().nodes[id].req);
+// every slot you could fill right now, worked out once per change
+let fillMemo = null;
+function fillableIds() {
+    if (fillMemo && fillMemo.v === netVer) {
+        return fillMemo.ids;
+    }
+    const ids = net().nodes.filter(n => netFillable(n.id)).map(n => n.id);
+    fillMemo = { v: netVer, ids };
+    return ids;
+}
+function fillSlot(id) {
+    const n = net().nodes[id];
+    if (!netFillable(id)) {
+        return false;
+    }
+    const plan = payPlan(n.req);
+    plan.forEach(p => p.c.spent = (p.c.spent || 0) + p.take);
+    save();
+    netState[id] = 1;
+    saveNet();
+    netVer++;
+    buffCache = weightCache = null;
+    return true;
+}
+// totals from every lit line
+function bondBonus() {
+    const r = {
+        add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0
+    };
+    net().edges.forEach(e => {
+        if (!edgeLit(e)) {
+            return;
+        }
+        if (e.kind === 'luck') {
+            r.add += e.val;
+        } else if (e.kind === 'mult') {
+            r.mult *= e.val;
+        } else if (e.kind === 'slot') {
+            r.slots += 1;
+        } else {
+            r[e.kind] += e.val;
+        }
+    });
+    return r;
+}
+function bondSummary() {
+    const N = net().nodes.length;
+    const f = Object.keys(netState).length;
+    $('homeBonds').textContent = f + ' / ' + N + ' slots';
+}
+// ---- the network view
+const netView = { x: 0, y: 0, z: 1, anim: null };
+let netCanvas = null;
+let netSel = null;
+let netRaf = 0;
+function netResize() {
+    const cv = netCanvas;
+    if (!cv) {
+        return;
+    }
+    const r = cv.getBoundingClientRect();
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = Math.round(r.width * dpr);
+    cv.height = Math.round(r.height * dpr);
+    netDraw();
+}
+function netToScreen(x, y) {
+    const r = netCanvas.getBoundingClientRect();
+    return [(x - netView.x) * netView.z + r.width / 2, (y - netView.y) * netView.z + r.height / 2];
+}
+function netToWorld(sx, sy) {
+    const r = netCanvas.getBoundingClientRect();
+    return [(sx - r.width / 2) / netView.z + netView.x, (sy - r.height / 2) / netView.z + netView.y];
+}
+function netDrawSoon() {
+    if (!netRaf) {
+        netRaf = requestAnimationFrame(() => {
+            netRaf = 0;
+            netDraw();
+        });
+    }
+}
+function netDraw() {
+    const cv = netCanvas;
+    if (!cv || !$('bonds').classList.contains('active')) {
+        return;
+    }
+    const g = cv.getContext('2d');
+    const dpr = cv.width / Math.max(1, cv.getBoundingClientRect().width);
+    const W = cv.width / dpr;
+    const H = cv.height / dpr;
+    const { nodes, edges } = net();
+    const z = netView.z;
+    const t = performance.now();
+    const head = netDraw.font || (netDraw.font = getComputedStyle(document.body).getPropertyValue('--head'));
+    const ringCol = r => NET_RING_COL[Math.min(NET_RING_COL.length - 1, r)];
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    // blueprint grid
+    const step = 64 * z;
+    if (step > 10) {
+        g.strokeStyle = 'rgba(232,239,233,.05)';
+        g.lineWidth = 1;
+        const ox = ((-netView.x * z + W / 2) % step + step) % step;
+        const oy = ((-netView.y * z + H / 2) % step + step) % step;
+        g.beginPath();
+        for (let x = ox; x < W; x += step) {
+            g.moveTo(x, 0);
+            g.lineTo(x, H);
+        }
+        for (let y = oy; y < H; y += step) {
+            g.moveTo(0, y);
+            g.lineTo(W, y);
+        }
+        g.stroke();
+    }
+    const S = (x, y) => [(x - netView.x) * z + W / 2, (y - netView.y) * z + H / 2];
+    const pad = 60;
+    const vis = (x, y) => x > -pad && x < W + pad && y > -pad && y < H + pad;
+    const far = z < 0.45;
+    if (z < 0.24) {
+        const pic = netFarPicture(ringCol);
+        const k = z / pic.s;
+        g.imageSmoothingEnabled = true;
+        g.drawImage(pic.cv, (pic.x0 - netView.x) * z + W / 2, (pic.y0 - netView.y) * z + H / 2, pic.cv.width / pic.r * k, pic.cv.height / pic.r * k);
+        const pulse = 0.5 + 0.5 * Math.sin(t / 260);
+        g.globalAlpha = 0.4 + 0.6 * pulse;
+        g.strokeStyle = '#f0c419';
+        g.lineWidth = 2;
+        let any = false;
+        fillableIds().forEach(id => {
+            const [x, y] = S(nodes[id].x, nodes[id].y);
+            g.beginPath();
+            g.arc(x, y, 6, 0, Math.PI * 2);
+            g.stroke();
+            any = true;
+        });
+        g.globalAlpha = 1;
+        $('netJump').hidden = true;
+        if (any) {
+            netDrawSoon();
+        }
+        return;
+    }
+    // lines: unlit ones batched into two paths, lit ones drawn with a glow
+    const dashed = new Path2D();
+    const solid = new Path2D();
+    const lit = [];
+    const labels = [];
+    edges.forEach(e => {
+        const A = nodes[e.a];
+        const B = nodes[e.b];
+        const [ax, ay] = S(A.x, A.y);
+        const [bx, by] = S(B.x, B.y);
+        if (Math.max(ax, bx) < -pad || Math.min(ax, bx) > W + pad || Math.max(ay, by) < -pad || Math.min(ay, by) > H + pad) {
+            return;
+        }
+        const on = edgeLit(e);
+        if (on) {
+            lit.push([ax, ay, bx, by, ringCol(e.ring)]);
+        } else {
+            const p = e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain' || far ? solid : dashed;
+            p.moveTo(ax, ay);
+            p.lineTo(bx, by);
+        }
+        if (z > 0.8) {
+            const relevant = on || netFilled(e.a) || netFilled(e.b) || e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain';
+            const mx = (ax + bx) / 2;
+            const my = (ay + by) / 2;
+            if ((relevant || z > 1.6) && vis(mx, my)) {
+                labels.push([mx, my, e, on]);
+            }
+        }
+    });
+    g.lineCap = 'round';
+    g.strokeStyle = 'rgba(232,239,233,.22)';
+    g.lineWidth = Math.max(1, 1.5 * z);
+    g.stroke(solid);
+    if (!far) {
+        g.setLineDash([6 * z, 5 * z]);
+        g.stroke(dashed);
+        g.setLineDash([]);
+    }
+    lit.forEach(([ax, ay, bx, by, col]) => {
+        g.strokeStyle = col;
+        g.globalAlpha = 0.35;
+        g.lineWidth = Math.max(3, 10 * z);
+        g.beginPath();
+        g.moveTo(ax, ay);
+        g.lineTo(bx, by);
+        g.stroke();
+        g.globalAlpha = 1;
+        g.lineWidth = Math.max(1.5, 3.2 * z);
+        g.stroke();
+    });
+    if (labels.length) {
+        const k = Math.min(1.4, z);
+        g.font = '600 ' + Math.round(10.5 * k) + 'px ' + head;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        labels.forEach(([mx, my, e, on]) => {
+            const txt = edgeDesc(e);
+            const w = g.measureText(txt).width + 10;
+            g.fillStyle = 'rgba(10,16,14,.85)';
+            g.fillRect(mx - w / 2, my - 9 * k, w, 18 * k);
+            g.fillStyle = on ? ringCol(e.ring) : (e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain') ? '#f0c419' : 'rgba(232,239,233,.55)';
+            g.fillText(txt, mx, my + 0.5);
+        });
+    }
+    // slots
+    const R = 24 * z;
+    const pulse = 0.5 + 0.5 * Math.sin(t / 260);
+    let anyAvail = false;
+    if (far) {
+        // zoomed out: plain dots, batched by colour
+        const groups = new Map();
+        const ring = new Path2D();
+        const rr = Math.max(2, R);
+        nodes.forEach(n => {
+            const [x, y] = S(n.x, n.y);
+            if (!vis(x, y)) {
+                return;
+            }
+            const filled = netFilled(n.id);
+            const avail = !filled && netReachable(n.id) && canPay(n.req);
+            anyAvail = anyAvail || avail;
+            const key = filled ? ringCol(n.ring) : 'rgba(232,239,233,.35)';
+            if (!groups.has(key)) {
+                groups.set(key, new Path2D());
+            }
+            const p = groups.get(key);
+            p.moveTo(x + rr, y);
+            p.arc(x, y, rr, 0, Math.PI * 2);
+            if (avail) {
+                ring.moveTo(x + rr + 4, y);
+                ring.arc(x, y, rr + 4, 0, Math.PI * 2);
+            }
+        });
+        groups.forEach((p, col) => {
+            g.fillStyle = col;
+            g.fill(p);
+        });
+        g.globalAlpha = 0.4 + 0.6 * pulse;
+        g.strokeStyle = '#f0c419';
+        g.lineWidth = 2;
+        g.stroke(ring);
+        g.globalAlpha = 1;
+    } else {
+        nodes.forEach(n => {
+            const [x, y] = S(n.x, n.y);
+            if (!vis(x, y)) {
+                return;
+            }
+            const filled = netFilled(n.id);
+            const reach = netReachable(n.id);
+            const avail = !filled && reach && canPay(n.req);
+            const col = ringCol(n.ring);
+            anyAvail = anyAvail || avail;
+            g.globalAlpha = filled || reach ? 1 : 0.35;
+            const hex = n.req.t === 'cp' || n.req.t === 'has';
+            slotPath(g, x, y, R, hex);
+            g.fillStyle = filled ? col : '#0d1311';
+            g.fill();
+            g.lineWidth = Math.max(1.2, (filled ? 2.5 : 1.6) * z);
+            g.strokeStyle = filled ? col : avail ? '#f0c419' : 'rgba(232,239,233,.4)';
+            g.stroke();
+            if (avail) {
+                g.globalAlpha = 0.3 + 0.5 * pulse;
+                slotPath(g, x, y, R + (5 + 5 * pulse) * z, hex);
+                g.strokeStyle = '#f0c419';
+                g.lineWidth = Math.max(1, 2 * z);
+                g.stroke();
+            }
+            if (netSel === n.id) {
+                g.globalAlpha = 1;
+                slotPath(g, x, y, R + 4 * z, hex);
+                g.strokeStyle = '#fff';
+                g.lineWidth = 2;
+                g.stroke();
+            }
+            g.globalAlpha = filled || reach ? 1 : 0.45;
+            if (z > 0.38) {
+                const label = filled && n.req.t === 'el' && n.req.n === 1 ? n.req.k : reqShort(n.req);
+                let fs = 13 * z;
+                g.font = '700 ' + fs + 'px ' + head;
+                const w = g.measureText(label).width;
+                if (w > R * 1.75) {
+                    fs *= R * 1.75 / w;
+                    g.font = '700 ' + fs + 'px ' + head;
+                }
+                g.fillStyle = filled ? '#0d1311' : '#e8efe9';
+                g.textAlign = 'center';
+                g.textBaseline = 'middle';
+                g.fillText(label, x, y + 1);
+            }
+            g.globalAlpha = 1;
+        });
+    }
+    // arrows at the edge pointing to fillable slots off screen
+    const off = [];
+    fillableIds().forEach(id => {
+        const [x, y] = S(nodes[id].x, nodes[id].y);
+        if (x < 0 || x > W || y < 0 || y > H) {
+            off.push([x, y, Math.hypot(x - W / 2, y - H / 2)]);
+        }
+    });
+    off.sort((a, b) => a[2] - b[2]);
+    off.slice(0, 8).forEach(([x, y]) => {
+        const a = Math.atan2(y - H / 2, x - W / 2);
+        const m = 26;
+        const kx = (W / 2 - m) / Math.abs(Math.cos(a) || 1e-6);
+        const ky = (H / 2 - m) / Math.abs(Math.sin(a) || 1e-6);
+        const d = Math.min(kx, ky);
+        g.save();
+        g.translate(W / 2 + Math.cos(a) * d, H / 2 + Math.sin(a) * d);
+        g.rotate(a);
+        g.globalAlpha = 0.55 + 0.45 * pulse;
+        g.fillStyle = '#f0c419';
+        g.beginPath();
+        g.moveTo(12, 0);
+        g.lineTo(-8, -9);
+        g.lineTo(-3, 0);
+        g.lineTo(-8, 9);
+        g.closePath();
+        g.fill();
+        g.restore();
+    });
+    const jb = $('netJump');
+    if (jb) {
+        jb.hidden = !(off.length && !anyAvail);
+    }
+    // keep animating only while something on screen pulses
+    if (anyAvail || off.length) {
+        netDrawSoon();
+    }
+}
+let netFarPic = null;
+function netFarPicture(ringCol) {
+    const key = netVer + ':' + Object.keys(netState).length;
+    if (netFarPic && netFarPic.key === key) {
+        return netFarPic;
+    }
+    const { nodes, edges } = net();
+    const s = 0.24;
+    const r = Math.min(2, devicePixelRatio || 1);
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    nodes.forEach(n => {
+        x0 = Math.min(x0, n.x);
+        y0 = Math.min(y0, n.y);
+        x1 = Math.max(x1, n.x);
+        y1 = Math.max(y1, n.y);
+    });
+    x0 -= 60;
+    y0 -= 60;
+    x1 += 60;
+    y1 += 60;
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil((x1 - x0) * s * r);
+    cv.height = Math.ceil((y1 - y0) * s * r);
+    const g = cv.getContext('2d');
+    g.scale(r, r);
+    const P = (x, y) => [(x - x0) * s, (y - y0) * s];
+    const dim = new Path2D();
+    edges.forEach(e => {
+        if (edgeLit(e)) {
+            return;
+        }
+        const [ax, ay] = P(nodes[e.a].x, nodes[e.a].y);
+        const [bx, by] = P(nodes[e.b].x, nodes[e.b].y);
+        dim.moveTo(ax, ay);
+        dim.lineTo(bx, by);
+    });
+    g.strokeStyle = 'rgba(232,239,233,.22)';
+    g.lineWidth = 1;
+    g.stroke(dim);
+    g.lineCap = 'round';
+    edges.forEach(e => {
+        if (!edgeLit(e)) {
+            return;
+        }
+        const [ax, ay] = P(nodes[e.a].x, nodes[e.a].y);
+        const [bx, by] = P(nodes[e.b].x, nodes[e.b].y);
+        g.strokeStyle = ringCol(e.ring);
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(ax, ay);
+        g.lineTo(bx, by);
+        g.stroke();
+    });
+    const groups = new Map();
+    nodes.forEach(n => {
+        const key2 = netFilled(n.id) ? ringCol(n.ring) : 'rgba(232,239,233,.35)';
+        if (!groups.has(key2)) {
+            groups.set(key2, new Path2D());
+        }
+        const [x, y] = P(n.x, n.y);
+        const p = groups.get(key2);
+        p.moveTo(x + 3, y);
+        p.arc(x, y, 3, 0, Math.PI * 2);
+    });
+    groups.forEach((p, col) => {
+        g.fillStyle = col;
+        g.fill(p);
+    });
+    return netFarPic = { key, cv, s, r, x0, y0 };
+}
+function slotPath(g, x, y, r, hex) {
+    g.beginPath();
+    if (!hex) {
+        g.arc(x, y, r, 0, Math.PI * 2);
+        return;
+    }
+    for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + i * Math.PI / 3;
+        const px = x + Math.cos(a) * r * 1.08;
+        const py = y + Math.sin(a) * r * 1.08;
+        if (i) {
+            g.lineTo(px, py);
+        } else {
+            g.moveTo(px, py);
+        }
+    }
+    g.closePath();
+}
+function netGlideTo(x, y, z) {
+    const from = { x: netView.x, y: netView.y, z: netView.z };
+    const to = { x, y, z: z || Math.max(0.9, netView.z) };
+    const t0 = performance.now();
+    const d = 800;
+    netView.anim = true;
+    (function f(now) {
+        const k = Math.min(1, (now - t0) / d);
+        const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        // pull back a little mid-flight so long jumps read as travel
+        const dip = Math.sin(Math.PI * k) * Math.min(0.45, Math.hypot(to.x - from.x, to.y - from.y) / 3000);
+        netView.x = from.x + (to.x - from.x) * e;
+        netView.y = from.y + (to.y - from.y) * e;
+        netView.z = (from.z + (to.z - from.z) * e) * (1 - dip);
+        netDraw();
+        if (k < 1) {
+            requestAnimationFrame(f);
+        } else {
+            netView.anim = null;
+            netDraw();
+        }
+    })(t0);
+}
+function netJump() {
+    const { nodes } = net();
+    let best = null;
+    fillableIds().map(id => nodes[id]).forEach(n => {
+        const d = Math.hypot(n.x - netView.x, n.y - netView.y);
+        if (!best || d < best.d) {
+            best = { n, d };
+        }
+    });
+    if (best) {
+        netGlideTo(best.n.x, best.n.y, 1.1);
+    }
+}
+function netTotalsHtml() {
+    const b = bondBonus();
+    const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots], ['Bonus rolls', '+' + b.extra], ['Chain steps', '+' + b.chain]];
+    return rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+}
+// tapping a slot fills it straight away when you can; otherwise the slot flashes red
+function netSelect(id) {
+    netSel = null;
+    if (id == null) {
+        netDraw();
+        return;
+    }
+    if (fillSlot(id)) {
+        netFlash(id);
+        bondSummary();
+        $('netTotals').innerHTML = netTotalsHtml();
+        renderRollStats();
+    } else if (!netFilled(id)) {
+        netFlash(id, '#ff5a4a');
+    }
+    netDraw();
+}
+function netFlash(id, colour) {
+    const n = net().nodes[id];
+    const fx = $('netFx');
+    const [x, y] = netToScreen(n.x, n.y);
+    const e = document.createElement('i');
+    e.style.left = x + 'px';
+    e.style.top = y + 'px';
+    e.style.setProperty('--c', colour || NET_RING_COL[Math.min(NET_RING_COL.length - 1, n.ring)]);
+    if (colour) {
+        e.className = 'deny';
+    }
+    fx.appendChild(e);
+    setTimeout(() => e.remove(), 900);
+}
+function renderBonds() {
+    netCanvas = $('netCanvas');
+    bondSummary();
+    $('netTotals').innerHTML = netTotalsHtml();
+    if (!netView.init) {
+        netView.init = true;
+        netView.x = 0;
+        netView.y = 0;
+        netView.z = innerWidth < 600 ? 0.8 : 1;
+    }
+    netSelect(null);
+    netResize();
+}
+{
+    const cv = $('netCanvas');
+    const pts = new Map();
+    let drag = null;
+    let pinch = null;
+    let moved = false;
+    const zoomAt = (sx, sy, f) => {
+        const [wx, wy] = netToWorld(sx, sy);
+        netView.z = Math.max(0.12, Math.min(2.6, netView.z * f));
+        const r = cv.getBoundingClientRect();
+        netView.x = wx - (sx - r.width / 2) / netView.z;
+        netView.y = wy - (sy - r.height / 2) / netView.z;
+        netDrawSoon();
+    };
+    const local = e => {
+        const r = cv.getBoundingClientRect();
+        return [e.clientX - r.left, e.clientY - r.top];
+    };
+    cv.addEventListener('pointerdown', e => {
+        cv.setPointerCapture(e.pointerId);
+        pts.set(e.pointerId, local(e));
+        moved = false;
+        if (pts.size === 1) {
+            drag = { p: local(e), x: netView.x, y: netView.y };
+        } else if (pts.size === 2) {
+            const [a, b] = [...pts.values()];
+            pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: netView.z, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+            drag = null;
+        }
+    });
+    cv.addEventListener('pointermove', e => {
+        if (!pts.has(e.pointerId)) {
+            return;
+        }
+        pts.set(e.pointerId, local(e));
+        if (pinch && pts.size >= 2) {
+            const [a, b] = [...pts.values()];
+            const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+            const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            const [wx, wy] = netToWorld(pinch.m[0], pinch.m[1]);
+            netView.z = Math.max(0.12, Math.min(2.6, pinch.z * d / pinch.d));
+            const r = cv.getBoundingClientRect();
+            netView.x = wx - (m[0] - r.width / 2) / netView.z;
+            netView.y = wy - (m[1] - r.height / 2) / netView.z;
+            pinch.m = m;
+            pinch.z = netView.z;
+            pinch.d = d;
+            moved = true;
+            netDrawSoon();
+        } else if (drag) {
+            const p = local(e);
+            const dx = p[0] - drag.p[0];
+            const dy = p[1] - drag.p[1];
+            if (Math.hypot(dx, dy) > 6) {
+                moved = true;
+            }
+            netView.x = drag.x - dx / netView.z;
+            netView.y = drag.y - dy / netView.z;
+            netDrawSoon();
+        }
+    });
+    const up = e => {
+        if (!pts.has(e.pointerId)) {
+            return;
+        }
+        const p = local(e);
+        pts.delete(e.pointerId);
+        if (pts.size < 2) {
+            pinch = null;
+        }
+        if (pts.size === 1) {
+            const q = [...pts.values()][0];
+            drag = { p: q, x: netView.x, y: netView.y };
+            return;
+        }
+        drag = null;
+        if (!moved && e.type === 'pointerup') {
+            const [wx, wy] = netToWorld(p[0], p[1]);
+            let hit = null;
+            net().nodes.forEach(n => {
+                const d = Math.hypot(n.x - wx, n.y - wy);
+                if (d < 30 / Math.min(1, netView.z) && (!hit || d < hit.d)) {
+                    hit = { n, d };
+                }
+            });
+            netSelect(hit ? hit.n.id : null);
+        }
+    };
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', e => {
+        e.preventDefault();
+        const [sx, sy] = local(e);
+        zoomAt(sx, sy, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+    }, { passive: false });
+    addEventListener('resize', () => {
+        if ($('bonds').classList.contains('active')) {
+            netResize();
+        }
+    });
+    $('netJump').onclick = netJump;
+    $('netCentre').onclick = () => netGlideTo(0, 0, innerWidth < 600 ? 0.8 : 1);
+    $('netTotalsBtn').onclick = () => $('netTotalsWrap').classList.toggle('open');
+}

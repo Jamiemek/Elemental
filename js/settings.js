@@ -1,0 +1,122 @@
+// Rarity labels come from the estimated number of rolls needed to land each formula,
+// assuming 150% luck and a 1 in 3 chain chance.
+function assignAchievementRarities() {
+    const weights = ELEMENTS.map(e => (1 / e[2]) * (1 + 1.5 * (Math.log10(e[2] + 1) / 3)));
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    const chainChance = 1 / 3;
+
+    const logFactorial = n => {
+        let total = 0;
+        for (let i = 2; i <= n; i++) {
+            total += Math.log(i);
+        }
+        return total;
+    };
+
+    function estimatedRolls(formula) {
+        const counts = parseFormula(formula);
+        const symbols = Object.keys(counts);
+        const length = symbols.reduce((sum, symbol) => sum + counts[symbol], 0);
+        if (length > 30) {
+            return Infinity;
+        }
+        let logProbability = logFactorial(length);
+        if (length < 30) {
+            logProbability += (length - 1) * Math.log(chainChance) + Math.log(1 - chainChance);
+        } else {
+            logProbability += 29 * Math.log(chainChance);
+        }
+        symbols.forEach(symbol => {
+            const weight = weights[ELEMENTS.findIndex(e => e[0] === symbol)];
+            logProbability += counts[symbol] * Math.log(weight / totalWeight) - logFactorial(counts[symbol]);
+        });
+        return Math.exp(-logProbability);
+    }
+
+    ACHIEVEMENTS.forEach(a => {
+        const rolls = estimatedRolls(a.formula);
+        if (rolls < 2e3) a.rarity = 'Common';
+        else if (rolls < 2e4) a.rarity = 'Uncommon';
+        else if (rolls < 2e5) a.rarity = 'Rare';
+        else if (rolls < 2e6) a.rarity = 'Epic';
+        else a.rarity = 'Legendary';
+    });
+
+    unlockedAchievements = unlockedAchievements.filter(formula => ACHIEVEMENTS.some(a => a.formula === formula));
+    document.querySelector('#achievements .sub').textContent = ACHIEVEMENTS.length + ' formulas to find. Each is recorded the first time you roll it.';
+    renderAchievements();
+}
+assignAchievementRarities();
+document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && $('game').classList.contains('active') && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) {
+        e.preventDefault();
+        doRoll();
+    }
+});
+try {
+    $('chainSetting').value = localStorage.getItem('elementalChain') || 'on';
+} catch (e) { }
+$('appVersion').textContent = 'Jamiemek - Elemental - version ' + APP_VERSION;
+function applyTheme(t) {
+    const dark = t === 'dark' || (t === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+}
+let themePref = 'light';
+try {
+    themePref = localStorage.getItem('elementalTheme') || 'light';
+} catch (e) { }
+$('themeSetting').value = themePref;
+$('themeSetting').onchange = () => {
+    themePref = $('themeSetting').value;
+    try {
+        localStorage.setItem('elementalTheme', themePref);
+    } catch (e) { }
+    applyTheme(themePref);
+};
+if (window.matchMedia) {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const onSys = () => themePref === 'system' && applyTheme('system');
+    mq.addEventListener ? mq.addEventListener('change', onSys) : mq.addListener(onSys);
+}
+try {
+    calmFx = localStorage.getItem('elementalCalm') === '1';
+} catch (e) { }
+$('calmSetting').checked = calmFx;
+$('calmSetting').onchange = () => {
+    calmFx = $('calmSetting').checked;
+    try {
+        localStorage.setItem('elementalCalm', calmFx ? '1' : '0');
+    } catch (e) { }
+};
+$('displaySetting').value = displayMode;
+$('displaySetting').onchange = () => {
+    displayMode = $('displaySetting').value === 'score' ? 'score' : 'odds';
+    try {
+        localStorage.setItem('elementalDisplay', displayMode);
+    } catch (e) { }
+    renderInventory();
+    renderPeriodic();
+    renderHistory();
+};
+renderQuarks();
+renderQStorm();
+renderHistory();
+try {
+    $('bonusFold').open = localStorage.getItem('elementalBonusOpen') === 'true';
+} catch (e) { }
+$('bonusFold').addEventListener('toggle', () => {
+    try {
+        localStorage.setItem('elementalBonusOpen', $('bonusFold').open ? 'true' : 'false');
+    } catch (e) { }
+});
+$('chainSetting').onchange = () => {
+    try {
+        localStorage.setItem('elementalChain', $('chainSetting').value);
+    } catch (e) { }
+};
+syncEffectSettings();
+try {
+    localStorage.removeItem('elementalStock');
+} catch (e) { }
+bondSummary();
+renderActiveCats();

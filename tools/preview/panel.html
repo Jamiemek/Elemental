@@ -1,0 +1,213 @@
+<div id="fxPreview" style="position:fixed;right:12px;bottom:12px;z-index:40;display:flex;flex-wrap:wrap;gap:6px;max-width:310px;padding:8px;background:var(--night);border:2px solid var(--hazard)">
+<span style="width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:var(--hazard)">PREVIEW EFFECT</span>
+</div>
+<script>
+(function () {
+    const box = document.getElementById('fxPreview');
+    const add = (t, dark) => {
+        const b = document.createElement('button');
+        b.className = 'ghost';
+        b.textContent = t;
+        b.style.cssText = 'padding:4px 10px;font-size:15px;' + (dark ? 'color:#ff4a3a;border-color:#ff4a3a' : 'color:var(--hazard);border-color:var(--hazard)');
+        b.onclick = () => {
+            if (!$('game').classList.contains('active')) {
+                go('game');
+            }
+            setTimeout(() => {
+                playResultChime(TIER_SCORES[t - 1], dark);
+                playRarityFx(t, dark);
+            }, 60);
+        };
+        box.appendChild(b);
+    };
+    for (let t = 1; t <= 9; t++) {
+        add(t, false);
+    }
+    const lab = document.createElement('span');
+    lab.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#ff4a3a;margin-top:4px';
+    lab.textContent = 'SECRET';
+    box.appendChild(lab);
+    for (let t = 5; t <= 9; t++) {
+        add(t, true);
+    }
+})();
+</script>
+<script>
+(function () {
+    const box = document.getElementById('fxPreview');
+    const lab = document.createElement('span');
+    lab.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#7cc8ff;margin-top:4px';
+    lab.textContent = 'ROLL A CUTSCENE ELEMENT';
+    box.appendChild(lab);
+    Object.keys(CUTSCENES).forEach(sym => {
+        const b = document.createElement('button');
+        b.className = 'ghost';
+        b.textContent = sym;
+        b.style.cssText = 'padding:4px 10px;font-size:15px;color:#7cc8ff;border-color:#7cc8ff';
+        b.onclick = () => {
+            if (rolling) {
+                return;
+            }
+            if (!$('game').classList.contains('active')) {
+                go('game');
+            }
+            window.__forceEl = sym;
+            setTimeout(() => doRoll(), 80);
+        };
+        box.appendChild(b);
+    });
+    // roll any compound, typed as a formula
+    const lab2 = document.createElement('span');
+    lab2.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#7cc8ff;margin-top:4px';
+    lab2.textContent = 'ROLL A COMPOUND';
+    box.appendChild(lab2);
+    const inp = document.createElement('input');
+    inp.value = 'HUO2';
+    inp.style.cssText = 'flex:1;min-width:0;padding:4px 8px;font-size:15px;font-family:var(--head)';
+    box.appendChild(inp);
+    const go2 = document.createElement('button');
+    go2.className = 'ghost';
+    go2.textContent = 'Roll';
+    go2.style.cssText = 'padding:4px 12px;font-size:15px;color:#7cc8ff;border-color:#7cc8ff';
+    go2.onclick = () => {
+        if (rolling) {
+            return;
+        }
+        const counts = parseFormula(inp.value.trim());
+        const list = [];
+        Object.keys(counts).forEach(sym => {
+            const e = ELEMENTS.find(x => x[0] === sym);
+            for (let i = 0; e && i < counts[sym]; i++) {
+                list.push(e);
+            }
+        });
+        if (!list.length || Object.keys(counts).some(sym => !ELEMENTS.find(x => x[0] === sym))) {
+            alert('Not a valid formula: ' + inp.value);
+            return;
+        }
+        if (!$('game').classList.contains('active')) {
+            go('game');
+        }
+        window.__forceList = list.slice(0, 30);
+        setTimeout(() => doRoll(), 80);
+    };
+    box.appendChild(go2);
+    const sel = document.createElement('select');
+    sel.innerHTML = '<option value="random">Secret: 1 in 10</option><option value="always">Secret: always</option><option value="never">Secret: never</option>';
+    sel.style.cssText = 'width:100%;margin-top:4px;padding:4px 8px;font-size:14px';
+    sel.onchange = () => window.__secretMode = sel.value;
+    box.appendChild(sel);
+    // tap the panel title to fold it away
+    const title = box.querySelector('span');
+    title.textContent = 'PREVIEW  ▾';
+    title.style.cursor = 'pointer';
+    title.onclick = () => {
+        const hide = title.textContent.endsWith('▾');
+        [...box.children].forEach(c => {
+            if (c !== title) {
+                c.style.display = hide ? 'none' : '';
+            }
+        });
+        title.textContent = hide ? 'PREVIEW  ▸' : 'PREVIEW  ▾';
+    };
+})();
+</script>
+<script>
+(function () {
+    const box = document.getElementById('fxPreview');
+    const lab = document.createElement('span');
+    lab.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#7ddc5a;margin-top:4px';
+    lab.textContent = 'TEST TOOLS';
+    box.appendChild(lab);
+    const add = (txt, fn) => {
+        const b = document.createElement('button');
+        b.className = 'ghost';
+        b.textContent = txt;
+        b.style.cssText = 'padding:4px 8px;font-size:13px;color:#7ddc5a;border-color:#7ddc5a';
+        b.onclick = () => {
+            fn();
+            save();
+            saveCats();
+            buffCache = weightCache = null;
+            netVer++;
+            renderInventory();
+            renderPeriodic();
+            if ($('shop').classList.contains('active')) {
+                renderShop();
+            }
+            if ($('catinv').classList.contains('active')) {
+                renderCatInv();
+            }
+            if ($('bonds').classList.contains('active')) {
+                renderBonds();
+            }
+        };
+        box.appendChild(b);
+    };
+    add('+1M quarks', () => addQuarks(1e6));
+    add('+50 of every element', () => ELEMENTS.forEach(e => {
+        for (let i = 0; i < 50; i++) {
+            addRecord({ id: Math.random(), formula: e[0], name: e[1], elements: [e], log: exactRarity([e]), rarity: rarityText(exactRarity([e])), score: rollScore([e]), when: new Date().toISOString() });
+        }
+    }));
+    add('+5 of every compound', () => ACHIEVEMENTS.forEach(a => {
+        const counts = parseFormula(a.formula);
+        const els = [];
+        Object.keys(counts).forEach(sym => {
+            const e = ELEMENTS.find(x => x[0] === sym);
+            for (let i = 0; e && i < counts[sym]; i++) {
+                els.push(e);
+            }
+        });
+        if (els.length < 2) {
+            return;
+        }
+        const f = hillFormula(els);
+        for (let i = 0; i < 5; i++) {
+            addRecord({ id: Math.random(), formula: f, name: a.name, elements: els, log: exactRarity(els), rarity: rarityText(exactRarity(els)), score: rollScore(els), when: new Date().toISOString() });
+        }
+    }));
+    add('Restock shop now', () => {
+        shopState = { slot: -1, stock: [] };
+    });
+    add('+1 of every catalyst', () => CATALYSTS.forEach(c => catInv[c.id] = (catInv[c.id] || 0) + 1));
+    add('Start Quark Storm', () => {
+        qStorm = { left: QSTORM_PRESSES, got: 0 };
+        qStormSave();
+        renderQStorm();
+    });
+})();
+</script>
+<script>
+// minimise button for the preview panel; remembers its state
+(function () {
+    const box = document.getElementById('fxPreview');
+    const title = box.querySelector('span');
+    title.onclick = null;
+    title.style.cursor = 'default';
+    title.textContent = 'PREVIEW';
+    box.style.paddingRight = '44px';
+    const b = document.createElement('button');
+    b.setAttribute('aria-label', 'Minimise preview panel');
+    b.style.cssText = 'position:absolute;top:6px;right:6px;width:30px;height:30px;padding:0;display:grid;place-items:center;background:var(--hazard);color:var(--night);border:0;font-family:var(--head);font-size:22px;font-weight:700;line-height:1;cursor:pointer';
+    box.appendChild(b);
+    const set = small => {
+        [...box.children].forEach(c => {
+            if (c !== title && c !== b) {
+                c.style.display = small ? 'none' : '';
+            }
+        });
+        b.textContent = small ? '+' : '−';
+        b.setAttribute('aria-label', small ? 'Open preview panel' : 'Minimise preview panel');
+        try {
+            localStorage.setItem('previewPanelSmall', small ? '1' : '');
+        } catch (e) { }
+    };
+    b.onclick = () => set(b.textContent === '−');
+    let small = false;
+    try {
+        small = localStorage.getItem('previewPanelSmall') === '1';
+    } catch (e) { }
+    set(small);
+})();
+</script>

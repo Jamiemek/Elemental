@@ -1,0 +1,282 @@
+// Quark Storm particles: small glowing quarks in the three colour charges, some alone and some
+// bound in threes by wiggly gluon lines, swirling round the scan as they fly in.
+const QS_COLS = ['#ff5a6e', '#5ef0a0', '#5aa8ff'];
+let qsSprites = null;
+function qsSprite(i) {
+    if (!qsSprites) {
+        qsSprites = QS_COLS.map(c => {
+            const s = document.createElement('canvas');
+            s.width = s.height = 64;
+            const x = s.getContext('2d');
+            const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gr.addColorStop(0, '#ffffff');
+            gr.addColorStop(0.16, '#ffffff');
+            gr.addColorStop(0.3, c);
+            gr.addColorStop(0.55, c + '55');
+            gr.addColorStop(1, c + '00');
+            x.fillStyle = gr;
+            x.fillRect(0, 0, 64, 64);
+            return s;
+        });
+    }
+    return qsSprites[i];
+}
+function scanField(reel, syms, labels, scores, dur, targets, storm) {
+    const N = labels.length;
+    const W = reel.clientWidth;
+    const H = reel.clientHeight;
+    if (!W || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return new Promise(r => setTimeout(r, Math.min(dur, 600)));
+    }
+    const cv = document.createElement('canvas');
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    cv.width = W * dpr;
+    cv.height = H * dpr;
+    reel.appendChild(cv);
+    const g = cv.getContext('2d');
+    g.scale(dpr, dpr);
+    const cs = getComputedStyle(syms[0]);
+    const fam = cs.fontFamily;
+    const base = Math.min(parseFloat(cs.fontSize) || 80, N > 1 ? 84 : 999);
+    g.font = '700 ' + base + 'px ' + fam;
+    const fsA = targets ? targets.map(t => t.fs) : labels.map(l => {
+        const room = W / N - (N > 1 ? 24 : 30);
+        const tw = g.measureText(l).width;
+        return tw > room ? base * room / tw : base;
+    });
+    if (N > 1 && !targets) {
+        syms.forEach((e, i) => e.style.fontSize = fsA[i] + 'px');
+    }
+    const ACC = ['#f0c419'].concat(RARITY_FX.slice(1).map(x => x.c));
+    const tiers = scores.map(getRarityTier);
+    const tier = Math.max(...tiers);
+    const acc = ACC[tier];
+    const Pp = H * 0.9;
+    const t0 = performance.now();
+    const sm = x => {
+        x = Math.max(0, Math.min(1, x));
+        return x * x * (3 - 2 * x);
+    };
+    const spawn = (p, d, c) => {
+        p.z = c + d;
+        p.x = (Math.random() - 0.5) * (W / Pp) * d * 1.25;
+        p.y = (Math.random() - 0.5) * (H / Pp) * d * 1.25;
+        p.s = 0.25 + Math.random() * 0.45;
+        p.t = ELEMENTS[Math.random() * ELEMENTS.length | 0][0];
+        return p;
+    };
+    const P = Array.from({ length: 150 }, () => spawn({}, 0.6 + Math.pow(Math.random(), 0.8) * 13.4, -9));
+    // storm quarks: k = 0 for a lone quark (colour c), 1 for a bound three
+    const qSpawn = (p, d, c) => {
+        spawn(p, d, c);
+        p.k = Math.random() < 0.28 ? 1 : 0;
+        p.c = Math.random() * 3 | 0;
+        p.w = (0.5 + Math.random() * 0.9) * (Math.random() < 0.85 ? 1 : -1);
+        p.r0 = Math.hypot(p.x, p.y);
+        p.a0 = Math.atan2(p.y, p.x);
+        p.sp = Math.random() * 6.3;
+        return p;
+    };
+    const Q = storm ? Array.from({ length: Math.round(Math.min(70, Math.max(44, W * H / 4500))) }, () => qSpawn({}, 0.8 + Math.random() * 13, -9)) : [];
+    const S = Math.max(120, 1350 * dur / 3000);
+    const T1 = S + 600;
+    const total = S + 1650;
+    const two = labels.map(() => Math.random() < 0.5);
+    const T = labels.map((l, i) => N === 1 ? { x: (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 1.6), y: (Math.random() - 0.5) * 1.6 } : { x: ((i + 0.5) / N - 0.5) * 5.5 + (Math.random() - 0.5) * 1.2, y: (Math.random() - 0.5) * 2 });
+    const mx = T.reduce((a, b) => a + b.x, 0) / N;
+    const my = T.reduce((a, b) => a + b.y, 0) / N;
+    return new Promise(res => {
+        let done = false;
+        const fin = () => {
+            if (done) {
+                return;
+            }
+            done = true;
+            cv.remove();
+            res();
+        };
+        setTimeout(fin, total + 1200);
+        (function frame(now) {
+            if (done) {
+                return;
+            }
+            const t = now - t0;
+            const u = t >= total ? 1 : t < S ? 0.45 * t / S : t < T1 ? 0.45 + 0.2 * (t - S) / 600 : 0.65 + 0.35 * (t - T1) / 1050;
+            const q = u < 0.65 ? 0 : (u - 0.65) / 0.35;
+            const D = u < 0.65 ? 8 - 3 * u / 0.65 : 5 * (1 - q * q);
+            const dt = 1 + D;
+            const cz = -dt;
+            const w = sm((u - 0.45) / 0.35);
+            const w2 = sm((u - 0.55) / 0.45);
+            const ur = t / 3000;
+            const cxw = Math.sin(ur * 9) * 2.4 * (1 - w) + mx * w;
+            const cyw = Math.cos(ur * 6) * 1.2 * (1 - w) + my * w;
+            g.clearRect(0, 0, W, H);
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            g.lineCap = 'round';
+            const pr = (x, y, d) => [W / 2 + (x - cxw) * Pp / d, H / 2 + (y - cyw) * Pp / d];
+            P.forEach(p => {
+                let d = p.z - cz;
+                if (d < 0.35) {
+                    spawn(p, 13 + Math.random() * 2, cz);
+                    d = p.z - cz;
+                }
+                const [sx, sy] = pr(p.x, p.y, d);
+                if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) {
+                    return;
+                }
+                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92);
+                if (a <= 0) {
+                    return;
+                }
+                if (q > 0) {
+                    const [ex, ey] = pr(p.x, p.y, d + q * q * 3.5);
+                    g.globalAlpha = a * 0.7;
+                    g.strokeStyle = tier ? acc : '#9fe0c8';
+                    g.lineWidth = 1.5;
+                    g.beginPath();
+                    g.moveTo(sx, sy);
+                    g.lineTo(ex, ey);
+                    g.stroke();
+                }
+                g.globalAlpha = a;
+                g.fillStyle = '#cfe3da';
+                g.font = '700 ' + Math.max(5, base * p.s / d) + 'px ' + fam;
+                g.fillText(p.t, sx, sy);
+            });
+            Q.forEach(p => {
+                let d = p.z - cz;
+                if (d < 0.35) {
+                    qSpawn(p, 13 + Math.random() * 2, cz);
+                    d = p.z - cz;
+                }
+                // swirl round the centre of the field, faster as they come close
+                const spin = p.w * (1.2 + 3 / d);
+                const ang = p.a0 + spin * t / 1000;
+                const [sx, sy] = pr(Math.cos(ang) * p.r0, Math.sin(ang) * p.r0, d);
+                if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) {
+                    return;
+                }
+                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * (1 - q * 0.95);
+                if (a <= 0) {
+                    return;
+                }
+                const r = Math.max(1.8, base * 0.085 / d);
+                const glow = r * 3.4;
+                // a short trail along the swirl
+                g.globalAlpha = a * 0.4;
+                g.strokeStyle = QS_COLS[p.c];
+                g.lineWidth = Math.max(1, r * 0.7);
+                g.beginPath();
+                for (let s = 0; s <= 6; s++) {
+                    const b2 = ang - spin * s * 0.035;
+                    const [tx, ty] = pr(Math.cos(b2) * p.r0, Math.sin(b2) * p.r0, d + s * 0.05);
+                    if (s) {
+                        g.lineTo(tx, ty);
+                    } else {
+                        g.moveTo(tx, ty);
+                    }
+                }
+                g.stroke();
+                g.globalAlpha = a;
+                if (!p.k) {
+                    g.drawImage(qsSprite(p.c), sx - glow, sy - glow, glow * 2, glow * 2);
+                    return;
+                }
+                const turn = p.sp + t / 420 * p.w;
+                const pts = [0, 1, 2].map(j => [sx + Math.cos(turn + j * 2.094) * r * 2.4, sy + Math.sin(turn + j * 2.094) * r * 2.4]);
+                if (r > 1.8) {
+                    g.globalAlpha = a * 0.55;
+                    g.strokeStyle = '#f0c419';
+                    g.lineWidth = Math.max(0.6, r * 0.28);
+                    g.beginPath();
+                    pts.forEach((A, j) => {
+                        const B = pts[(j + 1) % 3];
+                        const nx = -(B[1] - A[1]);
+                        const ny = B[0] - A[0];
+                        const L = Math.hypot(nx, ny) || 1;
+                        for (let s = 0; s <= 8; s++) {
+                            const f = s / 8;
+                            const o = Math.sin(f * Math.PI * 4 + t / 90) * r * 0.45 * Math.sin(f * Math.PI);
+                            const X = A[0] + (B[0] - A[0]) * f + nx / L * o;
+                            const Y = A[1] + (B[1] - A[1]) * f + ny / L * o;
+                            if (s) {
+                                g.lineTo(X, Y);
+                            } else {
+                                g.moveTo(X, Y);
+                            }
+                        }
+                    });
+                    g.stroke();
+                    g.globalAlpha = a;
+                }
+                const gl = glow * 0.75;
+                pts.forEach((A, j) => g.drawImage(qsSprite(j), A[0] - gl, A[1] - gl, gl * 2, gl * 2));
+            });
+            const st = 0.45 + 0.55 * sm((u - 0.55) / 0.1);
+            T.forEach((tg, i) => {
+                const [px, py] = pr(tg.x, tg.y, dt);
+                const sx = px + ((targets ? targets[i].x : W * (i + 0.5) / N) - px) * w2;
+                const sy = py + ((targets ? targets[i].y : H / 2) - py) * w2;
+                const sz = fsA[i] * st / dt;
+                const o = i * 40;
+                const ac = ACC[tiers[i]];
+                const hl = t >= T1 - 60 || (t >= T1 - 240 + o && t < T1 - 150 + o) || (two[i] && t >= T1 - 450 + o && t < T1 - 360 + o);
+                g.globalAlpha = 1;
+                if (hl) {
+                    const h = Math.max(16, sz * 0.9) * (1 + (1 - w) * 0.6);
+                    g.strokeStyle = ac;
+                    g.lineWidth = 2;
+                    g.beginPath();
+                    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b]) => {
+                        g.moveTo(sx + a * h, sy + b * h * 0.7 - b * 8);
+                        g.lineTo(sx + a * h, sy + b * h * 0.7);
+                        g.lineTo(sx + a * h - a * 8, sy + b * h * 0.7);
+                    });
+                    if (u < 0.95) {
+                        g.stroke();
+                    }
+                }
+                g.globalAlpha = hl ? 1 : 0.8 * Math.min(1, (dt - 0.35) / 0.9);
+                g.fillStyle = hl ? (u > 0.65 ? '#eef3ef' : ac) : '#cfe3da';
+                g.font = '700 ' + sz + 'px ' + fam;
+                g.fillText(labels[i], sx, sy);
+            });
+            g.globalAlpha = 0.9;
+            g.fillStyle = acc;
+            g.font = '600 11px ' + fam;
+            g.textBaseline = 'alphabetic';
+            g.textAlign = 'left';
+            g.fillText(u < 0.65 ? 'FIELD SCAN' : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
+            g.textAlign = 'right';
+            g.fillText('RNG ' + D.toFixed(1), W - 18, 26);
+            if (storm) {
+                g.textAlign = 'left';
+                g.fillStyle = '#f0c419';
+                g.globalAlpha = 0.75 + 0.25 * Math.sin(t / 160);
+                g.fillText('QUARK STORM', 18, H - 18);
+                g.fillStyle = acc;
+                g.globalAlpha = 0.9;
+            }
+            g.textBaseline = 'middle';
+            g.textAlign = 'center';
+            if (u < 0.65) {
+                g.globalAlpha = 0.25;
+                g.strokeStyle = '#cfe3da';
+                g.lineWidth = 1;
+                g.beginPath();
+                g.moveTo(W / 2 - 10, H / 2);
+                g.lineTo(W / 2 + 10, H / 2);
+                g.moveTo(W / 2, H / 2 - 10);
+                g.lineTo(W / 2, H / 2 + 10);
+                g.stroke();
+            }
+            if (u >= 1) {
+                fin();
+            } else {
+                requestAnimationFrame(frame);
+            }
+        })(performance.now());
+    });
+}
