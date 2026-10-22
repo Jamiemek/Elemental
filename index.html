@@ -981,6 +981,140 @@ input[type=checkbox] {
   }
 }
 
+/* globals banner */
+.g-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  height: 30px;
+  line-height: 28px;
+  padding: 0 16px;
+  background: var(--night);
+  color: #eef3ef;
+  border-bottom: 2px solid var(--bc,var(--hazard));
+  font-family: var(--head);
+  font-size: 15px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateY(-110%);
+  transition: transform .4s ease;
+  pointer-events: none;
+}
+.g-banner.show {
+  transform: none;
+}
+.g-banner b {
+  font-weight: 700;
+}
+.g-banner b+b {
+  color: var(--bc,var(--hazard));
+}
+.g-banner span {
+  color: #9eaba5;
+  margin-left: 10px;
+}
+/* admin tab */
+.admin-only[hidden] {
+  display: none!important;
+}
+.adm-label {
+  display: block;
+  font-family: var(--head);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.adm-input {
+  width: 100%;
+  max-width: 420px;
+  padding: 8px 10px;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--head);
+  font-size: 16px;
+}
+.adm-input:disabled {
+  opacity: .45;
+}
+.adm-find,
+.adm-give {
+  display: flex;
+  gap: 8px;
+  max-width: 420px;
+  margin-bottom: 8px;
+}
+.adm-give select {
+  flex: 1;
+  min-width: 0!important;
+}
+.adm-give .adm-input {
+  width: 96px;
+}
+.adm-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 18px;
+  margin-bottom: 4px;
+}
+.adm-who .adm-input {
+  max-width: 220px;
+  margin-bottom: 10px;
+}
+.adm-msg {
+  min-height: 1.4em;
+  margin: 10px 0;
+  font-family: var(--head);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.adm-msg.bad {
+  color: var(--red);
+}
+.adm-list {
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+}
+.adm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+}
+.adm-row:nth-child(even) {
+  background: var(--band);
+}
+.adm-row b {
+  font-family: var(--head);
+}
+.adm-row small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.adm-row.banned {
+  opacity: .7;
+}
+.adm-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 2px solid var(--red);
+  color: var(--red);
+  font-family: var(--head);
+  font-size: 12px;
+  font-weight: 700;
+}
+.adm-note {
+  color: var(--ink-2);
+}
+
 /* achievement toast */
 .achievement-toast {
   position: fixed;
@@ -2585,6 +2719,7 @@ body.fx-warping .screen.active {
 <button class="nav-row" data-go="achievements"><span>Achievements</span><span class="val" id="homeAch">0 / 0</span></button>
 <button class="nav-row" data-go="global"><span>Global top 10</span><span class="val" id="homeGlobal"></span></button>
 <button class="nav-row" data-go="settings"><span>Settings</span><span class="val">Sound, effects, save</span></button>
+<button class="nav-row admin-only" data-go="admin" hidden><span>Admin</span><span class="val">Only you</span></button>
 </nav>
 <h2 class="side-h" id="homeRarestH">Rarest find</h2>
 <div id="homeRarest"></div>
@@ -2749,6 +2884,39 @@ body.fx-warping .screen.active {
 </section>
 </main>
 
+<main id="admin" class="screen">
+<div class="page-head"><div><h1>Admin</h1><p class="sub">Only your account can see this tab.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<section class="inventory-panel">
+<div class="setting"><h3>Globals</h3><div class="body">
+<p>A global is shown as a banner in everyone's game and posted to Discord.</p>
+<label class="adm-label" for="admTier">What counts as a global</label>
+<select id="admTier"></select>
+<label class="check"><input type="checkbox" id="admTop10">Every new global top 10 entry is also a global</label>
+<label class="check"><input type="checkbox" id="admDiscord">Post globals to Discord</label>
+<label class="check"><input type="checkbox" id="admBanner">Show globals as a banner in the game</label>
+<div class="btn-row"><button class="ghost" id="admSave">Save</button><button class="ghost" id="admTest">Send a test post to Discord</button></div>
+<p class="adm-msg" id="admSetMsg"></p></div></div>
+<div class="setting"><h3>Players</h3><div class="body">
+<p>Banned players can still play, but can't put rolls on the board or make globals, and their entries are hidden.</p>
+<div class="adm-find"><input id="admFind" class="adm-input" placeholder="Search by display name" autocomplete="off"><button class="ghost" id="admFindBtn">Search</button></div>
+<input id="admReason" class="adm-input" placeholder="Reason for a ban (only you see this)" maxlength="140">
+<p class="adm-msg" id="admBanMsg"></p>
+<div id="admPlayerList" class="adm-list"></div></div></div>
+<div class="setting"><h3>Global board</h3><div class="body">
+<p>Every entry, rarest first. Removing one takes it off the board for everyone, and you can put it back.</p>
+<p class="adm-msg" id="admBoardMsg"></p>
+<div id="admBoardList" class="adm-list"></div></div></div>
+<div class="setting"><h3>Giveaways</h3><div class="body">
+<p>Gifts land in the player's catalyst inventory the next time they open the game while signed in. A gift to everyone goes to every player with an account at the time.</p>
+<div class="adm-who"><label class="check"><input type="radio" name="admWhoMode" id="admWhoAll" checked>Everyone</label><label class="check"><input type="radio" name="admWhoMode" id="admWhoOne">One player</label><input id="admWho" class="adm-input" placeholder="Display name" autocomplete="off" disabled></div>
+<div class="adm-give"><select id="admCat" aria-label="Catalyst"></select><input id="admQty" class="adm-input" type="number" min="1" max="10000" value="1" aria-label="Amount"></div>
+<input id="admNote" class="adm-input" placeholder="Message shown with the gift (optional)" maxlength="140">
+<div class="btn-row" style="margin-top:12px"><button class="primary" id="admGive">Send gift</button></div>
+<p class="adm-msg" id="admGiftMsg"></p>
+<div id="admGiftList" class="adm-list"></div></div></div>
+</section>
+</main>
+
 <main id="global" class="screen">
 <div class="page-head"><div><h1>Global top 10</h1><p class="sub">The rarest rolls found by players everywhere.</p></div><button class="ghost" data-go="menu">Back</button></div>
 <section class="inventory-panel">
@@ -2762,6 +2930,7 @@ body.fx-warping .screen.active {
 </div>
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="fxWarp" x="0" y="0" width="100%" height="100%"><feTurbulence id="fxTurb" type="fractalNoise" baseFrequency="0.005 0.008" numOctaves="2" seed="7"/><feDisplacementMap id="fxDisp" in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
+<div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
 <script>
 // Builds with a new SAVE_VERSION start from a blank slate. Old progress is kept under
@@ -5298,6 +5467,9 @@ function go(screen) {
     }
     if (screen === 'catinv') {
         renderCatInv();
+    }
+    if (screen === 'admin' && typeof renderAdmin === 'function') {
+        renderAdmin();
     }
     if (screen === 'global' && typeof renderGlobal === 'function') {
         renderGlobal();
@@ -9720,6 +9892,7 @@ async function cloudInit() {
         setTimeout(() => cloudOnSession(session), 0);
     });
     globalLoad();
+    rtStart();
 }
 async function cloudOnSession(session) {
     const user = session && session.user;
@@ -9729,6 +9902,7 @@ async function cloudOnSession(session) {
         cloudState = 'signedout';
         renderAccount();
         renderGlobal();
+        adminShow(false);
         return;
     }
     if (cloudUser && cloudUser.id === user.id) {
@@ -9740,9 +9914,10 @@ async function cloudOnSession(session) {
     }
     await cloudSync();
     await cloudLoadProfile();
+    if (cloudName) {
+        cloudAfterProfile();
+    }
     renderGlobal();
-    globalFlushPending();
-    globalBackfill();
 }
 function cloudFail(error) {
     cloudBusy = false;
@@ -9944,8 +10119,7 @@ function openNameDialog(first) {
         cloudName = n;
         closeDialog();
         renderAccount();
-        renderGlobal();
-        globalBackfill();
+        cloudAfterProfile();
     };
     w.querySelector('#nameSave').onclick = save;
     input.onkeydown = e => {
@@ -10028,11 +10202,12 @@ setInterval(() => {
     }
 }, 30000);
 // ---------------------------------------------------------------------------
-// Global top 10: the rarest rolls found by signed-in players, by odds and by
-// score. The game only sends a roll's formula; the server works out its odds
-// and score itself. Rolls are sent only when they would make the board.
+// Global top 10 and globals. The game only sends a roll's formula; the server
+// works out its odds and score itself. A roll is sent when it would make the
+// board, or when its tier counts as a global (set from the admin tab).
 // ---------------------------------------------------------------------------
 let globalBoard = { odds: null, score: null, at: 0, error: false };
+let globalSettings = { min_tier: 7, announce_top10: true, discord_enabled: true, banner_enabled: true };
 let globalMode = 'odds';
 let globalLoading = false;
 const globalSent = new Set();
@@ -10053,9 +10228,10 @@ async function globalLoad() {
         return;
     }
     globalLoading = true;
-    const [a, b] = await Promise.all([
-        sb.from('global_top_odds').select('formula, odds_log, score, found_at, display_name'),
-        sb.from('global_top_score').select('formula, odds_log, score, found_at, display_name')
+    const [a, b, s] = await Promise.all([
+        sb.from('global_top_odds').select('id, formula, odds_log, score, found_at, display_name'),
+        sb.from('global_top_score').select('id, formula, odds_log, score, found_at, display_name'),
+        sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled').maybeSingle()
     ]);
     globalLoading = false;
     if (a.error || b.error) {
@@ -10063,14 +10239,17 @@ async function globalLoad() {
     } else {
         globalBoard = { odds: a.data || [], score: b.data || [], at: Date.now(), error: false };
     }
+    if (s && !s.error && s.data) {
+        globalSettings = s.data;
+    }
     renderGlobal();
     globalFlushPending();
     globalBackfill();
 }
-// Rolls waiting to be sent (found while the server couldn't be reached).
+// Finds waiting to be sent (made while the server couldn't be reached).
 function globalPending() {
     try {
-        return JSON.parse(localStorage.getItem('globalPending') || '[]');
+        return JSON.parse(localStorage.getItem('globalPending') || '[]').filter(p => p && p.f);
     } catch (e) {
         return [];
     }
@@ -10085,37 +10264,47 @@ function globalBeats(rec) {
     if (!b.odds || !b.score) {
         return true;
     }
-    const lg = -rec.log;
     const onBoard = list => list.some(r => r.formula === rec.formula && r.display_name === cloudName);
     if (onBoard(b.odds) || onBoard(b.score)) {
         return false;
     }
     const beats = (list, v, k) => list.length < 10 || v > list[list.length - 1][k] + 1e-9;
-    return beats(b.odds, lg, 'odds_log') || beats(b.score, rec.score, 'score');
+    return beats(b.odds, -rec.log, 'odds_log') || beats(b.score, rec.score, 'score');
 }
-// Called for every roll. Cheap: compares against the board already loaded.
-function globalConsider(rec) {
+// Called for every roll as it happens. Cheap: it only compares numbers already loaded.
+function globalConsider(rec, old) {
     if (!CLOUD.enabled || !cloudUser || !cloudName || !rec || !rec.formula || !Number.isFinite(rec.log)) {
         return;
     }
-    if (globalSent.has(rec.formula) || !globalBeats(rec)) {
+    const isGlobal = !old && getRarityTier(rec.score) >= globalSettings.min_tier;
+    if (!isGlobal && (globalSent.has(rec.formula) || !globalBeats(rec))) {
         return;
     }
     globalSent.add(rec.formula);
-    globalSubmit(rec.formula);
+    const st = activeBuffStats();
+    globalSubmit({
+        f: rec.formula,
+        label: rec.name || globalName(rec.formula),
+        rolls: collection.reduce((n, c) => n + (c.count || 1), 0),
+        luck: Math.round(st.luck || 0),
+        cats: activeList().map(x => x.c && x.c.name).filter(Boolean).join(', '),
+        old: !!old
+    });
 }
-async function globalSubmit(formula) {
+async function globalSubmit(p) {
     if (!sb || !cloudUser) {
-        globalQueue(formula);
+        globalQueue(p);
         return;
     }
-    const { data, error } = await sb.rpc('submit_roll', { p_formula: formula });
+    const { data, error } = await sb.rpc('submit_roll', {
+        p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_old: p.old
+    });
     if (error || !data) {
-        globalSent.delete(formula);
-        globalQueue(formula);
+        globalSent.delete(p.f);
+        globalQueue(p);
         return;
     }
-    globalSetPending(globalPending().filter(f => f !== formula));
+    globalSetPending(globalPending().filter(x => !(x.f === p.f && x.old === p.old)));
     if (data.ok && data.added) {
         const parts = [];
         if (data.rank_odds <= 10) {
@@ -10124,36 +10313,34 @@ async function globalSubmit(formula) {
         if (data.rank_score <= 10) {
             parts.push('#' + data.rank_score + ' by score');
         }
-        showAchievementToast({ kicker: 'Global top 10', name: formula + ' · ' + globalName(formula), flavor: 'You are now ' + parts.join(' and ') + ' in the world.' });
+        showAchievementToast({ kicker: 'Global top 10', name: p.f + ' · ' + globalName(p.f), flavor: 'You are now ' + parts.join(' and ') + ' in the world.' });
         globalLoad();
     }
 }
-function globalQueue(formula) {
-    const p = globalPending();
-    if (!p.includes(formula)) {
-        p.push(formula);
-        globalSetPending(p);
+function globalQueue(p) {
+    const list = globalPending();
+    if (!list.some(x => x.f === p.f && x.old === p.old)) {
+        list.push(p);
+        globalSetPending(list);
     }
 }
 function globalFlushPending() {
     if (!sb || !cloudUser || !cloudName) {
         return;
     }
-    globalPending().forEach(f => {
-        if (!globalSent.has(f)) {
-            globalSent.add(f);
-            globalSubmit(f);
-        }
-    });
+    const list = globalPending();
+    globalSetPending([]);
+    list.forEach(p => globalSubmit(p));
 }
 // After signing in: your best finds so far get a chance at the board too.
+// They're marked as old, so they aren't announced as new finds.
 function globalBackfill() {
     if (!cloudUser || !cloudName || !globalBoard.odds) {
         return;
     }
     const best = groupedCollection().slice(0, 10).map(c => c.rarestRecord);
     const top = scoreRanked().slice(0, 10).map(c => c.rarestRecord);
-    best.concat(top).forEach(r => globalConsider(r));
+    best.concat(top).forEach(r => globalConsider(r, true));
 }
 function globalRow(r, rank) {
     const el = document.createElement('div');
@@ -10218,6 +10405,290 @@ setInterval(() => {
         globalLoad();
     }
 }, 60000);
+// ---- the banner: other players' globals, live. The connection is only open while
+// the game is on screen, so idle tabs don't use up the server's live connections.
+let rtChannel = null;
+const bannerQueue = [];
+let bannerBusy = false;
+function rtStart() {
+    if (!sb || rtChannel || !CLOUD.enabled || document.visibilityState !== 'visible') {
+        return;
+    }
+    rtChannel = sb.channel('globals')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, p => bannerAdd(p.new))
+        .subscribe();
+}
+function rtStop() {
+    if (sb && rtChannel) {
+        sb.removeChannel(rtChannel);
+    }
+    rtChannel = null;
+}
+function bannerAdd(a) {
+    if (!a || !globalSettings.banner_enabled || (cloudName && a.display_name === cloudName)) {
+        return;
+    }
+    if (bannerQueue.length < 5) {
+        bannerQueue.push(a);
+    }
+    bannerNext();
+}
+function bannerNext() {
+    const el = $('globalBanner');
+    if (bannerBusy || !bannerQueue.length || !el) {
+        return;
+    }
+    bannerBusy = true;
+    const a = bannerQueue.shift();
+    const fx = RARITY_FX[Math.min(9, a.tier)];
+    el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
+    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc(a.label || globalName(a.formula)) + '</b><span>' +
+        (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
+    el.classList.add('show');
+    setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => {
+            bannerBusy = false;
+            bannerNext();
+        }, 450);
+    }, 5500);
+}
+// ---- gifts from the admin, handed over when you sign in or come back to the game
+async function giftsClaim() {
+    if (!sb || !cloudUser || !cloudName) {
+        return;
+    }
+    const { data, error } = await sb.rpc('claim_gifts');
+    if (error || !Array.isArray(data) || !data.length) {
+        return;
+    }
+    const got = [];
+    data.forEach(g => {
+        if (CAT[g.catalyst] && g.qty > 0) {
+            catInv[g.catalyst] = (catInv[g.catalyst] || 0) + g.qty;
+            got.push(g.qty + ' × ' + CAT[g.catalyst].name);
+        }
+    });
+    if (!got.length) {
+        return;
+    }
+    saveCats();
+    if ($('catinv').classList.contains('active')) {
+        renderCatInv();
+    }
+    const note = data.map(g => g.note).filter(Boolean)[0];
+    showAchievementToast({ kicker: 'Gift received', name: got.join(', '), flavor: note || 'Added to your catalyst inventory.' });
+    cloudTick();
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        rtStart();
+        giftsClaim();
+    } else {
+        rtStop();
+    }
+});
+// Everything that needs a signed-in player with a name
+function cloudAfterProfile() {
+    renderGlobal();
+    globalFlushPending();
+    globalBackfill();
+    giftsClaim();
+    adminCheck();
+}
+// ---------------------------------------------------------------------------
+// Admin tab: only shown to the admin account. Every action is checked again by
+// the server, so the tab being visible gives nobody else any power.
+// ---------------------------------------------------------------------------
+let isAdmin = false;
+async function adminCheck() {
+    if (!sb || !cloudUser) {
+        adminShow(false);
+        return;
+    }
+    const { data } = await sb.rpc('is_admin');
+    adminShow(data === true);
+}
+function adminShow(on) {
+    isAdmin = !!on;
+    document.querySelectorAll('.admin-only').forEach(e => e.hidden = !isAdmin);
+    if (!isAdmin && $('admin').classList.contains('active')) {
+        go('menu');
+    }
+}
+function admMsg(id, text, bad) {
+    const el = $(id);
+    if (el) {
+        el.textContent = text;
+        el.classList.toggle('bad', !!bad);
+    }
+}
+async function admCall(fn, args, msgId) {
+    const { data, error } = await sb.rpc(fn, args || {});
+    if (error) {
+        admMsg(msgId, /not allowed/.test(error.message || '') ? 'Only the admin account can do that.' : 'Could not reach the server. Try again.', true);
+        return { error };
+    }
+    return { data };
+}
+function renderAdmin() {
+    if (!isAdmin) {
+        return;
+    }
+    // what counts as a global
+    const sel = $('admTier');
+    if (!sel.options.length) {
+        TIER_SCORES.forEach((min, i) => sel.add(new Option('Tier ' + (i + 1) + ' and above (score ' + fmtScore(min) + '+)', i + 1)));
+        sel.add(new Option('No tier: only new global top 10 entries', 10));
+    }
+    sel.value = globalSettings.min_tier;
+    $('admTop10').checked = globalSettings.announce_top10;
+    $('admDiscord').checked = globalSettings.discord_enabled;
+    $('admBanner').checked = globalSettings.banner_enabled;
+    admMsg('admSetMsg', '');
+    // giveaway catalyst list
+    const cat = $('admCat');
+    if (!cat.options.length) {
+        CAT_TIERS.forEach((t, ti) => {
+            const g = document.createElement('optgroup');
+            g.label = t.name;
+            CATALYSTS.filter(c => c.tier === ti).forEach(c => g.appendChild(new Option(c.name, c.id)));
+            cat.appendChild(g);
+        });
+    }
+    admPlayers();
+    admBoard();
+    admGifts();
+}
+$('admSave').onclick = async () => {
+    const s = { p_min_tier: +$('admTier').value, p_top10: $('admTop10').checked, p_discord: $('admDiscord').checked, p_banner: $('admBanner').checked };
+    admMsg('admSetMsg', 'Saving…');
+    const r = await admCall('admin_settings', s, 'admSetMsg');
+    if (!r.error) {
+        globalSettings = { min_tier: s.p_min_tier, announce_top10: s.p_top10, discord_enabled: s.p_discord, banner_enabled: s.p_banner };
+        admMsg('admSetMsg', 'Saved. Players pick this up the next time their game loads the board.');
+    }
+};
+$('admTest').onclick = async () => {
+    admMsg('admSetMsg', 'Sending a test post…');
+    const r = await admCall('admin_test_discord', {}, 'admSetMsg');
+    if (!r.error) {
+        admMsg('admSetMsg', r.data === 'ok' ? (globalSettings.discord_enabled ? 'Test post sent. Check your Discord channel.' : 'Discord posts are switched off above, so nothing was sent.') :
+            'No Discord webhook saved yet. Add it in Supabase first (see the setup steps).', r.data !== 'ok');
+    }
+};
+async function admPlayers() {
+    const q = $('admFind').value.trim();
+    const list = $('admPlayerList');
+    list.innerHTML = '<p class="adm-note">Loading…</p>';
+    const r = await admCall('admin_players', { p_query: q }, 'admBanMsg');
+    if (r.error) {
+        list.innerHTML = '';
+        return;
+    }
+    const rows = r.data || [];
+    list.innerHTML = rows.length ? '' : '<p class="adm-note">No players match.</p>';
+    rows.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'adm-row' + (p.banned ? ' banned' : '');
+        el.innerHTML = '<div><b>' + esc(p.display_name) + '</b>' + (p.banned ? ' <span class="adm-tag">Banned</span>' : '') +
+            '<small>Joined ' + new Date(p.joined).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) +
+            ' · ' + formatNumber(p.submissions) + ' rolls sent · ' + formatNumber(p.globals) + ' globals' +
+            (p.best_odds_log ? ' · best ' + rarityText(-p.best_odds_log) : '') + (p.banned && p.ban_reason ? ' · reason: ' + esc(p.ban_reason) : '') + '</small></div>' +
+            (p.display_name === cloudName ? '<small>You</small>' : '<button class="ghost">' + (p.banned ? 'Unban' : 'Ban') + '</button>');
+        const btn = el.querySelector('button');
+        list.appendChild(el);
+        if (!btn) {
+            return;
+        }
+        btn.onclick = async () => {
+            const reason = p.banned ? '' : $('admReason').value.trim();
+            const res = await admCall('admin_ban', { p_name: p.display_name, p_reason: reason, p_banned: !p.banned }, 'admBanMsg');
+            if (!res.error) {
+                admMsg('admBanMsg', res.data === 'is_admin' ? "The admin account can't be banned." : res.data === 'ok' ? (p.banned ? p.display_name + ' is unbanned.' : p.display_name + ' is banned and hidden from the board.') : 'Player not found.', res.data !== 'ok');
+                admPlayers();
+                admBoard();
+                globalLoad();
+            }
+        };
+        list.appendChild(el);
+    });
+}
+$('admFindBtn').onclick = admPlayers;
+$('admFind').onkeydown = e => {
+    if (e.key === 'Enter') {
+        admPlayers();
+    }
+};
+async function admBoard() {
+    const list = $('admBoardList');
+    const r = await admCall('admin_board', {}, 'admBoardMsg');
+    if (r.error) {
+        return;
+    }
+    const rows = r.data || [];
+    list.innerHTML = rows.length ? '' : '<p class="adm-note">Nothing has been entered yet.</p>';
+    rows.forEach(g => {
+        const el = document.createElement('div');
+        el.className = 'adm-row' + (g.removed || g.banned ? ' banned' : '');
+        el.innerHTML = '<div><b>' + esc(g.formula) + '</b> · ' + esc(g.display_name) + (g.removed ? ' <span class="adm-tag">Removed</span>' : '') +
+            (g.banned ? ' <span class="adm-tag">Player banned</span>' : '') + '<small>' + rarityText(-g.odds_log) + ' · score ' + fmtScore(g.score) + ' · ' +
+            new Date(g.found_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + '</small></div><button class="ghost">' + (g.removed ? 'Restore' : 'Remove') + '</button>';
+        el.querySelector('button').onclick = async () => {
+            const res = await admCall('admin_remove', { p_id: g.id, p_removed: !g.removed }, 'admBoardMsg');
+            if (!res.error) {
+                admMsg('admBoardMsg', g.formula + (g.removed ? ' is back on the board.' : ' is removed from the board.'));
+                admBoard();
+                globalLoad();
+            }
+        };
+        list.appendChild(el);
+    });
+}
+$('admGive').onclick = async () => {
+    const everyone = $('admWhoAll').checked;
+    const name = everyone ? '' : $('admWho').value.trim();
+    const qty = Math.floor(+$('admQty').value);
+    if (!everyone && !name) {
+        admMsg('admGiftMsg', "Type the player's display name, or choose Everyone.", true);
+        return;
+    }
+    if (!(qty >= 1 && qty <= 10000)) {
+        admMsg('admGiftMsg', 'Choose an amount from 1 to 10,000.', true);
+        return;
+    }
+    const c = CAT[$('admCat').value];
+    admMsg('admGiftMsg', 'Sending…');
+    const r = await admCall('admin_give', { p_name: name, p_catalyst: c.id, p_qty: qty, p_note: $('admNote').value.trim() }, 'admGiftMsg');
+    if (!r.error) {
+        admMsg('admGiftMsg', r.data === 'ok' ? qty + ' × ' + c.name + ' sent to ' + (everyone ? 'everyone' : name) + '. Players receive it the next time they open the game.' :
+            r.data === 'not_found' ? 'No player has that display name.' : 'That gift could not be made.', r.data !== 'ok');
+        if (r.data === 'ok') {
+            $('admNote').value = '';
+            admGifts();
+        }
+    }
+};
+document.querySelectorAll('input[name=admWhoMode]').forEach(r => r.onchange = () => {
+    $('admWho').disabled = $('admWhoAll').checked;
+});
+async function admGifts() {
+    const list = $('admGiftList');
+    const r = await admCall('admin_gifts', {}, 'admGiftMsg');
+    if (r.error) {
+        return;
+    }
+    const rows = r.data || [];
+    list.innerHTML = rows.length ? '' : '<p class="adm-note">No gifts sent yet.</p>';
+    rows.forEach(g => {
+        const el = document.createElement('div');
+        el.className = 'adm-row';
+        el.innerHTML = '<div><b>' + g.qty + ' × ' + esc(CAT[g.catalyst] ? CAT[g.catalyst].name : g.catalyst) + '</b> to ' + esc(g.recipient) +
+            '<small>' + new Date(g.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + ' · received by ' + g.claimed +
+            (g.note ? ' · "' + esc(g.note) + '"' : '') + '</small></div>';
+        list.appendChild(el);
+    });
+}
 cloudInit();
 </script>
 </body></html>
