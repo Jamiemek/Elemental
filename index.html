@@ -2544,6 +2544,7 @@ body.fx-warping .screen.active {
 <section class="inventory-panel">
 <div class="setting"><h3>Chain details</h3><div class="body"><p>Show how many elements were chained under each result.</p><select id="chainSetting"><option value="on" selected>Show chain details</option><option value="off">Result only</option></select></div></div>
 <div class="setting"><h3>Theme</h3><div class="body"><p>Light or dark colours for the whole game.</p><select id="themeSetting"><option value="light" selected>Light</option><option value="dark">Dark</option><option value="system">Match my device</option></select></div></div>
+<div class="setting"><h3>Flashing</h3><div class="body"><p>Tone down bright flashes, flickers and colour inversions in rare-roll effects and cutscenes. Turn this on if flashing lights bother you.</p><label class="check"><input type="checkbox" id="calmSetting">Reduce flashing</label></div></div>
 <div class="setting"><h3>Active catalysts</h3><div class="body"><p><b>Clearing a catalyst stops it immediately and it is gone for good.</b> There is no refund and this cannot be undone.</p><div id="catClear"></div></div></div>
 <div class="setting"><h3>Rarity display</h3><div class="body"><p>Show each roll's rarity as its odds, or as its score. Score is the base odds of every element in the roll added together.</p><select id="displaySetting"><option value="odds" selected>Odds</option><option value="score">Score</option></select></div></div>
 <div class="setting"><h3>Sound</h3><div class="body"><p>A soft tick while the reel spins and a chime on the result. Rarer results get a fuller chime. Sound starts after you press Roll.</p>
@@ -3725,7 +3726,48 @@ const RARITY_DARK = [
 let rarityEffectTimer = null;
 let fxRunId = 0;
 let runningFx = [];
+// Reduce flashing: full-screen layers can't change brightness faster than about
+// 0.4 opacity per quarter second, never pass 45%, and stepped flickers become smooth.
+let calmFx = false;
+function tameFlash(frames, dur) {
+    if (!frames.length || frames.some(f => f.opacity == null)) {
+        return frames;
+    }
+    const n = frames.length;
+    const off = frames.map((f, i) => f.offset != null ? f.offset : i === 0 ? 0 : i === n - 1 ? 1 : null);
+    for (let i = 1; i < n; i++) {
+        if (off[i] == null) {
+            let j = i;
+            while (off[j] == null) {
+                j++;
+            }
+            for (let k = i; k < j; k++) {
+                off[k] = off[i - 1] + (off[j] - off[i - 1]) * (k - i + 1) / (j - i + 1);
+            }
+        }
+    }
+    const ops = frames.map(f => +f.opacity);
+    ops[0] = 0;
+    let k = 1;
+    for (let i = 0; i + 1 < n; i++) {
+        const d = Math.abs(ops[i + 1] - ops[i]);
+        if (d > 0) {
+            k = Math.min(k, 0.0016 * Math.max(1, (off[i + 1] - off[i]) * dur) / d);
+        }
+    }
+    const top = Math.max(...ops);
+    if (top * k > 0.45) {
+        k = 0.45 / top;
+    }
+    return frames.map((f, i) => Object.assign({}, f, { opacity: ops[i] * k }, f.easing && f.easing.includes('steps') ? { easing: 'linear' } : {}));
+}
 function animateFx(el, frames, o) {
+    if (calmFx && el.classList.contains('fx-fill')) {
+        frames = tameFlash(frames, (o && o.duration) || 1000);
+        if (o && o.easing && o.easing.includes('steps')) {
+            o = Object.assign({}, o, { easing: 'linear' });
+        }
+    }
     const a = el.animate(frames, Object.assign({ fill: 'both', easing: 'ease-out' }, o));
     runningFx.push(a);
     return a;
@@ -4060,6 +4102,9 @@ function playRarityFx(tier, dark) {
     const parts = [head, ...cards, controls, hint, side].filter(el => el && el.getBoundingClientRect().height);
     const P = (el, fr, o) => {
         if (!onGame || !el) {
+            return null;
+        }
+        if (calmFx && fr.some(f => /invert|brightness\((?:[2-9]|1\.[5-9])/.test(f.filter || ''))) {
             return null;
         }
         const a = el.animate(fr, Object.assign({ fill: 'none', easing: 'ease-out' }, o));
@@ -7477,6 +7522,16 @@ if (window.matchMedia) {
     const onSys = () => themePref === 'system' && applyTheme('system');
     mq.addEventListener ? mq.addEventListener('change', onSys) : mq.addListener(onSys);
 }
+try {
+    calmFx = localStorage.getItem('elementalCalm') === '1';
+} catch (e) { }
+$('calmSetting').checked = calmFx;
+$('calmSetting').onchange = () => {
+    calmFx = $('calmSetting').checked;
+    try {
+        localStorage.setItem('elementalCalm', calmFx ? '1' : '0');
+    } catch (e) { }
+};
 $('displaySetting').value = displayMode;
 $('displaySetting').onchange = () => {
     displayMode = $('displaySetting').value === 'score' ? 'score' : 'odds';
@@ -7525,6 +7580,9 @@ const seededRandom = seed => () => {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
 };
 function drawGlow(ctx, x, y, radius, color, alpha) {
+    if (calmFx) {
+        alpha = Math.min(alpha, 0.5);
+    }
     if (alpha <= 0.003 || radius <= 0) {
         return;
     }
@@ -8766,6 +8824,671 @@ CUTSCENES.Ds = {
         const rb = smoothstep(7300, 8000, time);
         drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#8a7dff', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
         drawCard(ctx, scene, time, 7900, '#f0eeff', '#8a7dff');
+    }
+};
+// Mt: winter 1938 - a neutron strikes a drop-shaped nucleus, it stretches and splits (Meitner and Frisch explain fission)
+CUTSCENES.Mt = {
+    z: 109, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [73.4, 110, 146.8], 5.8, 0.013, 'sine', 700);
+        playNoise(audio, start, 6, 0.022, 500, 900, 'bandpass', 0.7, 0.4, 1.5);
+        playTone(audio, 1318.5, start + 1.8, 0.3, 0.02, 'sine', 659.3, 0.4, 0, 0.002);
+        riser(audio, start + 2, 3.6, 0.026, 90, 420);
+        for (let i = 0; i < 7; i++) {
+            playTone(audio, 98 + i * 14, start + 2.2 + i * 0.48, 0.4, 0.012, 'triangle', null, 0.3, 0, 0.05);
+        }
+        playNoise(audio, start + 5.6, 0.15, 0.09, 7000, 1200, 'lowpass', 1, 0.3, 0.002);
+        boom(audio, start + 5.6, 0.2, 2.2);
+        arp(audio, start + 5.8, [293.7, 370, 440, 587.3, 740, 880], 0.11, 0.026, 'sine');
+        padChord(audio, start + 7.4, [146.8, 220, 293.7, 440], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const st = scene.state;
+        const cx = W / 2;
+        const cy = H * 0.48;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        if (!st.snow) {
+            const r = seededRandom(109);
+            st.snow = Array.from({ length: 140 }, () => [r(), r(), 0.3 + r() * 0.9, r() * TAU]);
+            st.nuc = Array.from({ length: 70 }, () => {
+                const a = r() * TAU;
+                const d = Math.sqrt(r());
+                return [Math.cos(a) * d, Math.sin(a) * d, r()];
+            });
+        }
+        const bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, '#0d1a2b');
+        bg.addColorStop(1, '#04070d');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        // falling snow
+        st.snow.forEach(([x, y, s, ph]) => {
+            const yy = ((y + time * 0.00004 * (0.5 + s)) % 1) * H;
+            const xx = ((x + Math.sin(time * 0.0006 + ph) * 0.012) % 1) * W;
+            ctx.fillStyle = 'rgba(225,238,255,' + (0.2 + 0.45 * s) * fa + ')';
+            ctx.beginPath();
+            ctx.arc(xx, yy, (0.12 + 0.25 * s) * u, 0, TAU);
+            ctx.fill();
+        });
+        const R = Math.min(W, H) * 0.16;
+        const hitT = 1800;
+        const splitT = 5600;
+        // the neutron
+        const fly = clamp((time - 900) / 900);
+        if (fly > 0 && fly < 1) {
+            const x = -0.04 * W + (cx - R + 0.04 * W) * fly * fly;
+            ctx.strokeStyle = 'rgba(200,230,255,.6)';
+            ctx.lineWidth = 0.35 * u;
+            ctx.beginPath();
+            ctx.moveTo(Math.max(0, x - 14 * u), cy);
+            ctx.lineTo(x, cy);
+            ctx.stroke();
+            drawGlow(ctx, x, cy, 3 * u, '#d8ecff', 0.9);
+        }
+        if (time >= hitT && time < hitT + 500) {
+            drawGlow(ctx, cx - R, cy, 9 * u, '#ffffff', (1 - (time - hitT) / 500) * 0.8);
+        }
+        if (time < splitT) {
+            // the liquid drop: a Cassini oval that stretches toward a pinch
+            const pre = smoothstep(hitT, splitT, time);
+            const k = 0.985 * Math.pow(pre, 1.4);
+            const wob = time < hitT ? Math.sin(time / 600) * 0.015 : Math.sin((time - hitT) / 170) * 0.07 * (1 - 0.6 * pre) * smoothstep(hitT, hitT + 400, time);
+            const c2 = (k * R) * (k * R);
+            const R4 = R * R * R * R;
+            const shape = () => {
+                ctx.beginPath();
+                for (let i = 0; i <= 120; i++) {
+                    const th = i / 120 * TAU;
+                    const s2 = Math.sin(2 * th);
+                    const rr = Math.sqrt(Math.max(0, c2 * Math.cos(2 * th) + Math.sqrt(Math.max(0, R4 - c2 * c2 * s2 * s2))));
+                    const x = cx + Math.cos(th) * rr * (1 + wob);
+                    const y = cy + Math.sin(th) * rr * (1 - wob);
+                    if (i) {
+                        ctx.lineTo(x, y);
+                    } else {
+                        ctx.moveTo(x, y);
+                    }
+                }
+                ctx.closePath();
+            };
+            drawGlow(ctx, cx, cy, R * (2.6 + pre), '#ff8a3d', (0.25 + 0.35 * pre) * fa);
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * (1.2 + k * 0.5));
+            g.addColorStop(0, '#fff6ec');
+            g.addColorStop(0.55, '#ffbf8c');
+            g.addColorStop(1, '#d0602e');
+            ctx.fillStyle = g;
+            shape();
+            ctx.fill();
+            ctx.save();
+            shape();
+            ctx.clip();
+            st.nuc.forEach(([nx, ny, s]) => {
+                ctx.fillStyle = 'rgba(150,60,20,' + (0.14 + 0.16 * s) + ')';
+                ctx.beginPath();
+                ctx.arc(cx + nx * R * (1 + k * 0.9) * (1 + wob), cy + ny * R * (1 - k * 0.4) * (1 - wob), 0.09 * R, 0, TAU);
+                ctx.fill();
+            });
+            ctx.restore();
+            ctx.strokeStyle = 'rgba(255,240,225,.75)';
+            ctx.lineWidth = 0.3 * u;
+            shape();
+            ctx.stroke();
+        } else {
+            // two fragments fly apart with a burst of energy and spare neutrons
+            const a = clamp((time - splitT) / 1600);
+            const s = easeOutCubic(a);
+            const d = R * 0.92 + s * Math.min(W * 0.3, H * 0.28);
+            drawGlow(ctx, cx, cy, R * (1 + 6 * a), '#ffb070', (1 - a) * 0.95 * fa);
+            ctx.strokeStyle = 'rgba(255,220,190,' + (1 - a) * fa + ')';
+            ctx.lineWidth = (1 - a) * 1.4 * u;
+            ctx.beginPath();
+            ctx.arc(cx, cy, R * (0.5 + 6 * a), 0, TAU);
+            ctx.stroke();
+            [-1, 1].forEach(side => {
+                const fx = cx + side * d;
+                const rx = R * 0.58 * (1 + 0.3 * (1 - s));
+                const ry = R * 0.58 * (1 - 0.2 * (1 - s));
+                drawGlow(ctx, fx, cy, R * 1.6, '#ff8a3d', 0.4 * fa);
+                const g = ctx.createRadialGradient(fx, cy, 0, fx, cy, rx * 1.2);
+                g.addColorStop(0, '#fff6ec');
+                g.addColorStop(0.55, '#ffbf8c');
+                g.addColorStop(1, '#d0602e');
+                ctx.globalAlpha = fa;
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.ellipse(fx, cy, rx, ry, 0, 0, TAU);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+            [-2.3, -0.9, 1.9].forEach(ang => {
+                const dist = easeOutCubic(clamp((time - splitT) / 900)) * Math.max(W, H) * 0.6;
+                const x = cx + Math.cos(ang) * dist;
+                const y = cy + Math.sin(ang) * dist;
+                drawGlow(ctx, x, y, 2.6 * u, '#d8ecff', 0.9 * fa * (1 - a * 0.6));
+            });
+        }
+        drawText(ctx, 'A WALK IN THE SNOW', W / 2, H * 0.07, 2.1 * u, '#cfe0ff', smoothstep(300, 900, time) * (1 - smoothstep(2600, 3200, time)), 600, 0.7 * u);
+        drawText(ctx, 'THE NUCLEUS SPLITS', W / 2, H * 0.07, 2.1 * u, '#ffc9a3', smoothstep(5800, 6300, time) * fa, 600, 0.7 * u);
+        drawText(ctx, 'MEITNER · FRISCH · 1938', W / 2, H * 0.93, 2 * u, '#cfe0ff', smoothstep(6100, 6700, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#ff8a3d', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#fff1e6', '#ff8a3d');
+    }
+};
+// Hs: hassium tetroxide molecules drift down a cold column and freeze out one at a time
+CUTSCENES.Hs = {
+    z: 108, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [69.3, 103.8, 138.6], 6, 0.013, 'sine', 700);
+        playNoise(audio, start + 0.3, 5.6, 0.018, 1800, 600, 'lowpass', 0.5, 0.3, 1);
+        for (let i = 0; i < 7; i++) {
+            const t = start + (800 + i * 640 + 900) / 1000;
+            playTone(audio, 659.3 * Math.pow(2, i * 2 / 12), t, 0.25, 0.016, 'sine', null, 0.5, 0, 0.003);
+            playNoise(audio, t, 0.04, 0.03, 6000, 3000, 'highpass', 1, 0.2, 0.001);
+        }
+        playNoise(audio, start + 6, 0.1, 0.08, 8000, 1500, 'highpass', 1, 0.3, 0.002);
+        boom(audio, start + 6, 0.16, 1.8);
+        arp(audio, start + 6.1, [277.2, 349.2, 415.3, 554.4, 698.5], 0.11, 0.026, 'sine');
+        padChord(audio, start + 7.4, [138.6, 207.7, 277.2, 415.3], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        const bg = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.max(W, H) * 0.8);
+        bg.addColorStop(0, '#1d0a1a');
+        bg.addColorStop(1, '#070409');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        const N = 7;
+        const launch = i => 800 + i * 640;
+        const arrived = Array.from({ length: N }, (_, i) => time >= launch(i) + 900).filter(Boolean).length;
+        const lastArr = arrived ? launch(arrived - 1) + 900 : -1e9;
+        const pulse = 1 - smoothstep(0, 500, time - lastArr);
+        const big = time >= 6000 ? 1 - smoothstep(6000, 7000, time) : 0;
+        // the column: a temperature gradient from +20 down to -170 C
+        const x0 = W * 0.08;
+        const x1 = W * 0.92;
+        const cyc = H * 0.68;
+        const th = Math.max(3 * u, H * 0.03);
+        const colA = smoothstep(200, 900, time) * fa;
+        const cg = ctx.createLinearGradient(x0, 0, x1, 0);
+        cg.addColorStop(0, 'rgba(120,50,80,' + 0.55 * colA + ')');
+        cg.addColorStop(1, 'rgba(30,70,140,' + 0.55 * colA + ')');
+        ctx.fillStyle = cg;
+        ctx.fillRect(x0, cyc - th / 2, x1 - x0, th);
+        ctx.strokeStyle = 'rgba(255,200,230,' + 0.35 * colA + ')';
+        ctx.lineWidth = 0.25 * u;
+        ctx.strokeRect(x0, cyc - th / 2, x1 - x0, th);
+        for (let i = 0; i <= 10; i++) {
+            const x = x0 + (x1 - x0) * i / 10;
+            ctx.fillStyle = 'rgba(255,200,230,' + 0.3 * colA + ')';
+            ctx.fillRect(x - 0.1 * u, cyc + th / 2, 0.2 * u, i % 5 ? 0.8 * u : 1.4 * u);
+        }
+        drawText(ctx, '+20 °C', x0, cyc + th / 2 + 3.4 * u, 1.7 * u, '#ffb3d6', colA * 0.8, 600);
+        drawText(ctx, '−170 °C', x1, cyc + th / 2 + 3.4 * u, 1.7 * u, '#a9c4ff', colA * 0.8, 600);
+        const f = (20 + 44) / 190;
+        const xd = x0 + (x1 - x0) * f;
+        if (arrived) {
+            drawGlow(ctx, xd, cyc, (5 + 6 * pulse + 18 * big) * u, '#ff4fb8', (0.4 + 0.4 * pulse + 0.5 * big) * fa);
+            drawText(ctx, '−44 °C', xd, cyc - th / 2 - 3 * u, 2 * u, '#ffd6ec', smoothstep(1700, 2100, time) * fa, 700);
+        }
+        // molecules travelling and freezing out
+        for (let i = 0; i < N; i++) {
+            const t = time - launch(i);
+            if (t < 0) {
+                continue;
+            }
+            const jy = (((i * 37) % 7) / 6 - 0.5) * th * 0.6;
+            const jx = (((i * 53) % 5) / 4 - 0.5) * 2.4 * u;
+            const p = easeOutCubic(clamp(t / 900));
+            const x = x0 - 3 * u + (xd + jx - x0 + 3 * u) * p;
+            const y = cyc + jy;
+            if (p < 1) {
+                ctx.strokeStyle = 'rgba(255,120,200,.5)';
+                ctx.lineWidth = 0.3 * u;
+                ctx.beginPath();
+                ctx.moveTo(Math.max(x0 - 3 * u, x - 8 * u * (1 - p)), y);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+            }
+            drawGlow(ctx, x, y, 2.2 * u, '#ff7cc8', 0.8 * fa);
+            ctx.fillStyle = 'rgba(255,230,245,' + fa + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, 0.45 * u, 0, TAU);
+            ctx.fill();
+        }
+        // a large HsO4 molecule turning above the column
+        const mx = W / 2;
+        const my = H * 0.36;
+        const S = Math.min(W, H) * 0.15 * (1 + 0.05 * pulse + 0.08 * big) * (0.85 + 0.15 * smoothstep(0, 1200, time));
+        const ma = smoothstep(0, 900, time) * fa;
+        const ay = time * 0.0008;
+        const ax = 0.6 + Math.sin(time * 0.0004) * 0.3;
+        const k = 1 / Math.sqrt(3);
+        const pts = [[0, 0, 0, 1], [k, k, k, 0], [k, -k, -k, 0], [-k, k, -k, 0], [-k, -k, k, 0]].map(([x, y, z, c]) => {
+            const x2 = x * Math.cos(ay) + z * Math.sin(ay);
+            const z2 = -x * Math.sin(ay) + z * Math.cos(ay);
+            const y2 = y * Math.cos(ax) - z2 * Math.sin(ax);
+            const z3 = y * Math.sin(ax) + z2 * Math.cos(ax);
+            const p = 1 + z3 * 0.18;
+            return { x: mx + x2 * S * p, y: my + y2 * S * p, z: z3, c, p };
+        });
+        drawGlow(ctx, mx, my, S * 3, '#ff4fb8', (0.22 + 0.3 * pulse + 0.5 * big) * ma);
+        ctx.strokeStyle = 'rgba(255,190,225,' + 0.55 * ma + ')';
+        ctx.lineWidth = 0.18 * S;
+        ctx.lineCap = 'round';
+        pts.slice(1).forEach(q => {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            ctx.lineTo(q.x, q.y);
+            ctx.stroke();
+        });
+        pts.slice().sort((a, b) => a.z - b.z).forEach(q => {
+            const r = (q.c ? 0.42 : 0.26) * S * q.p;
+            const g = ctx.createRadialGradient(q.x - r * 0.35, q.y - r * 0.35, r * 0.1, q.x, q.y, r);
+            if (q.c) {
+                g.addColorStop(0, '#ffe2f3');
+                g.addColorStop(0.45, '#ff4fb8');
+                g.addColorStop(1, '#6a1048');
+            } else {
+                g.addColorStop(0, '#ffffff');
+                g.addColorStop(0.5, '#ffc2e2');
+                g.addColorStop(1, '#8a4a6c');
+            }
+            ctx.globalAlpha = ma;
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(q.x, q.y, r, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+        drawText(ctx, 'HsO₄', mx, my + S * 1.75, 3.6 * u, '#ffe2f3', ma, 700, 0.2 * u);
+        drawText(ctx, 'HASSIUM TETROXIDE', W / 2, H * 0.07, 2.1 * u, '#ffb3d6', smoothstep(300, 900, time) * (1 - smoothstep(5600, 6000, time)), 600, 0.7 * u);
+        drawText(ctx, 'ONE MOLECULE AT A TIME', W / 2, H * 0.07, 2.1 * u, '#ffb3d6', smoothstep(6100, 6600, time) * fa, 600, 0.7 * u);
+        drawText(ctx, 'HASSIA · THE LAND OF HESSE', W / 2, H * 0.93, 2 * u, '#ffd6ec', smoothstep(6300, 6900, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#ff4fb8', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#fff0f8', '#ff4fb8');
+    }
+};
+// Bh: Bohr's atom - an electron leaps between orbits and each fall paints a line of hydrogen's spectrum
+CUTSCENES.Bh = {
+    z: 107, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [65.4, 98, 130.8], 6.2, 0.013, 'sine', 700);
+        const lam = [656, 486, 434, 410];
+        [1700, 2900, 4100, 5300].forEach((t, i) => {
+            const f = 440 * Math.pow(656 / lam[i], 2);
+            playTone(audio, f * 2, start + t / 1000, 0.08, 0.014, 'triangle', f, 0.3, 0, 0.002);
+            playTone(audio, f, start + t / 1000 + 0.7, 1.4, 0.02, 'sine', null, 0.6, 0, 0.004);
+        });
+        [2300, 3500, 4700].forEach(t => playTone(audio, 330, start + t / 1000 - 0.05, 0.2, 0.012, 'sine', 660, 0.3, 0, 0.01));
+        playNoise(audio, start + 6.1, 0.1, 0.08, 8000, 1500, 'highpass', 1, 0.3, 0.002);
+        boom(audio, start + 6.1, 0.16, 1.8);
+        arp(audio, start + 6.2, [261.6, 329.6, 392, 523.3, 659.3], 0.11, 0.026, 'sine');
+        padChord(audio, start + 7.4, [130.8, 196, 261.6, 392], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        ctx.fillStyle = '#05070f';
+        ctx.fillRect(0, 0, W, H);
+        const cx = W / 2;
+        const cy = H * 0.42;
+        const Rm = Math.min(W * 0.42, H * 0.3);
+        const rn = n => Rm * (0.1 + 0.9 * Math.pow((n - 1) / 5, 1.25));
+        const lines = [[656, '#ff3b3b'], [486, '#3fd8ff'], [434, '#4f6bff'], [410, '#a35cff']];
+        const ups = [3, 4, 5, 6];
+        const tD = [1700, 2900, 4100, 5300];
+        const tU = [2300, 3500, 4700];
+        let n = 3;
+        const ev = [];
+        tD.forEach((t, i) => {
+            ev.push([t, 2, ups[i], i, 'd']);
+            if (tU[i]) {
+                ev.push([tU[i], ups[i + 1], 2, i + 1, 'u']);
+            }
+        });
+        ev.sort((a, b) => a[0] - b[0]);
+        ev.forEach(e => {
+            if (time >= e[0]) {
+                n = e[1];
+            }
+        });
+        const ang = time * 0.0018;
+        const big = time >= 6100 ? 1 - smoothstep(6100, 7100, time) : 0;
+        const oa = smoothstep(0, 900, time) * fa;
+        // nucleus
+        drawGlow(ctx, cx, cy, Rm * 0.25, '#ffd2d2', (0.5 + 0.4 * big) * oa);
+        ctx.fillStyle = 'rgba(255,235,235,' + oa + ')';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 0.9 * u, 0, TAU);
+        ctx.fill();
+        // orbits
+        for (let k = 1; k <= 6; k++) {
+            ctx.strokeStyle = 'rgba(150,180,255,' + (k === n ? 0.5 : 0.16 + 0.3 * big) * oa + ')';
+            ctx.lineWidth = (k === n ? 0.3 : 0.18) * u;
+            ctx.beginPath();
+            ctx.arc(cx, cy, rn(k), 0, TAU);
+            ctx.stroke();
+        }
+        // spectrum strip
+        const sx0 = W * 0.1;
+        const sx1 = W * 0.9;
+        const sy = H * 0.82;
+        const sh = Math.max(3 * u, H * 0.035);
+        const lx = l => sx0 + (l - 380) / 320 * (sx1 - sx0);
+        const sa = smoothstep(300, 1100, time) * fa;
+        const rg = ctx.createLinearGradient(sx0, 0, sx1, 0);
+        [[380, '#6a2cff'], [450, '#2c5cff'], [495, '#20d0ff'], [550, '#40ff70'], [590, '#ffe040'], [630, '#ff7a20'], [700, '#a01010']].forEach(([l, c]) => rg.addColorStop((l - 380) / 320, c));
+        ctx.globalAlpha = 0.12 * sa;
+        ctx.fillStyle = rg;
+        ctx.fillRect(sx0, sy, sx1 - sx0, sh);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(160,180,255,' + 0.3 * sa + ')';
+        ctx.lineWidth = 0.2 * u;
+        ctx.strokeRect(sx0, sy, sx1 - sx0, sh);
+        // photons
+        const P = (r, a) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+        tD.forEach((t, i) => {
+            const [l, col] = lines[i];
+            const e = time - t;
+            if (e < 0) {
+                return;
+            }
+            const from = P(rn(2), t * 0.0018);
+            const to = [lx(l), sy];
+            const p = clamp(e / 800);
+            if (p < 1) {
+                const dx = to[0] - from[0];
+                const dy = to[1] - from[1];
+                const len = Math.hypot(dx, dy);
+                const nx = -dy / len;
+                const ny = dx / len;
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 0.35 * u;
+                ctx.beginPath();
+                for (let s = Math.max(0, p - 0.3); s <= p + 1e-6; s += 0.01) {
+                    const w = Math.sin(s * len / (2.2 * u)) * 1.2 * u;
+                    const x = from[0] + dx * s + nx * w;
+                    const y = from[1] + dy * s + ny * w;
+                    if (s === Math.max(0, p - 0.3)) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                drawGlow(ctx, from[0] + dx * p, from[1] + dy * p, 3 * u, col, 0.9);
+            } else {
+                const fl = 1 - smoothstep(0, 600, e - 800);
+                drawGlow(ctx, to[0], sy + sh / 2, (3 + 6 * fl + 6 * big) * u, col, (0.4 + 0.5 * fl + 0.4 * big) * fa);
+                ctx.fillStyle = col;
+                ctx.globalAlpha = fa;
+                ctx.fillRect(to[0] - 0.3 * u, sy - 0.6 * u, 0.6 * u, sh + 1.2 * u);
+                ctx.globalAlpha = 1;
+                drawText(ctx, String(l), to[0], sy + sh + 2.4 * u, 1.6 * u, col, smoothstep(0, 400, e - 800) * fa, 700);
+            }
+        });
+        // absorbed photons before each upward leap
+        tU.forEach((t, i) => {
+            const e = time - (t - 450);
+            if (e < 0 || e > 450) {
+                return;
+            }
+            const to = P(rn(2), t * 0.0018);
+            const from = [W * 0.06, H * 0.1];
+            const p = e / 450;
+            drawGlow(ctx, from[0] + (to[0] - from[0]) * p, from[1] + (to[1] - from[1]) * p, 2.4 * u, lines[i + 1][1], 0.8);
+        });
+        // the quantum leap itself: no path between orbits, just a flash at both
+        ev.forEach(([t, nTo, nFrom]) => {
+            const e = time - t;
+            if (e < 0 || e > 350) {
+                return;
+            }
+            const a = 1 - e / 350;
+            const p1 = P(rn(nFrom), ang);
+            const p2 = P(rn(nTo), ang);
+            drawGlow(ctx, p1[0], p1[1], 5 * u, '#ffffff', 0.6 * a);
+            drawGlow(ctx, p2[0], p2[1], 6 * u, '#ffffff', 0.8 * a);
+            ctx.setLineDash([0.6 * u, 0.9 * u]);
+            ctx.strokeStyle = 'rgba(255,255,255,' + 0.5 * a + ')';
+            ctx.lineWidth = 0.2 * u;
+            ctx.beginPath();
+            ctx.moveTo(p1[0], p1[1]);
+            ctx.lineTo(p2[0], p2[1]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        });
+        if (time >= 600) {
+            const [ex, ey] = P(rn(n), ang);
+            drawGlow(ctx, ex, ey, 3.4 * u, '#bfe4ff', 0.9 * fa);
+            ctx.fillStyle = 'rgba(240,250,255,' + fa + ')';
+            ctx.beginPath();
+            ctx.arc(ex, ey, 0.6 * u, 0, TAU);
+            ctx.fill();
+        }
+        drawText(ctx, 'QUANTUM LEAPS', W / 2, H * 0.06, 2.1 * u, '#bcd0ff', smoothstep(300, 900, time) * (1 - smoothstep(5900, 6300, time)), 600, 0.7 * u);
+        drawText(ctx, 'THE HYDROGEN SPECTRUM', W / 2, H * 0.06, 2.1 * u, '#bcd0ff', smoothstep(6200, 6700, time) * fa, 600, 0.7 * u);
+        drawText(ctx, 'BOHR · 1913', W / 2, H * 0.95, 2 * u, '#bcd0ff', smoothstep(6400, 7000, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#4f86ff', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#eef3ff', '#4f86ff');
+    }
+};
+// Sg: Seaborg lifts the actinides out of the main table, and element 106 takes the place uranium left
+CUTSCENES.Sg = {
+    z: 106, dur: 10000,
+    snd(audio, start) {
+        padChord(audio, start, [82.4, 123.5, 164.8], 6, 0.013, 'sine', 700);
+        for (let i = 0; i < 10; i++) {
+            playNoise(audio, start + 0.3 + i * 0.1, 0.03, 0.025, 4000, 2500, 'bandpass', 2, 0.2, 0.001);
+        }
+        playTone(audio, 523.3, start + 2.4, 0.5, 0.018, 'sine', null, 0.5, 0, 0.01);
+        for (let i = 0; i < 5; i++) {
+            playTone(audio, 392 - i * 22, start + 2.9 + i * 0.14, 0.9, 0.014, 'triangle', 196 - i * 11, 0.4, 0, 0.01);
+        }
+        [4.3, 4.55].forEach(t => sparkle(audio, start + t, 3, 0.2, 0.014));
+        for (let i = 0; i < 7; i++) {
+            playNoise(audio, start + 4.9 + i * 0.09, 0.03, 0.022, 4500, 2800, 'bandpass', 2, 0.2, 0.001);
+        }
+        playTone(audio, 659.3, start + 5.5, 0.4, 0.014, 'sine', null, 0.4, 0, 0.005);
+        playTone(audio, 784, start + 5.75, 0.4, 0.014, 'sine', null, 0.4, 0, 0.005);
+        playNoise(audio, start + 6, 0.1, 0.08, 8000, 1500, 'highpass', 1, 0.3, 0.002);
+        boom(audio, start + 6, 0.17, 1.8);
+        arp(audio, start + 6.1, [329.6, 415.3, 493.9, 659.3, 830.6], 0.11, 0.026, 'sine');
+        padChord(audio, start + 7.4, [164.8, 246.9, 329.6, 493.9], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const st = scene.state;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        ctx.fillStyle = '#050c09';
+        ctx.fillRect(0, 0, W, H);
+        if (!st.cells) {
+            const rows = [
+                [[1, 'H'], [18, 'He']],
+                [[1, 'Li'], [2, 'Be'], [13, 'B'], [14, 'C'], [15, 'N'], [16, 'O'], [17, 'F'], [18, 'Ne']],
+                [[1, 'Na'], [2, 'Mg'], [13, 'Al'], [14, 'Si'], [15, 'P'], [16, 'S'], [17, 'Cl'], [18, 'Ar']],
+                'K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr'.split(' ').map((s, i) => [i + 1, s]),
+                'Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe'.split(' ').map((s, i) => [i + 1, s]),
+                'Cs Ba La Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn'.split(' ').map((s, i) => [i + 1, s]),
+                [[1, 'Fr'], [2, 'Ra'], [3, 'Ac']]
+            ];
+            st.cells = [];
+            rows.forEach((r, ri) => r.forEach(([c, s]) => st.cells.push({ s, c, r: ri, t: 200 + ri * 90 + c * 25 })));
+            'Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu'.split(' ').forEach((s, i) => st.cells.push({ s, c: i + 4, r: 7.6, t: 900 + i * 25 }));
+            // the elements Seaborg moved: they start under hafnium..osmium in period 7
+            'Th Pa U Np Pu'.split(' ').forEach((s, i) => st.cells.push({ s, c: i + 4, r: 6, t: 800 + i * 25, mv: 2900 + i * 140 }));
+            'Am Cm'.split(' ').forEach((s, i) => st.cells.push({ s, c: i + 9, r: 8.6, t: 4300 + i * 250, hot: 1 }));
+            'Bk Cf Es Fm Md No Lr'.split(' ').forEach((s, i) => st.cells.push({ s, c: i + 11, r: 8.6, t: 4900 + i * 90 }));
+            [['Rf', 4, 5500], ['Db', 5, 5750], ['Sg', 6, 6000]].forEach(([s, c, t]) => st.cells.push({ s, c, r: 6, t, hot: s === 'Sg' ? 2 : 1 }));
+            'Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og'.split(' ').forEach((s, i) => st.cells.push({ s, c: i + 7, r: 6, t: 6300 + i * 60 }));
+        }
+        const cs = Math.min(W * 0.92 / 18, H * 0.6 / 9.6);
+        const gx = W / 2 - 9 * cs;
+        const gy = H * 0.5 - 4.8 * cs;
+        const sgx = gx + 5.5 * cs;
+        const sgy = gy + 6.5 * cs;
+        const zm = 1 + 1.1 * smoothstep(6000, 7300, time);
+        const zc = smoothstep(6000, 7300, time);
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(zm, zm);
+        ctx.translate(-(W / 2 + (sgx - W / 2) * zc), -(H / 2 + (sgy - H / 2) * zc));
+        const showSym = cs * zm >= 18;
+        st.cells.forEach(cell => {
+            const a = smoothstep(cell.t, cell.t + 350, time);
+            if (a <= 0) {
+                return;
+            }
+            let row = cell.r;
+            let glow = 0;
+            if (cell.mv) {
+                glow = smoothstep(2300, 2700, time) * (1 - smoothstep(cell.mv + 1100, cell.mv + 1800, time));
+                const p = clamp((time - cell.mv) / 1000);
+                const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+                row = 6 + (8.6 - 6) * e;
+                if (p > 0 && p < 1) {
+                    drawGlow(ctx, gx + (cell.c - 0.5) * cs, gy + (row + 0.5) * cs, cs * 1.4, '#4fe08a', 0.5);
+                }
+            }
+            if (cell.hot) {
+                glow = Math.max(glow, (1 - smoothstep(cell.t + 300, cell.t + (cell.hot === 2 ? 1e9 : 1500), time)));
+            }
+            const x = gx + (cell.c - 1) * cs;
+            const y = gy + row * cs;
+            const big = cell.hot === 2 ? 1 - smoothstep(6000, 6900, time) : 0;
+            if (cell.hot === 2) {
+                drawGlow(ctx, x + cs / 2, y + cs / 2, cs * (2 + 5 * big), '#4fe08a', (0.5 + 0.5 * big) * fa);
+            }
+            ctx.globalAlpha = a * fa;
+            ctx.fillStyle = glow > 0 ? 'rgba(79,224,138,' + (0.12 + 0.6 * glow) + ')' : 'rgba(120,200,160,.10)';
+            ctx.fillRect(x + 0.08 * cs, y + 0.08 * cs, cs * 0.84, cs * 0.84);
+            ctx.strokeStyle = glow > 0 ? 'rgba(170,255,200,' + (0.3 + 0.6 * glow) + ')' : 'rgba(120,220,170,.28)';
+            ctx.lineWidth = Math.max(0.5, 0.05 * cs);
+            ctx.strokeRect(x + 0.08 * cs, y + 0.08 * cs, cs * 0.84, cs * 0.84);
+            ctx.globalAlpha = 1;
+            if (showSym || glow > 0.2) {
+                drawText(ctx, cell.s, x + cs / 2, y + cs / 2 + 0.03 * cs, cs * 0.4, glow > 0.2 ? '#eafff1' : '#9fd8b8', a * fa * (glow > 0.2 ? 1 : 0.55), 700);
+            }
+        });
+        ctx.restore();
+        drawText(ctx, 'THE TABLE · 1944', W / 2, H * 0.07, 2.1 * u, '#9fe8bf', smoothstep(300, 900, time) * (1 - smoothstep(2200, 2600, time)), 600, 0.7 * u);
+        drawText(ctx, 'SEABORG MOVES THE ACTINIDES', W / 2, H * 0.07, 2.1 * u, '#9fe8bf', smoothstep(2500, 3000, time) * (1 - smoothstep(5600, 6000, time)), 600, 0.7 * u);
+        drawText(ctx, 'NAMED FOR A LIVING SCIENTIST', W / 2, H * 0.07, 2.1 * u, '#9fe8bf', smoothstep(6200, 6700, time) * fa, 600, 0.7 * u);
+        drawText(ctx, 'GLENN T. SEABORG · 1912–1999', W / 2, H * 0.93, 2 * u, '#9fe8bf', smoothstep(6400, 7000, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#4fe08a', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#effff5', '#4fe08a');
+    }
+};
+// Db: the Transfermium Wars - a split-flap board cycles through every name 105 was given until it settles
+CUTSCENES.Db = {
+    z: 105, dur: 10000,
+    seq: [[700, 'NIELSBOHRIUM', '1968', 'DUBNA'], [1900, 'HAHNIUM', '1970', 'BERKELEY'], [2800, 'NIELSBOHRIUM', '1970', 'DUBNA'], [3400, 'HAHNIUM', '1970', 'BERKELEY'], [4000, 'UNNILPENTIUM', '1978', 'IUPAC · PLACEHOLDER'], [4800, 'JOLIOTIUM', '1994', 'IUPAC'], [5600, 'DUBNIUM', '1997', 'IUPAC · FINAL']],
+    snd(audio, start) {
+        padChord(audio, start, [77.8, 116.5, 155.6], 6, 0.013, 'sine', 700);
+        this.seq.forEach(([t], i) => {
+            for (let k = 0; k < 14; k++) {
+                playNoise(audio, start + t / 1000 + 0.05 + k * 0.05 + Math.random() * 0.02, 0.014, 0.05, 3500, 2500, 'bandpass', 2, 0.1, 0.001);
+            }
+            playTone(audio, 196 + i * 18, start + t / 1000 + 0.75, 0.25, 0.012, 'triangle', null, 0.3, 0, 0.004);
+        });
+        playNoise(audio, start + 6.4, 0.1, 0.08, 8000, 1500, 'highpass', 1, 0.3, 0.002);
+        boom(audio, start + 6.4, 0.17, 1.8);
+        arp(audio, start + 6.5, [311.1, 392, 466.2, 622.3, 784], 0.11, 0.026, 'sine');
+        padChord(audio, start + 7.5, [155.6, 233.1, 311.1, 466.2], 3, 0.02, 'sine', 2400);
+        sparkle(audio, start + 7.8, 10, 2, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const fa = 1 - smoothstep(7300, 8100, time);
+        const bg = ctx.createRadialGradient(W / 2, H * 0.47, 0, W / 2, H * 0.47, Math.max(W, H) * 0.75);
+        bg.addColorStop(0, '#13160c');
+        bg.addColorStop(1, '#050604');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        const seq = this.seq;
+        let idx = -1;
+        seq.forEach((s, i) => {
+            if (time >= s[0]) {
+                idx = i;
+            }
+        });
+        const final = idx === seq.length - 1;
+        const settle = smoothstep(6350, 6700, time);
+        const big = time >= 6400 ? 1 - smoothstep(6400, 7300, time) : 0;
+        const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const pad = (s, n) => {
+            const l = Math.floor((n - s.length) / 2);
+            return (' '.repeat(l) + s + ' '.repeat(n)).slice(0, n);
+        };
+        const flap = (str, prev, n, cw, ch, x0, y, set, digits) => {
+            for (let j = 0; j < n; j++) {
+                const x = x0 + j * cw;
+                const target = str[j];
+                const before = prev ? prev[j] : ' ';
+                const tc = idx >= 0 ? seq[idx][0] : 0;
+                const dj = 120 + j * 45 + ((j * 7 + set * 13) % 5) * 35;
+                const flipping = idx >= 0 && time < tc + dj && (target !== before || target !== ' ');
+                let chr = target;
+                if (flipping) {
+                    const step = Math.floor((time - tc) / 55);
+                    const h = (Math.imul(j + 1, 2654435761) ^ Math.imul(step + 1, 40503) ^ Math.imul(set + 1, 9973)) >>> 0;
+                    chr = digits ? String(h % 10) : AZ[(h >>> 3) % 26];
+                }
+                ctx.globalAlpha = A;
+                ctx.fillStyle = '#14170e';
+                ctx.fillRect(x + 0.06 * cw, y - ch / 2, cw * 0.88, ch);
+                ctx.fillStyle = flipping ? '#262b1a' : '#1b1f13';
+                ctx.fillRect(x + 0.06 * cw, y - ch / 2, cw * 0.88, ch / 2);
+                ctx.globalAlpha = 1;
+                const col = final && !flipping ? '#d4ff3a' : '#eaffc0';
+                if (chr !== ' ') {
+                    drawText(ctx, chr, x + cw / 2, y + ch * 0.03, ch * 0.62, col, A * (flipping ? 0.8 : 1), 700);
+                }
+                ctx.fillStyle = 'rgba(0,0,0,' + 0.75 * A + ')';
+                ctx.fillRect(x + 0.06 * cw, y - 0.04 * ch, cw * 0.88, Math.max(1, 0.05 * ch));
+            }
+        };
+        const N = 12;
+        const cw = Math.min(W * 0.88 / N, H * 0.075);
+        const ch = cw * 1.45;
+        const by = H * 0.47;
+        const ba = smoothstep(0, 600, time) * fa;
+        const A = ba;
+        drawGlow(ctx, W / 2, by, W * 0.5, '#c6f03a', (0.12 + 0.5 * settle * (final ? 1 : 0) * (0.5 + big)) * ba);
+        const cur = idx >= 0 ? seq[idx] : [0, '', '    ', ''];
+        const prv = idx > 0 ? seq[idx - 1] : [0, '', '    ', ''];
+        flap(pad(cur[1], N), pad(prv[1], N), N, cw, ch, W / 2 - N * cw / 2, by, idx + 1, false);
+        const yw = cw * 0.8;
+        flap(cur[2].padEnd(4), prv[2].padEnd(4), 4, yw, yw * 1.45, W / 2 - 2 * yw, by - ch * 1.6, idx + 7, true);
+        if (idx >= 0) {
+            drawText(ctx, cur[3], W / 2, by + ch * 1.15, 2 * u, final ? '#d4ff3a' : '#c8d8a0', smoothstep(cur[0] + 600, cur[0] + 900, time) * fa, 600, 0.6 * u);
+        }
+        drawText(ctx, 'THE TRANSFERMIUM WARS', W / 2, H * 0.07, 2.1 * u, '#c8e88a', smoothstep(300, 900, time) * (1 - smoothstep(5600, 6000, time)), 600, 0.7 * u);
+        drawText(ctx, 'ONE ELEMENT · FIVE NAMES', W / 2, H * 0.07, 2.1 * u, '#c8e88a', smoothstep(6300, 6800, time) * fa, 600, 0.7 * u);
+        drawText(ctx, 'NAMED FOR DUBNA', W / 2, H * 0.93, 2 * u, '#c8e88a', smoothstep(6500, 7100, time) * fa, 600, 0.6 * u);
+        const rb = smoothstep(7300, 8000, time);
+        drawGlow(ctx, W / 2, H / 2, Math.max(W, H) * 0.7, '#c6f03a', rb * 0.4 * (1 - smoothstep(8000, 9500, time) * 0.4));
+        drawCard(ctx, scene, time, 7900, '#f8ffe6', '#c6f03a');
     }
 };
 </script>
