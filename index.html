@@ -2559,6 +2559,73 @@ body.fx-warping .screen.active {
 .roll-cats:not(:empty) {
   margin-bottom: 18px;
 }
+.qstorm-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 12px 0 0;
+  padding: 9px 14px;
+  border: 1px solid var(--hazard);
+  background: linear-gradient(90deg,rgba(255,90,110,.16),rgba(94,240,160,.12),rgba(90,168,255,.16),rgba(255,90,110,.16)) 0 0/200% 100% repeat-x,var(--readout);
+  color: #eef3ef;
+  animation: qsDrift 6s linear infinite;
+  font-size: 14px;
+}
+.qstorm-bar[hidden] {
+  display: none;
+}
+.qs-name {
+  font-family: var(--head);
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--hazard);
+  font-size: 12px;
+}
+.qs-left b {
+  font-size: 16px;
+}
+.qs-got {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.qs-got .q-sym {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  background: var(--hazard);
+  color: var(--night);
+  font-weight: 800;
+  font-size: 12px;
+}
+.qs-got small {
+  font-weight: 500;
+  opacity: .7;
+  font-size: 12px;
+}
+.away-storm {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--hazard);
+}
+.away-storm b {
+  color: var(--ink);
+}
+@keyframes qsDrift {
+  to {
+    background-position: -200% 0,0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qstorm-bar {
+    animation: none;
+  }
+}
 .roll-cats .act-row {
   padding: 7px 10px;
 }
@@ -2883,6 +2950,7 @@ body.fx-warping .screen.active {
 <section class="roll-panel">
 <div class="roll-results" id="rollResults"><div class="roll-result-column"><div class="reel" id="reel"><div class="reel-symbol" id="reelSymbol">?</div></div><div class="result-card"><h2 class="result-name" id="resultName">No roll yet</h2><div class="rarity" id="resultRarity">Press Roll or the space bar</div><div id="resultExtra" class="sub"></div></div></div></div>
 <div class="roll-controls"><button class="primary" id="rollBtn">Roll</button><button class="ghost" id="autoRollBtn" aria-pressed="false" disabled>Autoroll locked</button><button class="ghost" data-go="inventory">Collection</button><button class="ghost" data-go="shop">Shop</button><button class="ghost" data-go="catinv">Inventory</button><button class="ghost roll-bonds" data-go="bonds" id="rollBondsBtn">Bonds</button></div>
+<div class="qstorm-bar" id="qStormBar" aria-live="polite" hidden></div>
 <div id="autoHint"></div>
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
 </section>
@@ -5352,7 +5420,30 @@ function warpFx(tok, delay, dur, peak, mode) {
         })(performance.now());
     }, delay);
 }
-function scanField(reel, syms, labels, scores, dur, targets) {
+// Quark Storm particles: small glowing quarks in the three colour charges, some alone and some
+// bound in threes by wiggly gluon lines, swirling round the scan as they fly in.
+const QS_COLS = ['#ff5a6e', '#5ef0a0', '#5aa8ff'];
+let qsSprites = null;
+function qsSprite(i) {
+    if (!qsSprites) {
+        qsSprites = QS_COLS.map(c => {
+            const s = document.createElement('canvas');
+            s.width = s.height = 64;
+            const x = s.getContext('2d');
+            const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gr.addColorStop(0, '#ffffff');
+            gr.addColorStop(0.16, '#ffffff');
+            gr.addColorStop(0.3, c);
+            gr.addColorStop(0.55, c + '55');
+            gr.addColorStop(1, c + '00');
+            x.fillStyle = gr;
+            x.fillRect(0, 0, 64, 64);
+            return s;
+        });
+    }
+    return qsSprites[i];
+}
+function scanField(reel, syms, labels, scores, dur, targets, storm) {
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -5397,6 +5488,18 @@ function scanField(reel, syms, labels, scores, dur, targets) {
         return p;
     };
     const P = Array.from({ length: 150 }, () => spawn({}, 0.6 + Math.pow(Math.random(), 0.8) * 13.4, -9));
+    // storm quarks: k = 0 for a lone quark (colour c), 1 for a bound three
+    const qSpawn = (p, d, c) => {
+        spawn(p, d, c);
+        p.k = Math.random() < 0.28 ? 1 : 0;
+        p.c = Math.random() * 3 | 0;
+        p.w = (0.5 + Math.random() * 0.9) * (Math.random() < 0.85 ? 1 : -1);
+        p.r0 = Math.hypot(p.x, p.y);
+        p.a0 = Math.atan2(p.y, p.x);
+        p.sp = Math.random() * 6.3;
+        return p;
+    };
+    const Q = storm ? Array.from({ length: Math.round(Math.min(70, Math.max(44, W * H / 4500))) }, () => qSpawn({}, 0.8 + Math.random() * 13, -9)) : [];
     const S = Math.max(120, 1350 * dur / 3000);
     const T1 = S + 600;
     const total = S + 1650;
@@ -5464,6 +5567,75 @@ function scanField(reel, syms, labels, scores, dur, targets) {
                 g.font = '700 ' + Math.max(5, base * p.s / d) + 'px ' + fam;
                 g.fillText(p.t, sx, sy);
             });
+            Q.forEach(p => {
+                let d = p.z - cz;
+                if (d < 0.35) {
+                    qSpawn(p, 13 + Math.random() * 2, cz);
+                    d = p.z - cz;
+                }
+                // swirl round the centre of the field, faster as they come close
+                const spin = p.w * (1.2 + 3 / d);
+                const ang = p.a0 + spin * t / 1000;
+                const [sx, sy] = pr(Math.cos(ang) * p.r0, Math.sin(ang) * p.r0, d);
+                if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) {
+                    return;
+                }
+                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * (1 - q * 0.95);
+                if (a <= 0) {
+                    return;
+                }
+                const r = Math.max(1.8, base * 0.085 / d);
+                const glow = r * 3.4;
+                // a short trail along the swirl
+                g.globalAlpha = a * 0.4;
+                g.strokeStyle = QS_COLS[p.c];
+                g.lineWidth = Math.max(1, r * 0.7);
+                g.beginPath();
+                for (let s = 0; s <= 6; s++) {
+                    const b2 = ang - spin * s * 0.035;
+                    const [tx, ty] = pr(Math.cos(b2) * p.r0, Math.sin(b2) * p.r0, d + s * 0.05);
+                    if (s) {
+                        g.lineTo(tx, ty);
+                    } else {
+                        g.moveTo(tx, ty);
+                    }
+                }
+                g.stroke();
+                g.globalAlpha = a;
+                if (!p.k) {
+                    g.drawImage(qsSprite(p.c), sx - glow, sy - glow, glow * 2, glow * 2);
+                    return;
+                }
+                const turn = p.sp + t / 420 * p.w;
+                const pts = [0, 1, 2].map(j => [sx + Math.cos(turn + j * 2.094) * r * 2.4, sy + Math.sin(turn + j * 2.094) * r * 2.4]);
+                if (r > 1.8) {
+                    g.globalAlpha = a * 0.55;
+                    g.strokeStyle = '#f0c419';
+                    g.lineWidth = Math.max(0.6, r * 0.28);
+                    g.beginPath();
+                    pts.forEach((A, j) => {
+                        const B = pts[(j + 1) % 3];
+                        const nx = -(B[1] - A[1]);
+                        const ny = B[0] - A[0];
+                        const L = Math.hypot(nx, ny) || 1;
+                        for (let s = 0; s <= 8; s++) {
+                            const f = s / 8;
+                            const o = Math.sin(f * Math.PI * 4 + t / 90) * r * 0.45 * Math.sin(f * Math.PI);
+                            const X = A[0] + (B[0] - A[0]) * f + nx / L * o;
+                            const Y = A[1] + (B[1] - A[1]) * f + ny / L * o;
+                            if (s) {
+                                g.lineTo(X, Y);
+                            } else {
+                                g.moveTo(X, Y);
+                            }
+                        }
+                    });
+                    g.stroke();
+                    g.globalAlpha = a;
+                }
+                const gl = glow * 0.75;
+                pts.forEach((A, j) => g.drawImage(qsSprite(j), A[0] - gl, A[1] - gl, gl * 2, gl * 2));
+            });
             const st = 0.45 + 0.55 * sm((u - 0.55) / 0.1);
             T.forEach((tg, i) => {
                 const [px, py] = pr(tg.x, tg.y, dt);
@@ -5501,6 +5673,14 @@ function scanField(reel, syms, labels, scores, dur, targets) {
             g.fillText(u < 0.65 ? 'FIELD SCAN' : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
             g.textAlign = 'right';
             g.fillText('RNG ' + D.toFixed(1), W - 18, 26);
+            if (storm) {
+                g.textAlign = 'left';
+                g.fillStyle = '#f0c419';
+                g.globalAlpha = 0.75 + 0.25 * Math.sin(t / 160);
+                g.fillText('QUARK STORM', 18, H - 18);
+                g.fillStyle = acc;
+                g.globalAlpha = 0.9;
+            }
             g.textBaseline = 'middle';
             g.textAlign = 'center';
             if (u < 0.65) {
@@ -6702,45 +6882,45 @@ function renderBonds() {
 // in real time; single-roll catalysts cover one individual roll each.
 // ---------------------------------------------------------------------------
 const CAT_TIERS = [
-    { name: 'Common', col: '#9fb0a8', p: 50 },
-    { name: 'Uncommon', col: '#6fcf8a', p: 25 },
-    { name: 'Rare', col: '#5aa8ff', p: 13 },
-    { name: 'Epic', col: '#b48cff', p: 7 },
-    { name: 'Legendary', col: '#f0c419', p: 3.5 },
-    { name: 'Mythic', col: '#ff6b8a', p: 1.2 },
-    { name: 'Secret', col: '#ffffff', p: 0.3 }
+    { name: 'Common', col: '#9fb0a8', p: 60 },
+    { name: 'Uncommon', col: '#6fcf8a', p: 26 },
+    { name: 'Rare', col: '#5aa8ff', p: 9.5 },
+    { name: 'Epic', col: '#b48cff', p: 3.2 },
+    { name: 'Legendary', col: '#f0c419', p: 1 },
+    { name: 'Mythic', col: '#ff6b8a', p: 0.25 },
+    { name: 'Secret', col: '#ffffff', p: 0.05 }
 ];
 const CATALYSTS = [
-    { id: 'alkali', name: 'Alkali Metals Catalyst', tier: 0, min: 10, fx: { fam: 'alkali', pct: 150 }, price: 12 },
-    { id: 'alkaline', name: 'Alkaline Earth Catalyst', tier: 0, min: 10, fx: { fam: 'alkaline', pct: 150 }, price: 12 },
-    { id: 'halogen', name: 'Halogen Catalyst', tier: 0, min: 10, fx: { fam: 'halogen', pct: 150 }, price: 12 },
-    { id: 'noble', name: 'Noble Gas Catalyst', tier: 0, min: 10, fx: { fam: 'noble', pct: 150 }, price: 15 },
-    { id: 'nonmetal', name: 'Nonmetal Catalyst', tier: 0, min: 10, fx: { fam: 'nonmetal', pct: 150 }, price: 10 },
-    { id: 'spark', name: 'Spark', tier: 0, min: 10, fx: { luck: 25 }, price: 20 },
-    { id: 'trickle', name: 'Quark Trickle', tier: 0, min: 15, fx: { quark: 25 }, price: 15 },
-    { id: 'transition', name: 'Transition Metals Catalyst', tier: 1, min: 15, fx: { fam: 'transition', pct: 200 }, price: 80 },
-    { id: 'metalloid', name: 'Metalloid Catalyst', tier: 1, min: 15, fx: { fam: 'metalloid', pct: 200 }, price: 70 },
-    { id: 'post', name: 'Post-transition Catalyst', tier: 1, min: 15, fx: { fam: 'post', pct: 200 }, price: 70 },
-    { id: 'kindling', name: 'Kindling', tier: 1, min: 15, fx: { luck: 60 }, price: 120 },
-    { id: 'accelerant', name: 'Accelerant', tier: 1, min: 15, fx: { speed: 25 }, price: 60 },
-    { id: 'primer', name: 'Chain Primer', tier: 1, min: 15, fx: { chain: 1 }, price: 100 },
-    { id: 'lanth', name: 'Lanthanide Catalyst', tier: 2, min: 20, fx: { fam: 'lanth', pct: 300 }, price: 500 },
-    { id: 'actin', name: 'Actinide Catalyst', tier: 2, min: 20, fx: { fam: 'actin', pct: 300 }, price: 800 },
-    { id: 'ignition', name: 'Ignition', tier: 2, min: 20, fx: { luck: 150 }, price: 700 },
-    { id: 'linked', name: 'Linked Reaction', tier: 2, rolls: 10, fx: { linked: true }, price: 400 },
-    { id: 'surge', name: 'Quark Surge', tier: 2, min: 20, fx: { quark: 100 }, price: 600 },
-    { id: 'superheavy', name: 'Superheavy Catalyst', tier: 3, min: 30, fx: { fam: 'unknown', pct: 400 }, price: 4000 },
-    { id: 'blaze', name: 'Blaze', tier: 3, min: 30, fx: { luck: 300 }, price: 6000 },
-    { id: 'twin', name: 'Twin Reactor', tier: 3, min: 30, fx: { extra: 1 }, price: 5000 },
-    { id: 'lens', name: 'Precision Lens', tier: 3, rolls: 1, fx: { rollLuck: 800 }, price: 3000 },
-    { id: 'inferno', name: 'Inferno', tier: 4, min: 60, fx: { luck: 500 }, price: 50000 },
-    { id: 'storm', name: 'Chain Storm', tier: 4, min: 30, fx: { chainMax: true }, price: 25000 },
-    { id: 'engine', name: 'Quark Engine', tier: 4, min: 60, fx: { quark: 400 }, price: 30000 },
-    { id: 'prism', name: 'Focus Prism', tier: 4, rolls: 1, fx: { rollLuck: 1500 }, price: 40000 },
-    { id: 'fusion', name: 'Fusion Core', tier: 5, min: 30, fx: { luck: 600 }, price: 220000 },
-    { id: 'horizon', name: 'Event Horizon', tier: 5, rolls: 1, fx: { rollLuck: 3000 }, price: 160000 },
-    { id: 'singularity', name: 'Singularity', tier: 6, rolls: 1, fx: { rollLuck: 10000 }, price: 500000 },
-    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 400000 }
+    { id: 'alkali', name: 'Alkali Metals Catalyst', tier: 0, min: 10, fx: { fam: 'alkali', pct: 150 }, price: 8 },
+    { id: 'alkaline', name: 'Alkaline Earth Catalyst', tier: 0, min: 10, fx: { fam: 'alkaline', pct: 150 }, price: 8 },
+    { id: 'halogen', name: 'Halogen Catalyst', tier: 0, min: 10, fx: { fam: 'halogen', pct: 150 }, price: 8 },
+    { id: 'noble', name: 'Noble Gas Catalyst', tier: 0, min: 10, fx: { fam: 'noble', pct: 150 }, price: 10 },
+    { id: 'nonmetal', name: 'Nonmetal Catalyst', tier: 0, min: 10, fx: { fam: 'nonmetal', pct: 150 }, price: 7 },
+    { id: 'spark', name: 'Spark', tier: 0, min: 10, fx: { luck: 25 }, price: 13 },
+    { id: 'trickle', name: 'Quark Trickle', tier: 0, min: 15, fx: { quark: 25 }, price: 10 },
+    { id: 'transition', name: 'Transition Metals Catalyst', tier: 1, min: 15, fx: { fam: 'transition', pct: 200 }, price: 40 },
+    { id: 'metalloid', name: 'Metalloid Catalyst', tier: 1, min: 15, fx: { fam: 'metalloid', pct: 200 }, price: 35 },
+    { id: 'post', name: 'Post-transition Catalyst', tier: 1, min: 15, fx: { fam: 'post', pct: 200 }, price: 35 },
+    { id: 'kindling', name: 'Kindling', tier: 1, min: 15, fx: { luck: 60 }, price: 60 },
+    { id: 'accelerant', name: 'Accelerant', tier: 1, min: 15, fx: { speed: 25 }, price: 30 },
+    { id: 'primer', name: 'Chain Primer', tier: 1, min: 15, fx: { chain: 1 }, price: 50 },
+    { id: 'lanth', name: 'Lanthanide Catalyst', tier: 2, min: 20, fx: { fam: 'lanth', pct: 300 }, price: 170 },
+    { id: 'actin', name: 'Actinide Catalyst', tier: 2, min: 20, fx: { fam: 'actin', pct: 300 }, price: 270 },
+    { id: 'ignition', name: 'Ignition', tier: 2, min: 20, fx: { luck: 150 }, price: 230 },
+    { id: 'linked', name: 'Linked Reaction', tier: 2, rolls: 10, fx: { linked: true }, price: 130 },
+    { id: 'surge', name: 'Quark Surge', tier: 2, min: 20, fx: { quark: 100 }, price: 300 },
+    { id: 'superheavy', name: 'Superheavy Catalyst', tier: 3, min: 30, fx: { fam: 'unknown', pct: 400 }, price: 800 },
+    { id: 'blaze', name: 'Blaze', tier: 3, min: 30, fx: { luck: 300 }, price: 1200 },
+    { id: 'twin', name: 'Twin Reactor', tier: 3, min: 30, fx: { extra: 1 }, price: 1000 },
+    { id: 'lens', name: 'Precision Lens', tier: 3, rolls: 1, fx: { rollLuck: 800 }, price: 600 },
+    { id: 'inferno', name: 'Inferno', tier: 4, min: 60, fx: { luck: 500 }, price: 6200 },
+    { id: 'storm', name: 'Chain Storm', tier: 4, min: 30, fx: { chainMax: true }, price: 3100 },
+    { id: 'engine', name: 'Quark Engine', tier: 4, min: 60, fx: { quark: 400 }, price: 15000 },
+    { id: 'prism', name: 'Focus Prism', tier: 4, rolls: 1, fx: { rollLuck: 1500 }, price: 5000 },
+    { id: 'fusion', name: 'Fusion Core', tier: 5, min: 30, fx: { luck: 600 }, price: 18000 },
+    { id: 'horizon', name: 'Event Horizon', tier: 5, rolls: 1, fx: { rollLuck: 3000 }, price: 13000 },
+    { id: 'singularity', name: 'Singularity', tier: 6, rolls: 1, fx: { rollLuck: 10000 }, price: 33000 },
+    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 27000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
 function catEffect(c) {
@@ -7358,6 +7538,62 @@ function addQuarks(n) {
     } catch (e) { }
     renderQuarks();
 }
+// ---- Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
+// lasts the next 100 presses. While it lasts, every roll earns 2 to 30 extra quarks on top
+// of its usual quarks (quark catalysts don't multiply these). A storm can't start while one
+// is already running. Away rolls count too.
+const QSTORM_CHANCE = 1 / 8000;
+const QSTORM_PRESSES = 100;
+const QSTORM_MIN = 2;
+const QSTORM_MAX = 30;
+let qStorm = null;
+try {
+    const v = JSON.parse(localStorage.getItem('elementalQStorm') || 'null');
+    qStorm = v && v.left > 0 ? { left: Math.min(QSTORM_PRESSES, Math.floor(v.left)), got: +v.got || 0 } : null;
+} catch (e) { }
+function qStormSave() {
+    try {
+        if (qStorm) {
+            localStorage.setItem('elementalQStorm', JSON.stringify(qStorm));
+        } else {
+            localStorage.removeItem('elementalQStorm');
+        }
+    } catch (e) { }
+}
+const qStormOn = () => !!(qStorm && qStorm.left > 0);
+// One press of Roll with `count` rolls. Returns { add: storm quarks for each roll, sum, ended }
+// while a storm runs, { started: true } when this press starts one, otherwise null.
+function qStormPress(count) {
+    if (qStormOn()) {
+        const add = Array.from({ length: count }, () => QSTORM_MIN + Math.floor(Math.random() * (QSTORM_MAX - QSTORM_MIN + 1)));
+        const sum = add.reduce((a, b) => a + b, 0);
+        qStorm.left--;
+        qStorm.got += sum;
+        const ended = qStorm.left <= 0 ? qStorm.got : 0;
+        if (ended) {
+            qStorm = null;
+        }
+        qStormSave();
+        return { add, sum, ended };
+    }
+    if (Math.random() < QSTORM_CHANCE) {
+        qStorm = { left: QSTORM_PRESSES, got: 0 };
+        qStormSave();
+        return { started: true };
+    }
+    return null;
+}
+function renderQStorm(last) {
+    const bar = $('qStormBar');
+    if (!bar) {
+        return;
+    }
+    bar.hidden = !qStormOn();
+    if (!bar.hidden) {
+        bar.innerHTML = '<span class="qs-name">Quark Storm</span><span class="qs-left"><b>' + qStorm.left + '</b> ' + (qStorm.left === 1 ? 'roll' : 'rolls') + ' left</span>' +
+            '<span class="qs-got"><span class="q-sym" aria-hidden="true">q</span> +' + formatNumber(Math.round(qStorm.got)) + (last ? '<small>+' + last + ' this roll</small>' : '') + '</span>';
+    }
+}
 // The most recent rolls, newest first: { n: roll number, f: formula, l: odds log, s: score }.
 const HISTORY_MAX = 1000;
 let rollHistory = [];
@@ -7701,6 +7937,8 @@ async function doRoll(preset, opts) {
                 elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
             };
         });
+        const stormFx = !pre && qStormOn();
+        const storm = pre ? null : qStormPress(rolls.length);
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
         const cut = pickCutscene(rolls);
@@ -7727,7 +7965,7 @@ async function doRoll(preset, opts) {
             await playCutscene(cut.sym, reel, multi ? [rolls[feat].formula] : rolls.map(r => r.formula), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay, targets);
+            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay, targets, stormFx);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -7768,7 +8006,7 @@ async function doRoll(preset, opts) {
                 playResultChime(score, secret && i === bestIdx);
             }
             if (!pre) {
-                addQuarks(quarksFor(score, 1 + (buffs.quark || 0) / 100));
+                addQuarks(quarksFor(score, 1 + (buffs.quark || 0) / 100) + (storm && storm.add ? storm.add[i] : 0));
             }
         });
         if (multi) {
@@ -7794,6 +8032,14 @@ async function doRoll(preset, opts) {
         }
         stopRollTicks();
         $('rollToast').textContent = '';
+        if (storm) {
+            renderQStorm(storm.sum);
+            if (storm.started) {
+                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + QSTORM_MIN + ' to ' + QSTORM_MAX + ' extra quarks.' });
+            } else if (storm.ended) {
+                showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
+            }
+        }
         renderInventory();
         renderPeriodic();
         if (!buffs.autoUnlocked && activeBuffStats().autoUnlocked) {
@@ -8099,6 +8345,7 @@ $('displaySetting').onchange = () => {
     renderHistory();
 };
 renderQuarks();
+renderQStorm();
 renderHistory();
 try {
     $('bonusFold').open = localStorage.getItem('elementalBonusOpen') === 'true';
@@ -11304,7 +11551,22 @@ async function awayProcess() {
     let total = totalRolls();
     let earned = 0;
     let best = null;
+    // storms work per press of Roll, and each press is (1 + bonus rolls) rolls
+    const per = 1 + b.extra;
+    const stormWas = qStormOn();
+    let stormAdd = null;
+    let stormQ = 0;
+    let stormStarted = false;
     for (let i = 0; i < n; i++) {
+        if (i % per === 0) {
+            const sp = qStormPress(Math.min(per, n - i));
+            stormAdd = sp && sp.add;
+            stormStarted = stormStarted || !!(sp && sp.started);
+        }
+        if (stormAdd) {
+            earned += stormAdd[i % per];
+            stormQ += stormAdd[i % per];
+        }
         const r = awayMakeRoll(b);
         if (!best || (displayMode === 'score' ? r.score > best.score : r.log < best.log)) {
             best = r;
@@ -11323,6 +11585,7 @@ async function awayProcess() {
             hist.push({ n: total, f: r.formula, l: r.log, s: r.score });
         }
     }
+    renderQStorm();
     rollHistory = hist.reverse().concat(rollHistory).slice(0, HISTORY_MAX);
     try {
         localStorage.setItem('elementalHistory', JSON.stringify(rollHistory));
@@ -11349,6 +11612,8 @@ async function awayProcess() {
         '<p class="away-clock">' + fmtClock(seconds) + ' / 24:00:00</p>' +
         '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(best.formula) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
+        (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
+            (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +
         '<div class="btn-row"><button class="primary" id="awayOk">Nice</button></div>');
     w.querySelector('#awayOk').onclick = closeDialog;
 }
