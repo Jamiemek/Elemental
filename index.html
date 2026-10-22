@@ -948,6 +948,63 @@ a.link-btn:hover {
   color: var(--ink-2);
   margin-left: 6px;
 }
+/* cutscene and effect viewer */
+.setting>.body {
+  min-width: 0;
+}
+.vw-h {
+  margin: 14px 0 8px;
+  font-size: 16px;
+}
+.vw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(82px,1fr));
+  gap: 8px;
+  width: 100%;
+  max-width: 620px;
+}
+.vw-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: inset 0 -4px 0 var(--tc,var(--hazard));
+}
+.vw-tile b {
+  font-family: var(--head);
+  font-size: 26px;
+  line-height: 1.1;
+}
+.vw-tile span {
+  font-size: 12px;
+  color: var(--ink-2);
+  text-align: center;
+}
+.vw-tile:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--bench);
+}
+.vw-tile:hover:not(:disabled) span {
+  color: var(--bench);
+}
+.vw-tile.locked {
+  border-style: dashed;
+  border-color: var(--soft);
+  box-shadow: none;
+  opacity: .6;
+  cursor: default;
+}
+.vw-tile.dark {
+  background: var(--night);
+  color: #eef3ef;
+}
+.vw-tile.dark span {
+  color: #9eaba5;
+}
 /* storage */
 .store-bar {
   height: 10px;
@@ -2872,6 +2929,10 @@ body.fx-warping .screen.active {
 <div class="setting"><h3>Chain details</h3><div class="body"><p>Show how many elements were chained under each result.</p><select id="chainSetting"><option value="on" selected>Show chain details</option><option value="off">Result only</option></select></div></div>
 <div class="setting"><h3>Theme</h3><div class="body"><p>Light or dark colours for the whole game.</p><select id="themeSetting"><option value="light" selected>Light</option><option value="dark">Dark</option><option value="system">Match my device</option></select></div></div>
 <div class="setting"><h3>Flashing</h3><div class="body"><p>Tone down bright flashes, flickers and colour inversions in rare-roll effects and cutscenes. Turn this on if flashing lights bother you.</p><label class="check"><input type="checkbox" id="calmSetting">Reduce flashing</label></div></div>
+<div class="setting"><h3>Cutscenes and effects</h3><div class="body"><p>Watch again any cutscene or rarity effect you've seen. More appear here as you find them. <span id="vwCount"></span></p>
+<h4 class="vw-h">Cutscenes</h4><div class="vw-grid" id="vwCuts"></div>
+<h4 class="vw-h">Rarity effects</h4><div class="vw-grid" id="vwFx"></div>
+<div id="vwDarkWrap" hidden><h4 class="vw-h">Secret effects</h4><div class="vw-grid" id="vwDark"></div></div></div></div>
 <div class="setting"><h3>Active catalysts</h3><div class="body"><p><b>Clearing a catalyst stops it immediately and it is gone for good.</b> There is no refund and this cannot be undone.</p><div id="catClear"></div></div></div>
 <div class="setting"><h3>Rarity display</h3><div class="body"><p>Show each roll's rarity as its odds, or as its score. Score is the base odds of every element in the roll added together.</p><select id="displaySetting"><option value="odds" selected>Odds</option><option value="score">Score</option></select></div></div>
 <div class="setting"><h3>Sound</h3><div class="body"><p>A soft tick while the reel spins and a chime on the result. Rarer results get a fuller chime. Sound starts after you press Roll.</p>
@@ -5644,6 +5705,7 @@ function go(screen) {
     }
     if (screen === 'settings' && typeof renderStorage === 'function') {
         renderStorage();
+        renderViewer();
     }
     if (screen === 'admin' && typeof renderAdmin === 'function') {
         renderAdmin();
@@ -6843,12 +6905,13 @@ function fmtClock(s) {
 // single-roll catalysts: take one charge for one individual roll
 function takeRollCharge() {
     pruneActive();
-    const out = { rollLuck: 0, unfound: false, linked: false };
+    const out = { rollLuck: 0, unfound: false, linked: false, used: [] };
     Object.keys(catActive).forEach(t => {
         const a = catActive[t];
         if (a.rolls == null || a.rolls <= 0) {
             return;
         }
+        out.used.push(CAT[a.id].name);
         const f = CAT[a.id].fx;
         if (f.rollLuck) {
             out.rollLuck += f.rollLuck;
@@ -6879,12 +6942,34 @@ const shopSlots = () => Math.min(5, 2 + bondBonus().slots);
 function shopPrice(c) {
     return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
 }
+// The shop's clock: the server's time once known (see "While you were away"), so moving
+// the device clock forward doesn't restock it. Declared here so the shop can use it early.
+var clockBase = null;
+var clockTried = false;
+function shopNow() {
+    return clockBase ? clockBase.server + (performance.now() - clockBase.perf) : Date.now();
+}
+// The time of the next restock is saved, so a change to the restock time (bonds can
+// shorten it) applies from the next restock rather than restocking on the spot.
 function shopCheck() {
     const P = shopPeriodMs();
-    const slot = Math.floor(Date.now() / P);
+    const now = shopNow();
     const want = shopSlots();
-    if (shopState.slot !== slot || shopState.period !== P) {
-        shopState = { slot, period: P, stock: [] };
+    if (!shopState.nextAt) {
+        // older saves: keep the stock and timer they already had
+        shopState.nextAt = shopState.slot >= 0 && shopState.period ? (shopState.slot + 1) * shopState.period : now + P;
+    }
+    // a restock time further off than one full period can only come from a wrong clock
+    if (shopState.nextAt > now + P + 60000 && (clockBase || clockTried)) {
+        shopState.nextAt = now + P;
+    }
+    // wait until the clock has been checked before restocking (the first few seconds only)
+    if (now >= shopState.nextAt && (clockBase || clockTried || !shopState.stock.length)) {
+        shopState.nextAt = (now - shopState.nextAt) / P > 1000 ? now + P : shopState.nextAt;
+        while (shopState.nextAt <= now) {
+            shopState.nextAt += P;
+        }
+        shopState.stock = [];
     }
     while (shopState.stock.length < want) {
         shopState.stock.push({ id: shopRoll(), sold: false });
@@ -6909,10 +6994,10 @@ function shopRoll() {
 }
 // a new save has no stock yet, so stock the shop before reading its timer
 function shopNextIn() {
-    if (!shopState.period) {
+    if (!shopState.nextAt) {
         shopCheck();
     }
-    return (shopState.slot + 1) * shopState.period - Date.now();
+    return shopState.nextAt - shopNow();
 }
 function buyStock(i) {
     const s = shopState.stock[i];
@@ -7064,7 +7149,7 @@ setInterval(() => {
         renderRollStats();
     }
     if ($('shop') && $('shop').classList.contains('active')) {
-        if (shopState.slot !== Math.floor(Date.now() / shopPeriodMs())) {
+        if (shopNow() >= (shopState.nextAt || 0)) {
             renderShop();
         } else {
             $('shopTimer').textContent = fmtClock(Math.max(0, shopNextIn()) / 1000);
@@ -7555,8 +7640,9 @@ $('rollResults').addEventListener('click', e => {
     }
     showMultiRoll(col, col._mr.records, +c.dataset.i, col._mr.best, true);
 });
-async function doRoll(preset) {
+async function doRoll(preset, opts) {
     const pre = Array.isArray(preset) ? preset : null;
+    const replay = !!(opts && opts.replay);
     if (rolling) {
         return;
     }
@@ -7588,6 +7674,8 @@ async function doRoll(preset) {
             startRollTicks();
         }
         const rolls = pre || Array.from({ length: rollCount }, () => {
+            // the catalysts behind this roll, noted before single-roll ones are used up
+            const timed = activeList().filter(x => x.a.rolls == null && x.c).map(x => x.c.name);
             const ch = takeRollCharge();
             let luckUp = ch.rollLuck;
             let first = null;
@@ -7606,11 +7694,11 @@ async function doRoll(preset) {
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
             return {
-                elements, formula, log, rarity: rarityText(log), score: rollScore(elements)
+                elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
             };
         });
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
-        const secret = getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
+        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
         const cut = pickCutscene(rolls);
         // a cutscene always plays on the roll screen, so a rare roll found elsewhere takes you there
         if (cut && !$('game').classList.contains('active')) {
@@ -7649,7 +7737,7 @@ async function doRoll(preset) {
             const known = ACHIEVEMENTS.find(a => a.hill === formula);
             const name = elements.length === 1 ? elements[0][1] : (known ? known.name : names.join(' + '));
             const record = {
-                id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString()
+                id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString(), cats: r.cats
             };
             records.push(record);
             if (!pre) {
@@ -7691,6 +7779,15 @@ async function doRoll(preset) {
             renderCatInv();
         }
         triggerRarityEffect(rolls[bestIdx], secret);
+        if (!replay) {
+            const t = getRarityTier(rolls[bestIdx].score);
+            if (cut) {
+                seenAdd('cut', cut.sym);
+            }
+            if (t && rarityEffects[t] !== false) {
+                seenAdd(secret && t >= 5 ? 'dark' : 'fx', t);
+            }
+        }
         stopRollTicks();
         $('rollToast').textContent = '';
         renderInventory();
@@ -7841,6 +7938,8 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalQuarks');
             localStorage.removeItem('elementalHistory');
             localStorage.removeItem('elementalCleared');
+            localStorage.removeItem('elementalSeen');
+            seenData = null;
             clearCleared = { rolls: 0, formulas: 0 };
         } catch (e) { }
         renderQuarks();
@@ -10058,6 +10157,93 @@ $('clearYes').onclick = () => {
     save();
     location.reload();
 };
+// ---------------------------------------------------------------------------
+// Cutscene and effect viewer (Settings): replay any cutscene or rarity effect you've
+// seen. Secret effects stay completely hidden here until you've seen one.
+// ---------------------------------------------------------------------------
+let seenData = null;
+function seenLoad() {
+    if (seenData) {
+        return seenData;
+    }
+    try {
+        seenData = JSON.parse(localStorage.getItem('elementalSeen') || 'null');
+    } catch (e) {
+        seenData = null;
+    }
+    if (!seenData || typeof seenData !== 'object') {
+        // first time: cutscenes for elements already found (they play every time),
+        // and the normal effect of every tier already reached. Secret effects can't be known.
+        const found = discoveredSymbols();
+        const tiers = new Set();
+        collection.forEach(c => {
+            const t = getRarityTier(c.score);
+            if (t > 0) {
+                tiers.add(t);
+            }
+        });
+        seenData = { cut: Object.keys(CUTSCENES).filter(s => found.has(s)), fx: [...tiers].sort((a, b) => a - b), dark: [] };
+        seenSave();
+    }
+    ['cut', 'fx', 'dark'].forEach(k => seenData[k] = Array.isArray(seenData[k]) ? seenData[k] : []);
+    return seenData;
+}
+function seenSave() {
+    try {
+        localStorage.setItem('elementalSeen', JSON.stringify(seenData));
+    } catch (e) { }
+}
+function seenAdd(kind, v) {
+    const s = seenLoad();
+    if (!s[kind].includes(v)) {
+        s[kind].push(v);
+        seenSave();
+    }
+}
+const VIEW_ORDER = () => Object.keys(CUTSCENES).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
+function renderViewer() {
+    const s = seenLoad();
+    const cuts = $('vwCuts');
+    cuts.innerHTML = VIEW_ORDER().map(sym => s.cut.includes(sym) ?
+        '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
+        '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
+    $('vwFx').innerHTML = TIER_SCORES.map((_, i) => i + 1).map(t => s.fx.includes(t) ?
+        '<button class="vw-tile" data-fx="' + t + '" style="--tc:' + RARITY_FX[t].c + '"><b>' + t + '</b><span>Tier ' + t + '</span></button>' :
+        '<button class="vw-tile locked" disabled><b>?</b><span>Tier ' + t + '</span></button>').join('');
+    const dark = s.dark.filter(t => RARITY_DARK[t]).sort((a, b) => a - b);
+    $('vwDarkWrap').hidden = !dark.length;
+    $('vwDark').innerHTML = dark.map(t => '<button class="vw-tile dark" data-dark="' + t + '" style="--tc:' + RARITY_DARK[t].c + '"><b>' + t + '</b><span>Secret tier ' + t + '</span></button>').join('');
+    $('vwCount').textContent = s.cut.length + ' of ' + Object.keys(CUTSCENES).length + ' cutscenes and ' + s.fx.length + ' of ' + TIER_SCORES.length + ' effects seen.';
+}
+async function viewerPlay(btn) {
+    if (rolling) {
+        return;
+    }
+    const s = seenLoad();
+    if (btn.dataset.cut && s.cut.includes(btn.dataset.cut)) {
+        const e = elementBySymbol[btn.dataset.cut];
+        const els = [e];
+        go('game');
+        await doRoll([{ elements: els, formula: e[0], name: e[1], log: exactRarity(els, 0), rarity: rarityText(exactRarity(els, 0)), score: rollScore(els) }], { replay: true });
+        return;
+    }
+    const t = +(btn.dataset.fx || btn.dataset.dark);
+    const dark = !!btn.dataset.dark;
+    if (!t || !(dark ? s.dark : s.fx).includes(t)) {
+        return;
+    }
+    go('game');
+    setTimeout(() => {
+        playResultChime(TIER_SCORES[t - 1], dark);
+        playRarityFx(t, dark);
+    }, 250);
+}
+['vwCuts', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
+    const b = e.target.closest('button[data-cut], button[data-fx], button[data-dark]');
+    if (b) {
+        viewerPlay(b);
+    }
+}));
 // Donation links stay out of app-store versions (an Android app's built-in browser,
 // or a page opened with ?app=play), where store rules don't allow outside payments.
 if (/[?&]app=play\b/.test(location.search) || /; wv\)/.test(navigator.userAgent)) {
@@ -10074,7 +10260,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive'];
 const CLOUD_EVERY = 45000;
 let sb = null;
 let cloudUser = null;
@@ -10580,7 +10766,7 @@ function globalConsider(rec, old) {
         label: rec.name || globalName(rec.formula),
         rolls: totalRolls(),
         luck: Math.round(st.luck || 0),
-        cats: activeList().map(x => x.c && x.c.name).filter(Boolean).join(', '),
+        cats: (rec.cats || activeList().map(x => x.c && x.c.name).filter(Boolean)).join(', '),
         old: !!old
     });
 }
@@ -11001,7 +11187,6 @@ const AWAY_SLOWER = 10;
 // Time away is measured with the server's clock, carried forward by the browser's own
 // timer, which changing the device clock doesn't affect. So a device clock that's
 // wrong, or moved forward on purpose, makes no difference.
-let clockBase = null;
 const trustedNow = () => clockBase ? clockBase.server + (performance.now() - clockBase.perf) : null;
 async function clockSync() {
     if (!CLOUD.enabled) {
@@ -11088,7 +11273,9 @@ function awayWaitForCloud() {
 }
 async function awayProcess() {
     await awayWaitForCloud();
-    if (!(await clockSync())) {
+    const clockOk = await clockSync();
+    clockTried = true;
+    if (!clockOk) {
         // the time can't be checked, so this session can't be trusted as time away later either
         try {
             localStorage.setItem('awayLastSeen', JSON.stringify({ t: null }));
