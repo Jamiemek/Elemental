@@ -11,6 +11,17 @@ shots = len(sys.argv) > 1
 async def say(pg):
     return await pg.evaluate("document.querySelector('.tut p') ? document.querySelector('.tut p').textContent.slice(0, 40) : null")
 
+# follow the bubble: Next when it's shown, otherwise tap whatever is highlighted
+async def step(pg, log):
+    rings = await pg.evaluate("document.querySelectorAll('.tut-spot').length")
+    assert rings <= 1, 'more than one highlight: %d' % rings
+    log.append(await pg.evaluate("document.querySelector('.screen.active').id") + ': ' + (await say(pg))[:24])
+    if await pg.is_visible('.tut-next'):
+        await pg.click('.tut-next')
+    else:
+        await pg.click('.tut-spot')
+    await pg.wait_for_timeout(350)
+
 async def fresh(pg):
     await pg.goto('file://' + F)
     await pg.evaluate("localStorage.clear();localStorage.setItem('elementalSaveVersion','2')")
@@ -40,8 +51,10 @@ async def run(b, w, h):
     await pg.click('#periodic [data-sym="O"]')
     await pg.wait_for_timeout(400)
     print(' element page:', await say(pg))
-    await pg.click('.tut-next')
-    await pg.wait_for_timeout(600)
+    log = []
+    while not await pg.evaluate("onScreen('bonds')"):
+        await step(pg, log)
+    await pg.wait_for_timeout(400)
     if shots:
         await pg.screenshot(path=SP + 'tut_bonds_%d.png' % w)
     # tap the real slots on the canvas
@@ -51,14 +64,13 @@ async def run(b, w, h):
         await pg.wait_for_timeout(400)
     print(' slots filled:', await pg.evaluate("[0,1,2].map(netFilled).join(',')"), '| spent', await pg.evaluate("collection.map(c=>c.spent||0).join(',')"))
     print(' now:', await say(pg))
-    seen = []
     while await pg.evaluate("!!document.querySelector('.tut')"):
-        seen.append(await pg.evaluate("document.querySelector('.screen.active').id"))
-        if shots and seen[-1] in ('shop', 'settings', 'game'):
-            await pg.screenshot(path=SP + 'tut_%s_%d.png' % (seen[-1], w))
-        await pg.click('.tut-next')
-        await pg.wait_for_timeout(300)
-    print(' screens after bonds:', ' '.join(seen))
+        cur = await pg.evaluate("document.querySelector('.screen.active').id")
+        if shots and cur in ('menu', 'shop', 'settings', 'game'):
+            await pg.screenshot(path=SP + 'tut_%s_%d.png' % (cur, w))
+        await step(pg, log)
+    print(' route:\n   ' + '\n   '.join(log))
+    print(' highlights left:', await pg.evaluate("document.querySelectorAll('.tut-spot').length"))
     print(' storm on:', await pg.evaluate("qStormOn() && qStorm.left"), '| inventory', await pg.evaluate("JSON.stringify(catInv)"), '| saved', await pg.evaluate("localStorage.getItem('elementalTutorial')"))
     await pg.click('#rollBtn')
     await pg.wait_for_function('!rolling')
