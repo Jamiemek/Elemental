@@ -494,3 +494,87 @@ CUTSCENES.Cz = {
         drawCard(ctx, scene, time, 6700, '#e0a56a', '#7a4a24');
     }
 };
+// Mb: flickers in and out of a box until something looks at it
+CUTSCENES.Mb = {
+    z: 0, dur: 8400,
+    snd(audio, start) {
+        for (let i = 0; i < 20; i++) {
+            playTone(audio, i % 2 ? 660 : 440, start + 0.8 + i * 0.14, 0.1, 0.012, 'sine', null, 0.3);
+        }
+        playNoise(audio, start + 3.7, 0.3, 0.02, 500, 2000, 'bandpass', 2, 0.2);
+        boom(audio, start + 4.3, 0.04, 0.6);
+        sparkle(audio, start + 4.35, 12, 1.4, 0.02);
+        padChord(audio, start + 4.4, [277.2, 349.2, 415.3], 2.6, 0.016, 'triangle', 2400);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2 + 3 * u;
+        const st = scene.state;
+        if (!st.r) {
+            st.r = seededRandom(5);
+            st.on = 0;
+            st.next = 0;
+        }
+        const look = 4300;
+        const seen = time >= look;
+        ctx.fillStyle = '#120a22';
+        ctx.fillRect(0, 0, W, H);
+        const fade = 1 - smoothstep(6000, 6500, time);
+        // in, out, in, out
+        if (!seen && time > st.next) {
+            st.on = st.r() < 0.5 ? 0 : 1;
+            st.next = time + 90 + st.r() * 220;
+        }
+        const here = seen ? 1 : time > 800 ? st.on : 0;
+        drawGlow(ctx, cx, cy, (seen ? 20 : 12) * u, '#b48cff', here * (seen ? 0.9 - 0.4 * smoothstep(look, look + 1200, time) : 0.7) * fade);
+        if (here) {
+            ctx.globalAlpha = fade * (calmFx && !seen ? 0.6 : 1);
+            ctx.fillStyle = '#e6d8ff';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 2.6 * u, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        // the box, whose sides drop once it's been seen
+        const open = smoothstep(look, look + 700, time);
+        ctx.strokeStyle = 'rgba(201,167,255,' + 0.8 * fade + ')';
+        ctx.lineWidth = 0.4 * u;
+        const b = 9 * u;
+        ctx.strokeRect(cx - b, cy + b - 0.2 * u, 2 * b, 0.4 * u);
+        [[-1, 0], [1, 0]].forEach(([s]) => {
+            ctx.save();
+            ctx.translate(cx + s * b, cy + b);
+            ctx.rotate(s * open * 1.4);
+            ctx.strokeRect(-0.2 * u, -2 * b, 0.4 * u, 2 * b);
+            ctx.restore();
+        });
+        ctx.save();
+        ctx.translate(cx, cy - b - open * 8 * u);
+        ctx.rotate(open * 0.3);
+        ctx.globalAlpha = 1 - open;
+        ctx.strokeRect(-b, -0.2 * u, 2 * b, 0.4 * u);
+        ctx.restore();
+        // the eye
+        const ea = smoothstep(3500, 3800, time) * (1 - smoothstep(5200, 5600, time));
+        if (ea > 0) {
+            const lid = smoothstep(3700, 4200, time);
+            const ex = cx;
+            const ey = cy - 22 * u;
+            ctx.globalAlpha = ea;
+            ctx.fillStyle = '#f4efe6';
+            ctx.beginPath();
+            ctx.ellipse(ex, ey, 7 * u, 3.5 * u * lid + 0.1, 0, 0, TAU);
+            ctx.fill();
+            ctx.fillStyle = '#4a2d8a';
+            ctx.beginPath();
+            ctx.arc(ex, ey + (seen ? 0.8 * u : 0), 2.2 * u * lid, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        drawText(ctx, 'EXISTS: ' + (seen ? 'YES' : here ? 'MAYBE' : 'MAYBE NOT'), cx, H - 6 * u, 2.6 * u, '#c9a7ff', smoothstep(800, 1200, time) * (1 - smoothstep(5600, 6000, time)), 700, 0.5 * u);
+        drawCard(ctx, scene, time, 6400, '#c9a7ff', '#6b3fd1');
+    }
+};
