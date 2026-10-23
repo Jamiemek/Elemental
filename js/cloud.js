@@ -373,6 +373,10 @@ function openNameDialog(first) {
     };
 }
 function cloudChoose(local, row) {
+    // two saves usually means two devices, so this one stops autorolling
+    autoWanted = false;
+    saveAutoState();
+    updateAutoBtn();
     const a = cloudSummary(local);
     const b = cloudSummary(row.data || {});
     const when = new Date(row.updated_at);
