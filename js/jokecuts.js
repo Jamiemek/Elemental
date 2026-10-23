@@ -71,3 +71,129 @@ CUTSCENES.Um = {
         drawCard(ctx, scene, time, 6000, '#ffd166', '#ff5d7a');
     }
 };
+// Zz: a sleeping atom ignores a poke and an alarm clock, then jolts awake
+CUTSCENES.Zz = {
+    z: 0, dur: 8600,
+    snd(audio, start) {
+        for (let x = 0.2; x < 5; x += 1.3) {
+            playNoise(audio, start + x, 0.7, 0.03, 180, 420, 'lowpass', 4, 0.1, 0.3);
+        }
+        playTone(audio, 900, start + 1.6, 0.06, 0.03, 'triangle', 700, 0.1);
+        for (let i = 0; i < 16; i++) {
+            playTone(audio, i % 2 ? 1320 : 1480, start + 3 + i * 0.09, 0.07, 0.02, 'square', null, 0.15, 0, 0.003);
+        }
+        riser(audio, start + 4.7, 0.6, 0.03, 200, 1800);
+        boom(audio, start + 5.3, 0.06, 0.8);
+        sparkle(audio, start + 5.35, 10, 1.2, 0.02);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2 + 4 * u;
+        const wake = 5300;
+        const up = time >= wake;
+        const d = time - wake;
+        ctx.fillStyle = up ? '#14243a' : '#070b1a';
+        ctx.fillRect(0, 0, W, H);
+        const fade = 1 - smoothstep(6200, 6800, time);
+        drawGlow(ctx, cx, cy, 30 * u, up ? '#7cc8ff' : '#3b4b8f', (up ? 0.7 * (1 - smoothstep(0, 1500, d)) + 0.3 : 0.35) * fade);
+        ctx.globalAlpha = fade;
+        // a poke and a wobble
+        const poke = smoothstep(1300, 1600, time) * (1 - smoothstep(1700, 2000, time));
+        const wob = Math.sin(time / 40) * Math.max(0, 1 - Math.abs(time - 1650) / 400) * u;
+        // the alarm clock rattles to the side
+        const ring = time > 3000 && time < 4500;
+        const shake = ring ? Math.sin(time / 18) * 0.6 * u * (calmFx ? 0.4 : 1) : 0;
+        const jolt = up ? Math.sin(d / 25) * 2 * u * (1 - smoothstep(0, 500, d)) * (calmFx ? 0.3 : 1) : 0;
+        const x = cx + wob + jolt;
+        // orbits, slow while asleep
+        const spin = up ? time / 140 : time / 1400;
+        ctx.strokeStyle = 'rgba(150,180,255,0.35)';
+        ctx.lineWidth = 0.3 * u;
+        for (let i = 0; i < 2; i++) {
+            ctx.beginPath();
+            ctx.ellipse(x, cy, 14 * u, 5 * u, i * 1.2 - 0.6, 0, TAU);
+            ctx.stroke();
+            const a = spin * (i ? 1.3 : 1) + i;
+            const ex = Math.cos(a) * 14 * u;
+            const ey = Math.sin(a) * 5 * u;
+            const r = i * 1.2 - 0.6;
+            ctx.fillStyle = '#bcd2ff';
+            ctx.beginPath();
+            ctx.arc(x + ex * Math.cos(r) - ey * Math.sin(r), cy + ex * Math.sin(r) + ey * Math.cos(r), 0.9 * u, 0, TAU);
+            ctx.fill();
+        }
+        ctx.fillStyle = up ? '#9fd3ff' : '#6d7fc4';
+        ctx.beginPath();
+        ctx.arc(x, cy, 6 * u, 0, TAU);
+        ctx.fill();
+        // eyes
+        ctx.strokeStyle = '#0b1230';
+        ctx.fillStyle = '#0b1230';
+        ctx.lineWidth = 0.5 * u;
+        [-1, 1].forEach(s => {
+            ctx.beginPath();
+            if (up) {
+                ctx.arc(x + s * 2 * u, cy - 0.8 * u, 1.1 * u, 0, TAU);
+                ctx.fill();
+            } else {
+                ctx.arc(x + s * 2 * u, cy - 1.2 * u, 1 * u, 0.2, Math.PI - 0.2);
+                ctx.stroke();
+            }
+        });
+        // z's drift up while it sleeps
+        if (!up) {
+            for (let i = 0; i < 4; i++) {
+                const p = ((time / 2200 + i / 4) % 1);
+                const big = ring ? 1.6 : 1;
+                drawText(ctx, 'z', x + 6 * u + p * 10 * u, cy - 6 * u - p * 22 * u, (2 + 3 * p) * u * big, '#9aa8ff', Math.sin(p * Math.PI) * 0.9, 700);
+            }
+        } else {
+            drawText(ctx, '!', x, cy - 14 * u, 8 * u * easeOutCubic(d / 300), '#ffd166', 1 - smoothstep(1200, 1700, d), 800);
+        }
+        ctx.globalAlpha = 1;
+        // the finger
+        if (poke > 0) {
+            ctx.fillStyle = '#f2c7a5';
+            ctx.beginPath();
+            ctx.roundRect(cx - 30 * u + poke * 16 * u, cy - u, 14 * u, 2.6 * u, 1.3 * u);
+            ctx.fill();
+            drawText(ctx, 'poke', cx - 20 * u, cy - 6 * u, 2.4 * u, '#f2c7a5', poke, 600);
+        }
+        // the clock
+        const ca = smoothstep(2700, 3000, time) * (1 - smoothstep(4500, 4900, time));
+        if (ca > 0) {
+            const kx = W * 0.78 + shake;
+            const ky = cy - 2 * u;
+            ctx.globalAlpha = ca;
+            ctx.fillStyle = '#d14d4d';
+            ctx.beginPath();
+            ctx.arc(kx, ky, 6 * u, 0, TAU);
+            ctx.fill();
+            [-1, 1].forEach(s => {
+                ctx.beginPath();
+                ctx.arc(kx + s * 4.5 * u, ky - 5.5 * u, 2 * u, 0, TAU);
+                ctx.fill();
+            });
+            ctx.fillStyle = '#f6efe3';
+            ctx.beginPath();
+            ctx.arc(kx, ky, 4.6 * u, 0, TAU);
+            ctx.fill();
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 0.4 * u;
+            ctx.beginPath();
+            ctx.moveTo(kx, ky);
+            ctx.lineTo(kx, ky - 3.2 * u);
+            ctx.moveTo(kx, ky);
+            ctx.lineTo(kx + 2.2 * u, ky);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            if (ring) {
+                drawText(ctx, 'RING RING', kx, ky - 11 * u, 2.6 * u, '#ff8a8a', 0.6 + 0.4 * Math.sin(time / 50), 700, 0.3 * u);
+            }
+        }
+        drawCard(ctx, scene, time, 6600, '#9fd3ff', '#3b6bff');
+    }
+};
