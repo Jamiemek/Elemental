@@ -7915,8 +7915,9 @@ try {
 bondSummary();
 renderActiveCats();
 // tiers 10-12 only show once you've reached them
+const tierTop = () => collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
 function tierRowsSync() {
-    const top = collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
+    const top = tierTop();
     document.querySelectorAll('.tier-table tbody tr').forEach((tr, i) => tr.hidden = i >= 9 && i + 1 > top);
     $('tier9Top').textContent = top >= 10 ? 'to 30,000,000' : 'and above';
 }
@@ -10178,13 +10179,14 @@ function renderViewer() {
     cuts.innerHTML = VIEW_ORDER().map(sym => s.cut.includes(sym) ?
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
-    $('vwFx').innerHTML = TIER_SCORES.map((_, i) => i + 1).map(t => s.fx.includes(t) ?
+    const tiers = Math.max(9, tierTop());
+    $('vwFx').innerHTML = TIER_SCORES.slice(0, tiers).map((_, i) => i + 1).map(t => s.fx.includes(t) ?
         '<button class="vw-tile" data-fx="' + t + '" style="--tc:' + RARITY_FX[t].c + '"><b>' + t + '</b><span>Tier ' + t + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Tier ' + t + '</span></button>').join('');
     const dark = s.dark.filter(t => RARITY_DARK[t]).sort((a, b) => a - b);
     $('vwDarkWrap').hidden = !dark.length;
     $('vwDark').innerHTML = dark.map(t => '<button class="vw-tile dark" data-dark="' + t + '" style="--tc:' + RARITY_DARK[t].c + '"><b>' + t + '</b><span>Secret tier ' + t + '</span></button>').join('');
-    $('vwCount').textContent = s.cut.length + ' of ' + Object.keys(CUTSCENES).length + ' cutscenes and ' + s.fx.length + ' of ' + TIER_SCORES.length + ' effects seen.';
+    $('vwCount').textContent = s.cut.length + ' of ' + Object.keys(CUTSCENES).length + ' cutscenes and ' + s.fx.length + ' of ' + tiers + ' effects seen.';
 }
 async function viewerPlay(btn) {
     if (rolling) {
@@ -10303,6 +10305,15 @@ function cloudLoadLib() {
         s.onerror = () => reject(new Error('lib'));
         document.head.appendChild(s);
     });
+}
+// most of the name before the @ is starred out
+function maskEmail(e) {
+    const at = e.indexOf('@');
+    if (at < 1) {
+        return e;
+    }
+    const keep = at > 3 ? 2 : 1;
+    return e.slice(0, keep) + '*'.repeat(Math.max(3, at - keep - 1)) + (at > 3 ? e[at - 1] : '') + e.slice(at);
 }
 async function cloudInit() {
     if (!CLOUD.enabled) {
@@ -10618,7 +10629,7 @@ function renderAccount() {
     } else {
         const status = cloudState === 'syncing' ? 'Syncing…' : cloudState === 'choose' ? 'Waiting for you to choose a save' :
             cloudState === 'error' ? cloudError + '. Your progress is safe on this device and will sync when it can.' : 'Synced ' + cloudAgo();
-        html = '<p>Signed in as <b>' + esc(cloudName || 'no name yet') + '</b> · ' + esc(cloudUser.email || '') + '</p>' +
+        html = '<p>Signed in as <b>' + esc(cloudName || 'no name yet') + '</b> · ' + esc(maskEmail(cloudUser.email || '')) + '</p>' +
             '<p class="acct-status' + (cloudState === 'error' ? ' bad' : '') + '">' + status + '</p>' +
             '<div class="btn-row"><button class="ghost" id="acctSync">Sync now</button><button class="ghost" id="acctName">' +
             (cloudName ? 'Change name' : 'Choose a name') + '</button><button class="ghost" id="acctOut">Sign out</button></div>';

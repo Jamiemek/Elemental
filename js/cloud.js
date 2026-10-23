@@ -84,6 +84,15 @@ function cloudLoadLib() {
         document.head.appendChild(s);
     });
 }
+// most of the name before the @ is starred out
+function maskEmail(e) {
+    const at = e.indexOf('@');
+    if (at < 1) {
+        return e;
+    }
+    const keep = at > 3 ? 2 : 1;
+    return e.slice(0, keep) + '*'.repeat(Math.max(3, at - keep - 1)) + (at > 3 ? e[at - 1] : '') + e.slice(at);
+}
 async function cloudInit() {
     if (!CLOUD.enabled) {
         cloudState = 'disabled';
@@ -398,7 +407,7 @@ function renderAccount() {
     } else {
         const status = cloudState === 'syncing' ? 'Syncing…' : cloudState === 'choose' ? 'Waiting for you to choose a save' :
             cloudState === 'error' ? cloudError + '. Your progress is safe on this device and will sync when it can.' : 'Synced ' + cloudAgo();
-        html = '<p>Signed in as <b>' + esc(cloudName || 'no name yet') + '</b> · ' + esc(cloudUser.email || '') + '</p>' +
+        html = '<p>Signed in as <b>' + esc(cloudName || 'no name yet') + '</b> · ' + esc(maskEmail(cloudUser.email || '')) + '</p>' +
             '<p class="acct-status' + (cloudState === 'error' ? ' bad' : '') + '">' + status + '</p>' +
             '<div class="btn-row"><button class="ghost" id="acctSync">Sync now</button><button class="ghost" id="acctName">' +
             (cloudName ? 'Change name' : 'Choose a name') + '</button><button class="ghost" id="acctOut">Sign out</button></div>';
