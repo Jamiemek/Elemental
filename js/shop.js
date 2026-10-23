@@ -173,7 +173,7 @@ function useCatalyst(id, n) {
         catActive[c.tier] = { id, rolls: (cur ? cur.rolls : 0) + c.rolls * n };
     } else {
         const base = cur ? cur.until : Date.now();
-        catActive[c.tier] = { id, until: base + c.min * 60000 * n };
+        catActive[c.tier] = { id, until: base + c.min * 60000 * n * (1 + bondBonus().cdur / 100) };
     }
     catInv[id] = have - n;
     if (!catInv[id]) {
@@ -220,7 +220,10 @@ function takeRollCharge() {
         if (f.linked) {
             out.linked = true;
         }
-        a.rolls -= 1;
+        // refund chance
+        if (Math.random() >= bondBonus().refund / 100) {
+            a.rolls -= 1;
+        }
     });
     pruneActive();
     saveCats();
@@ -236,7 +239,8 @@ function shopPeriodMs() {
     const b = bondBonus();
     return Math.max(5, 20 - b.refresh) * 60000;
 }
-const shopSlots = () => Math.min(5, 2 + bondBonus().slots);
+// 2 + bonds, max 6
+const shopSlots = () => Math.min(6, 2 + bondBonus().slots);
 function shopPrice(c) {
     return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
 }
@@ -263,7 +267,9 @@ function shopCheck() {
         while (shopState.nextAt <= now) {
             shopState.nextAt += P;
         }
-        shopState.stock = [];
+        // keep the held one
+        const held = bondBonus().hold && shopState.stock.find(s => s.held && !s.sold);
+        shopState.stock = held ? [held] : [];
     }
     while (shopState.stock.length < want) {
         shopState.stock.push({ id: shopRoll(), sold: false });
@@ -305,10 +311,24 @@ function buyStock(i) {
     }
     addQuarks(-p);
     s.sold = true;
-    catInv[s.id] = (catInv[s.id] || 0) + 1;
+    s.held = false;
+    const two = Math.random() < bondBonus().dup / 100;
+    catInv[s.id] = (catInv[s.id] || 0) + (two ? 2 : 1);
     saveCats();
     renderShop();
-    $('shopMsg').textContent = `${c.name} added to your inventory.`;
+    $('shopMsg').textContent = two ? `Lucky: two ${c.name} catalysts added to your inventory.` : `${c.name} added to your inventory.`;
+}
+function holdStock(i) {
+    const s = shopState.stock[i];
+    if (!s || s.sold || !bondBonus().hold) {
+        return;
+    }
+    const on = !s.held;
+    shopState.stock.forEach(x => x.held = false);
+    s.held = on;
+    saveCats();
+    renderShop();
+    $('shopMsg').textContent = on ? `${CAT[s.id].name} will stay in the shop through restocks until you buy it or let it go.` : '';
 }
 const tierChip = t => `<span class="cat-tier" style="--tc:${CAT_TIERS[t].col}">${CAT_TIERS[t].name}</span>`;
 function renderShop() {
@@ -316,13 +336,15 @@ function renderShop() {
         return;
     }
     shopCheck();
+    const canHold = bondBonus().hold;
     $('shopTimer').textContent = fmtClock(shopNextIn() / 1000);
     $('shopStock').innerHTML = shopState.stock.map((s, i) => {
         const c = CAT[s.id];
         const p = shopPrice(c);
-        return `<article class="cat-card${s.sold ? ' sold' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button></article>`;
+        const hold = canHold && !s.sold ? `<button class="ghost cat-hold${s.held ? ' on' : ''}" data-i="${i}">${s.held ? 'Held' : 'Hold'}</button>` : '';
+        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
     }).join('');
-    $('shopSlotsNote').textContent = `${shopState.stock.length} of 5 stock slots open`;
+    $('shopSlotsNote').textContent = `${shopState.stock.length} of ${Math.max(5, shopSlots())} stock slots open`;
     renderActiveCats();
 }
 function renderActiveCats() {
@@ -344,6 +366,11 @@ function renderActiveCats() {
     }
 }
 $('shopStock').addEventListener('click', e => {
+    const h = e.target.closest('.cat-hold');
+    if (h) {
+        holdStock(+h.dataset.i);
+        return;
+    }
     const b = e.target.closest('.cat-buy');
     if (b) {
         buyStock(+b.dataset.i);

@@ -2497,3 +2497,16 @@ body.fx-warping .screen.active {
     font-size: 13px;
   }
 }
+.cat-card .cat-hold {
+  margin-top: 6px;
+  font-size: 13px;
+  padding: 5px 10px;
+}
+.cat-card .cat-hold.on {
+  border-color: var(--hazard);
+  color: var(--hazard);
+}
+.cat-card.held {
+  outline: 2px solid var(--hazard);
+  outline-offset: -2px;
+}

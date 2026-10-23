@@ -48,7 +48,7 @@ function computeBuffs() {
     const cb = catBonus();
     const denom = Math.max(3, 8 - 0.625 * Math.min(8, chainSteps + bd.chain));
     return {
-        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark, exp: catNextExpiry()
+        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark, exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
@@ -188,10 +188,17 @@ function qStormSave() {
     } catch (e) { }
 }
 const qStormOn = () => !!(qStorm && qStorm.left > 0);
+// ring 1 raises these
+function qStormRange() {
+    const s = bondBonus().storm / 100;
+    return [QSTORM_MIN + Math.round(2 * s), QSTORM_MAX + Math.round(20 * s)];
+}
+const qStormChance = () => QSTORM_CHANCE * (1 + bondBonus().event / 100);
 // One press of Roll with count rolls
 function qStormPress(count) {
     if (qStormOn()) {
-        const add = Array.from({ length: count }, () => QSTORM_MIN + Math.floor(Math.random() * (QSTORM_MAX - QSTORM_MIN + 1)));
+        const [lo, hi] = qStormRange();
+        const add = Array.from({ length: count }, () => lo + Math.floor(Math.random() * (hi - lo + 1)));
         const sum = add.reduce((a, b) => a + b, 0);
         qStorm.left--;
         qStorm.got += sum;
@@ -202,7 +209,7 @@ function qStormPress(count) {
         qStormSave();
         return { add, sum, ended };
     }
-    if (Math.random() < QSTORM_CHANCE) {
+    if (Math.random() < qStormChance()) {
         qStorm = { left: QSTORM_PRESSES, got: 0 };
         qStormSave();
         return { started: true };

@@ -191,7 +191,7 @@ async function doRoll(preset, opts) {
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
-                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + QSTORM_MIN + ' to ' + QSTORM_MAX + ' extra quarks.' });
+                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + qStormRange().join(' to ') + ' extra quarks.' });
             } else if (storm.ended) {
                 showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
             }
@@ -327,6 +327,7 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalAutoState');
             localStorage.removeItem('elementalBonds2');
             netState = {};
+            netVer++;
             localStorage.removeItem('elementalNetwork');
             localStorage.removeItem('elementalShop');
             localStorage.removeItem('elementalCatInv');

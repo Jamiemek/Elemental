@@ -2816,7 +2816,23 @@ const NET_MULTS = [1.04, 1.05, 1.06, 1.08, 1.1, 1.2, 1.35, 1.5];
 const NET_SLOT_RINGS = [4, 10, 17];
 const NET_CHAIN_RINGS = [13, 17, 20, 23];
 const NET_EXTRA_RINGS = [10, 15];
-const NET_RING_COL = ['#f0c419', '#7ddc5a', '#7ddc5a', '#7ddc5a', '#2fe0b0', '#2fe0b0', '#2fe0b0', '#35d0e0', '#35d0e0', '#35d0e0', '#5aa8ff', '#5aa8ff', '#5aa8ff', '#9b8cff', '#9b8cff', '#9b8cff', '#c77dff', '#e060ff', '#e060ff', '#ff5a8a', '#ff5a8a', '#ff7a5a', '#ff7a5a', '#ffb35a', '#ffe08a'];
+// outer ring 1 = rings 26-28 (25 is the gap)
+const NET_RING_COL = ['#f0c419', '#7ddc5a', '#7ddc5a', '#7ddc5a', '#2fe0b0', '#2fe0b0', '#2fe0b0', '#35d0e0', '#35d0e0', '#35d0e0', '#5aa8ff', '#5aa8ff', '#5aa8ff', '#9b8cff', '#9b8cff', '#9b8cff', '#c77dff', '#e060ff', '#e060ff', '#ff5a8a', '#ff5a8a', '#ff7a5a', '#ff7a5a', '#ffb35a', '#ffe08a', '#ffe08a', '#3ff0ff', '#c45cff', '#ffd36e'];
+const OUTER_SEED = 20261022;
+const OUTER_ORBITS = 3;
+const OUTER_PER_ORBIT = 207;
+const OUTER_RADIUS = 3420;
+const OUTER_STEP = 180;
+const OUTER_BRIDGES = 6;
+const OUTER_TOTALS = { quark: 100, event: 100, cdur: 50, dup: 25, refund: 25, storm: 100 };
+const OUTER_SHARE = [['quark', 0.25], ['event', 0.2], ['cdur', 0.2], ['dup', 0.12], ['refund', 0.12], ['storm', 0.11]];
+// [kind, orbit, cosmetic]
+const OUTER_UNLOCKS = [['ion', 0], ['cos', 0, 'oscilloscope'], ['hold', 0], ['cos', 1, 'blueprint'], ['slot', 1], ['cos', 1, 'holographic'],
+    ['jokecat', 2], ['cos', 2, 'notebook'], ['cos', 2, 'retro'], ['cos', 2, 'astral'], ['joke', 2]];
+const COSMETIC_NAMES = {
+    oscilloscope: 'Oscilloscope scanner', holographic: 'Holographic scanner', blueprint: 'Blueprint page', notebook: 'Lab notebook page',
+    retro: 'Retro spawn effects', astral: 'Astral spawn effects', warp: 'Warp scanner', gameover: 'Game Over page'
+};
 const FAMILY_ONE = {
     alkali: 'alkali metal', alkaline: 'alkaline earth metal', transition: 'transition metal', post: 'post-transition metal', metalloid: 'metalloid', nonmetal: 'nonmetal', halogen: 'halogen', noble: 'noble gas', lanth: 'lanthanide', actin: 'actinide', unknown: 'superheavy'
 };
@@ -2830,14 +2846,15 @@ function saveNet() {
         localStorage.setItem('elementalNetwork', JSON.stringify(netState));
     } catch (e) { }
 }
+const seededRnd = a => () => {
+    a |= 0;
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
 function genNetwork() {
-    const rnd = (a => () => {
-        a |= 0;
-        a = a + 0x6D2B79F5 | 0;
-        let t = Math.imul(a ^ a >>> 15, 1 | a);
-        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    })(NET_SEED);
+    const rnd = seededRnd(NET_SEED);
     const nodes = [{ id: 0, x: 0, y: 0, ring: 0, ang: 0 }];
     const edges = [];
     const near = (x, y, gap) => nodes.some(n => Math.hypot(n.x - x, n.y - y) < gap);
@@ -2900,38 +2917,36 @@ function genNetwork() {
     const comps = [...ACHIEVEMENTS].filter(a => normalizeFormula(a.formula).match(/[A-Z]/g).length > 1).sort((a, b) => RK[a.rarity] - RK[b.rarity]);
     const fams = Object.keys(FAMILY_ONE);
     const famMin = f => Math.min(...ELEMENTS.filter(e => familyOf(e[0]) === f).map(e => e[2]));
-    const pickEl = (r, lo, hi) => {
+    const pickEl = (R, r, lo, hi) => {
         const f = r / NET_RINGS;
         const top = Math.min(els.length - 2, Math.floor(els.length * Math.pow(f, 1.25) * hi + 4));
         const bot = Math.max(0, Math.floor(top * lo));
-        return els[bot + Math.floor(rnd() * Math.max(1, top - bot))][0];
+        return els[bot + Math.floor(R() * Math.max(1, top - bot))][0];
     };
-    nodes.forEach(n => {
-        const r = n.ring;
+    const reqFor = (r, R) => {
         const rr = r * 18 / NET_RINGS;
         if (r === 0) {
-            n.req = { t: 'el', k: 'O', n: 1 };
-            return;
+            return { t: 'el', k: 'O', n: 1 };
         }
-        const roll = rnd();
+        const roll = R();
         if (r <= 1 || roll < 0.34) {
-            n.req = { t: 'el', k: pickEl(r, 0.55, 1), n: 1 };
+            return { t: 'el', k: pickEl(R, r, 0.55, 1), n: 1 };
         } else if (roll < 0.6) {
-            const k = pickEl(Math.max(1, r * 0.45), 0, 0.6);
-            n.req = { t: 'el', k, n: Math.max(2, Math.round(NET_QTY * 3 * Math.pow(NET_QTY_GROWTH, rr) / Math.pow(ELEMENTS.find(e => e[0] === k)[2], 0.55))) };
+            const k = pickEl(R, Math.max(1, r * 0.45), 0, 0.6);
+            return { t: 'el', k, n: Math.max(2, Math.round(NET_QTY * 3 * Math.pow(NET_QTY_GROWTH, rr) / Math.pow(ELEMENTS.find(e => e[0] === k)[2], 0.55))) };
         } else if (roll < 0.74 && r >= 2) {
             const ok = fams.filter(f => famMin(f) <= Math.pow(10, 1 + rr * 0.33));
-            const f = ok[Math.floor(rnd() * ok.length)];
-            n.req = { t: 'fam', k: f, n: Math.max(1, Math.round(NET_FAM_QTY * Math.pow(1.3, rr) / Math.pow(famMin(f), 0.3))) };
+            const f = ok[Math.floor(R() * ok.length)];
+            return { t: 'fam', k: f, n: Math.max(1, Math.round(NET_FAM_QTY * Math.pow(1.3, rr) / Math.pow(famMin(f), 0.3))) };
         } else if (roll < 0.9 && r >= 3) {
             const span = comps.length;
-            const at = Math.min(span - 1, Math.floor(Math.pow((r - 2) / (NET_RINGS - 2), 1.1) * span * (0.6 + rnd() * 0.4)));
+            const at = Math.min(span - 1, Math.floor(Math.pow((r - 2) / (NET_RINGS - 2), 1.1) * span * (0.6 + R() * 0.4)));
             const a = comps[at];
-            n.req = { t: 'cp', k: normalizeFormula(a.formula), l: a.formula, nm: a.name, n: 1 };
-        } else {
-            n.req = { t: 'has', k: pickEl(r, 0.1, 0.55), n: 1 };
+            return { t: 'cp', k: normalizeFormula(a.formula), l: a.formula, nm: a.name, n: 1 };
         }
-    });
+        return { t: 'has', k: pickEl(R, r, 0.1, 0.55), n: 1 };
+    };
+    nodes.forEach(n => n.req = reqFor(n.ring, rnd));
     // what each line gives
     const outer = e => Math.max(nodes[e.a].ring, nodes[e.b].ring);
     const ringFirst = {};
@@ -2985,6 +3000,7 @@ function genNetwork() {
         const dp = kind === 'auto' ? 10 : 100;
         list.forEach(e => e.val = Math.max(1 / dp, Math.round(NET_TOTALS[kind] * Math.pow(e.ring, NET_WEIGHT[kind]) / wsum * dp) / dp));
     });
+    genOuter(nodes, edges, reqFor, grind);
     const adj = nodes.map(() => []);
     edges.forEach((e, i) => {
         adj[e.a].push(i);
@@ -2992,14 +3008,90 @@ function genNetwork() {
     });
     return { nodes, edges, adj };
 }
+function genOuter(nodes, edges, reqFor, grind) {
+    const R = seededRnd(OUTER_SEED);
+    const base = nodes.length;
+    const nearest = (list, n) => list.reduce((b, m) => Math.hypot(m.x - n.x, m.y - n.y) < Math.hypot(b.x - n.x, b.y - n.y) ? m : b, list[0]);
+    const orbits = [];
+    for (let o = 0; o < OUTER_ORBITS; o++) {
+        const ring = NET_RINGS + 2 + o;
+        const rad = OUTER_RADIUS + o * OUTER_STEP;
+        const off = R() * Math.PI * 2;
+        const list = [];
+        for (let i = 0; i < OUTER_PER_ORBIT; i++) {
+            const a = off + (i + (R() - 0.5) * 0.4) / OUTER_PER_ORBIT * Math.PI * 2;
+            const r = rad + (R() - 0.5) * 36;
+            const n = { id: nodes.length, x: Math.cos(a) * r, y: Math.sin(a) * r, ring, ang: a, orbit: o };
+            nodes.push(n);
+            list.push(n);
+        }
+        // close each orbit and link it to the one inside
+        list.forEach((n, i) => edges.push({ a: n.id, b: list[(i + 1) % list.length].id, ring, orbit: o }));
+        if (o) {
+            list.forEach((n, i) => {
+                if (R() < 0.3 || i % 40 === 0) {
+                    edges.push({ a: nearest(orbits[o - 1], n).id, b: n.id, ring, orbit: o, join: true });
+                }
+            });
+        }
+        orbits.push(list);
+    }
+    // bridges
+    const edge = nodes.slice(0, base).filter(n => n.ring >= NET_RINGS - 2);
+    for (let k = 0; k < OUTER_BRIDGES; k++) {
+        const at = (k + 0.5) / OUTER_BRIDGES * Math.PI * 2;
+        const near = edge.filter(n => Math.abs(Math.atan2(Math.sin(Math.atan2(n.y, n.x) - at), Math.cos(Math.atan2(n.y, n.x) - at))) < 0.35);
+        const from = (near.length ? near : edge).reduce((b, n) => Math.hypot(n.x, n.y) > Math.hypot(b.x, b.y) ? n : b);
+        edges.push({ a: from.id, b: nearest(orbits[0], from).id, ring: NET_RINGS + 2, orbit: 0, bridge: true });
+    }
+    for (let i = base; i < nodes.length; i++) {
+        nodes[i].req = reqFor(nodes[i].ring, R);
+    }
+    // unlocks go on the hardest line in each orbit
+    const outerEdges = edges.filter(e => e.orbit != null);
+    const taken = new Set();
+    OUTER_UNLOCKS.forEach(([kind, o, cos]) => {
+        let best = null;
+        let bc = -1;
+        outerEdges.forEach(e => {
+            if (e.orbit !== o || e.bridge || taken.has(e)) {
+                return;
+            }
+            const c = grind(nodes[e.b]);
+            if (c > bc) {
+                bc = c;
+                best = e;
+            }
+        });
+        taken.add(best);
+        best.kind = kind;
+        best.val = cos || 1;
+    });
+    const free = outerEdges.filter(e => !taken.has(e));
+    free.forEach(e => {
+        let x = R();
+        e.kind = OUTER_SHARE.find(([, p]) => (x -= p) < 0)[0];
+    });
+    Object.keys(OUTER_TOTALS).forEach(kind => {
+        const list = free.filter(e => e.kind === kind);
+        const wsum = list.reduce((s, e) => s + Math.pow(e.orbit + 1, 1.5), 0);
+        list.forEach(e => e.val = Math.max(0.01, Math.round(OUTER_TOTALS[kind] * Math.pow(e.orbit + 1, 1.5) / wsum * 100) / 100));
+    });
+}
 function net() {
     return NET || (NET = genNetwork());
 }
 const netFilled = id => !!netState[id];
+const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos']);
 const edgeLit = e => netFilled(e.a) && netFilled(e.b);
 function edgeDesc(e) {
     const v = e.val;
-    return e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot';
+    const outer = {
+        quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
+        refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold',
+        ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: 'Joke catalysts in the shop', cos: 'Unlocks ' + (COSMETIC_NAMES[v] || 'a cosmetic')
+    };
+    return outer[e.kind] || (e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot');
 }
 function reqShort(q) {
     if (q.t === 'el') {
@@ -3083,9 +3175,14 @@ function fillSlot(id) {
     return true;
 }
 // totals from every lit line
+let bondCache = null;
 function bondBonus() {
+    if (bondCache && bondCache.v === netVer) {
+        return bondCache.r;
+    }
     const r = {
-        add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0
+        add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
+        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: []
     };
     net().edges.forEach(e => {
         if (!edgeLit(e)) {
@@ -3097,10 +3194,15 @@ function bondBonus() {
             r.mult *= e.val;
         } else if (e.kind === 'slot') {
             r.slots += 1;
+        } else if (e.kind === 'cos') {
+            r.cos.push(e.val);
+        } else if (typeof r[e.kind] === 'boolean') {
+            r[e.kind] = true;
         } else {
             r[e.kind] += e.val;
         }
     });
+    bondCache = { v: netVer, r };
     return r;
 }
 function bondSummary() {
@@ -3219,12 +3321,12 @@ function netDraw() {
         if (on) {
             lit.push([ax, ay, bx, by, ringCol(e.ring)]);
         } else {
-            const p = e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain' || far ? solid : dashed;
+            const p = NET_BIG.has(e.kind) || far ? solid : dashed;
             p.moveTo(ax, ay);
             p.lineTo(bx, by);
         }
         if (z > 0.8) {
-            const relevant = on || netFilled(e.a) || netFilled(e.b) || e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain';
+            const relevant = on || netFilled(e.a) || netFilled(e.b) || NET_BIG.has(e.kind);
             const mx = (ax + bx) / 2;
             const my = (ay + by) / 2;
             if ((relevant || z > 1.6) && vis(mx, my)) {
@@ -3263,7 +3365,7 @@ function netDraw() {
             const w = g.measureText(txt).width + 10;
             g.fillStyle = 'rgba(10,16,14,.85)';
             g.fillRect(mx - w / 2, my - 9 * k, w, 18 * k);
-            g.fillStyle = on ? ringCol(e.ring) : (e.kind === 'mult' || e.kind === 'slot' || e.kind === 'chain') ? '#f0c419' : 'rgba(232,239,233,.55)';
+            g.fillStyle = on ? ringCol(e.ring) : NET_BIG.has(e.kind) ? '#f0c419' : 'rgba(232,239,233,.55)';
             g.fillText(txt, mx, my + 0.5);
         });
     }
@@ -3524,6 +3626,20 @@ function netJump() {
 function netTotalsHtml() {
     const b = bondBonus();
     const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots], ['Bonus rolls', '+' + b.extra], ['Chain steps', '+' + b.chain]];
+    [['Quarks per roll', b.quark, '%'], ['Event chance', b.event, '%'], ['Catalyst duration', b.cdur, '%'], ['Duplicate catalysts', b.dup, '% chance'],
+        ['Single-roll catalysts kept', b.refund, '% chance'], ['Bigger Quark Storms', b.storm, '%']].forEach(([k, v, u]) => {
+        if (v) {
+            rows.push([k, '+' + v.toFixed(2) + u]);
+        }
+    });
+    [['Shop hold', b.hold], ['Ionisation', b.ion], ['Joke periodic table', b.joke], ['Joke catalysts', b.jokecat]].forEach(([k, on]) => {
+        if (on) {
+            rows.push([k, 'Unlocked']);
+        }
+    });
+    if (b.cos.length) {
+        rows.push(['Cosmetics unlocked', b.cos.length]);
+    }
     return rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
 }
 // tapping a slot fills it straight away when you can; otherwise the slot flashes red
@@ -3578,7 +3694,7 @@ function renderBonds() {
     let moved = false;
     const zoomAt = (sx, sy, f) => {
         const [wx, wy] = netToWorld(sx, sy);
-        netView.z = Math.max(0.12, Math.min(2.6, netView.z * f));
+        netView.z = Math.max(0.05, Math.min(2.6, netView.z * f));
         const r = cv.getBoundingClientRect();
         netView.x = wx - (sx - r.width / 2) / netView.z;
         netView.y = wy - (sy - r.height / 2) / netView.z;
@@ -3610,7 +3726,7 @@ function renderBonds() {
             const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
             const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
             const [wx, wy] = netToWorld(pinch.m[0], pinch.m[1]);
-            netView.z = Math.max(0.12, Math.min(2.6, pinch.z * d / pinch.d));
+            netView.z = Math.max(0.05, Math.min(2.6, pinch.z * d / pinch.d));
             const r = cv.getBoundingClientRect();
             netView.x = wx - (m[0] - r.width / 2) / netView.z;
             netView.y = wy - (m[1] - r.height / 2) / netView.z;
@@ -3849,7 +3965,7 @@ function useCatalyst(id, n) {
         catActive[c.tier] = { id, rolls: (cur ? cur.rolls : 0) + c.rolls * n };
     } else {
         const base = cur ? cur.until : Date.now();
-        catActive[c.tier] = { id, until: base + c.min * 60000 * n };
+        catActive[c.tier] = { id, until: base + c.min * 60000 * n * (1 + bondBonus().cdur / 100) };
     }
     catInv[id] = have - n;
     if (!catInv[id]) {
@@ -3896,7 +4012,10 @@ function takeRollCharge() {
         if (f.linked) {
             out.linked = true;
         }
-        a.rolls -= 1;
+        // refund chance
+        if (Math.random() >= bondBonus().refund / 100) {
+            a.rolls -= 1;
+        }
     });
     pruneActive();
     saveCats();
@@ -3912,7 +4031,8 @@ function shopPeriodMs() {
     const b = bondBonus();
     return Math.max(5, 20 - b.refresh) * 60000;
 }
-const shopSlots = () => Math.min(5, 2 + bondBonus().slots);
+// 2 + bonds, max 6
+const shopSlots = () => Math.min(6, 2 + bondBonus().slots);
 function shopPrice(c) {
     return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
 }
@@ -3939,7 +4059,9 @@ function shopCheck() {
         while (shopState.nextAt <= now) {
             shopState.nextAt += P;
         }
-        shopState.stock = [];
+        // keep the held one
+        const held = bondBonus().hold && shopState.stock.find(s => s.held && !s.sold);
+        shopState.stock = held ? [held] : [];
     }
     while (shopState.stock.length < want) {
         shopState.stock.push({ id: shopRoll(), sold: false });
@@ -3981,10 +4103,24 @@ function buyStock(i) {
     }
     addQuarks(-p);
     s.sold = true;
-    catInv[s.id] = (catInv[s.id] || 0) + 1;
+    s.held = false;
+    const two = Math.random() < bondBonus().dup / 100;
+    catInv[s.id] = (catInv[s.id] || 0) + (two ? 2 : 1);
     saveCats();
     renderShop();
-    $('shopMsg').textContent = `${c.name} added to your inventory.`;
+    $('shopMsg').textContent = two ? `Lucky: two ${c.name} catalysts added to your inventory.` : `${c.name} added to your inventory.`;
+}
+function holdStock(i) {
+    const s = shopState.stock[i];
+    if (!s || s.sold || !bondBonus().hold) {
+        return;
+    }
+    const on = !s.held;
+    shopState.stock.forEach(x => x.held = false);
+    s.held = on;
+    saveCats();
+    renderShop();
+    $('shopMsg').textContent = on ? `${CAT[s.id].name} will stay in the shop through restocks until you buy it or let it go.` : '';
 }
 const tierChip = t => `<span class="cat-tier" style="--tc:${CAT_TIERS[t].col}">${CAT_TIERS[t].name}</span>`;
 function renderShop() {
@@ -3992,13 +4128,15 @@ function renderShop() {
         return;
     }
     shopCheck();
+    const canHold = bondBonus().hold;
     $('shopTimer').textContent = fmtClock(shopNextIn() / 1000);
     $('shopStock').innerHTML = shopState.stock.map((s, i) => {
         const c = CAT[s.id];
         const p = shopPrice(c);
-        return `<article class="cat-card${s.sold ? ' sold' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button></article>`;
+        const hold = canHold && !s.sold ? `<button class="ghost cat-hold${s.held ? ' on' : ''}" data-i="${i}">${s.held ? 'Held' : 'Hold'}</button>` : '';
+        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
     }).join('');
-    $('shopSlotsNote').textContent = `${shopState.stock.length} of 5 stock slots open`;
+    $('shopSlotsNote').textContent = `${shopState.stock.length} of ${Math.max(5, shopSlots())} stock slots open`;
     renderActiveCats();
 }
 function renderActiveCats() {
@@ -4020,6 +4158,11 @@ function renderActiveCats() {
     }
 }
 $('shopStock').addEventListener('click', e => {
+    const h = e.target.closest('.cat-hold');
+    if (h) {
+        holdStock(+h.dataset.i);
+        return;
+    }
     const b = e.target.closest('.cat-buy');
     if (b) {
         buyStock(+b.dataset.i);
@@ -4191,7 +4334,7 @@ function computeBuffs() {
     const cb = catBonus();
     const denom = Math.max(3, 8 - 0.625 * Math.min(8, chainSteps + bd.chain));
     return {
-        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark, exp: catNextExpiry()
+        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark, exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
@@ -4331,10 +4474,17 @@ function qStormSave() {
     } catch (e) { }
 }
 const qStormOn = () => !!(qStorm && qStorm.left > 0);
+// ring 1 raises these
+function qStormRange() {
+    const s = bondBonus().storm / 100;
+    return [QSTORM_MIN + Math.round(2 * s), QSTORM_MAX + Math.round(20 * s)];
+}
+const qStormChance = () => QSTORM_CHANCE * (1 + bondBonus().event / 100);
 // One press of Roll with count rolls
 function qStormPress(count) {
     if (qStormOn()) {
-        const add = Array.from({ length: count }, () => QSTORM_MIN + Math.floor(Math.random() * (QSTORM_MAX - QSTORM_MIN + 1)));
+        const [lo, hi] = qStormRange();
+        const add = Array.from({ length: count }, () => lo + Math.floor(Math.random() * (hi - lo + 1)));
         const sum = add.reduce((a, b) => a + b, 0);
         qStorm.left--;
         qStorm.got += sum;
@@ -4345,7 +4495,7 @@ function qStormPress(count) {
         qStormSave();
         return { add, sum, ended };
     }
-    if (Math.random() < QSTORM_CHANCE) {
+    if (Math.random() < qStormChance()) {
         qStorm = { left: QSTORM_PRESSES, got: 0 };
         qStormSave();
         return { started: true };
@@ -4797,7 +4947,7 @@ async function doRoll(preset, opts) {
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
-                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + QSTORM_MIN + ' to ' + QSTORM_MAX + ' extra quarks.' });
+                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + qStormRange().join(' to ') + ' extra quarks.' });
             } else if (storm.ended) {
                 showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
             }
@@ -4933,6 +5083,7 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalAutoState');
             localStorage.removeItem('elementalBonds2');
             netState = {};
+            netVer++;
             localStorage.removeItem('elementalNetwork');
             localStorage.removeItem('elementalShop');
             localStorage.removeItem('elementalCatInv');

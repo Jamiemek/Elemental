@@ -171,6 +171,18 @@
         shopState = { slot: -1, stock: [] };
     });
     add('+1 of every catalyst', () => CATALYSTS.forEach(c => catInv[c.id] = (catInv[c.id] || 0) + 1));
+    add('Fill bonds to ring 24', () => {
+        net().nodes.forEach(n => {
+            if (n.ring <= NET_RINGS) {
+                netState[n.id] = 1;
+            }
+        });
+        saveNet();
+    });
+    add('Fill every bond', () => {
+        net().nodes.forEach(n => netState[n.id] = 1);
+        saveNet();
+    });
     add('Start Quark Storm', () => {
         qStorm = { left: QSTORM_PRESSES, got: 0 };
         qStormSave();
