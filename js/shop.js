@@ -46,6 +46,7 @@ const CATALYSTS = [
     { id: 'stabiliser', name: 'Stabiliser', tier: 1, instant: true, fx: { extend: 10 }, price: 40 },
     { id: 'rod', name: 'Lightning Rod', tier: 1, instant: true, fx: { rod: true }, price: 45 },
     { id: 'magnet', name: 'Family Magnet', tier: 1, rolls: 20, fx: { magnet: true }, price: 35 },
+    { id: 'leveller', name: 'Leveller', tier: 1, min: 15, fx: { level: true }, price: 45 },
     { id: 'reagent', name: 'Practical Reagent', tier: 1, min: 15, joke: true, fx: { joke: 100 }, price: 50 },
     { id: 'grant', name: 'Grant Funding', tier: 2, instant: true, fx: { grant: true }, price: 200 },
     { id: 'heavy', name: 'Heavy Water', tier: 2, min: 20, fx: { heavy: 25 }, price: 230 },
@@ -98,7 +99,7 @@ function catEffect(c) {
         chain3: 'Chain chance at its best (1 in 3)', logger: 'The next event lasts twice as long', laugh: 'Finds containing a joke element earn three times the quarks',
         start: 'Starts a ' + (f.start === 'storm' ? 'Quark Storm' : f.start === 'collider' ? 'Supercollider' : 'Black Hole') + ' now (not while another event is running)',
         gag: 'Joke elements are five times as likely, and ten times once you roll one while it lasts', twice: 'Each roll is rolled twice and keeps the rarer',
-        jokeNew: "The roll gives a joke element you haven't found yet"
+        jokeNew: "The roll gives a joke element you haven't found yet", level: 'Elements your luck has made rarer go back to their odds at 0% luck'
     };
     const k = Object.keys(f).find(x => more[x]);
     return k ? more[k] : "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
@@ -160,7 +161,7 @@ function activeList() {
 function catBonus() {
     const r = {
         luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {},
-        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0
+        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0, level: false
     };
     activeList().forEach(({ a, c }) => {
         if (!a.until) {
@@ -170,6 +171,9 @@ function catBonus() {
         ['event', 'lens', 'heavy', 'joke'].forEach(k => r[k] += f[k] || 0);
         if (f.laugh) {
             r.laugh = true;
+        }
+        if (f.level) {
+            r.level = true;
         }
         if (f.gag) {
             r.gag = a.hit ? 10 : 5;

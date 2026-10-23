@@ -50,7 +50,7 @@ function computeBuffs() {
     return {
         found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
         // reagent/punchline add, running gag multiplies
-        jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), exp: catNextExpiry()
+        jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), level: cb.level, exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
@@ -60,15 +60,30 @@ function weightTable(extraLuck, only) {
     }
     const luck = b.luck + (extraLuck || 0);
     let total = 0;
+    let total0 = 0;
     const pool = rollPool();
+    const flat = [];
     const w = pool.map(e => {
         if (only && !only(e)) {
+            flat.push(0);
             return 0;
         }
-        const v = (1 / e[2]) * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) * (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1);
+        const m = (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1) / e[2];
+        const v = m * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5);
+        flat.push(m);
         total += v;
+        total0 += m;
         return v;
     });
+    // leveller: anything luck has made rarer gets its 0% luck share back
+    if (b.level && total0) {
+        const k = total / total0;
+        total = 0;
+        for (let i = 0; i < w.length; i++) {
+            w[i] = Math.max(w[i], flat[i] * k);
+            total += w[i];
+        }
+    }
     const t = { w, total, b, pool };
     if (!extraLuck && !only) {
         weightCache = t;
