@@ -5251,6 +5251,71 @@ function fillFree(id) {
     setTimeout(jokeIntroCheck, 600);
     applyCosmetics();
 }
+// quark pity: outer ring slots can be bought outright once 3 bridges are lit
+let pityMemo = null;
+function pityOn() {
+    if (!pityMemo || pityMemo.v !== netVer) {
+        pityMemo = { v: netVer, on: net().edges.filter(e => e.bridge && edgeLit(e)).length >= 3, price: new Map() };
+    }
+    return pityMemo.on;
+}
+function pityPrice(n) {
+    pityOn();
+    const key = n.id + ':' + collection.length;
+    if (pityMemo.price.has(key)) {
+        return pityMemo.price.get(key);
+    }
+    const b = activeBuffStats();
+    const luck = b.luck - catBonus().luck;
+    const share = {};
+    let tot = 0;
+    ELEMENTS.forEach(e => {
+        const v = Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) / e[2];
+        share[e[0]] = v;
+        tot += v;
+    });
+    Object.keys(share).forEach(k => share[k] /= tot);
+    const go = 1 / b.chainDenom;
+    const q = n.req;
+    const left = Math.max(1, q.n - eligible(q).reduce((s, x) => s + x.n, 0));
+    let p;
+    if (q.t === 'el') {
+        p = share[q.k] * (1 - go);
+    } else if (q.t === 'fam') {
+        p = ELEMENTS.filter(e => familyOf(e[0]) === q.k).reduce((s, e) => s + share[e[0]], 0) * (1 - go);
+    } else if (q.t === 'has') {
+        p = share[q.k] * go * 2;
+    } else {
+        const counts = parseFormula(q.l);
+        const m = Object.values(counts).reduce((a, c) => a + c, 0);
+        const fact = k => k < 2 ? 1 : k * fact(k - 1);
+        p = Math.pow(go, m - 1) * (1 - go) * fact(m);
+        Object.keys(counts).forEach(s => p *= Math.pow(share[s], counts[s]) / fact(counts[s]));
+    }
+    const price = Number(Math.min(2.5e7, Math.max(1e6, left / p * 0.5)).toPrecision(2));
+    pityMemo.price.set(key, price);
+    return price;
+}
+const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && quarks >= pityPrice(n);
+function pityAsk(n) {
+    const price = pityPrice(n);
+    const w = openDialog('<h2>Use quarks for this slot?</h2><p>This will spend <b>' + formatNumber(price) + ' quarks</b> to fill the slot without its ' + esc(reqShort(n.req)) + '. It can\'t be undone.</p>' +
+        '<div class="btn-row"><button class="primary" id="pityYes">Spend ' + formatNumber(price) + '</button><button class="ghost" id="pityNo">Cancel</button></div>');
+    w.querySelector('#pityNo').onclick = closeDialog;
+    w.querySelector('#pityYes').onclick = () => {
+        closeDialog();
+        if (!pityReady(n)) {
+            return;
+        }
+        addQuarks(-price);
+        fillFree(n.id);
+        netFlash(n.id);
+        bondSummary();
+        $('netTotals').innerHTML = netTotalsHtml();
+        renderRollStats();
+        netDraw();
+    };
+}
 // the open slot you're nearest to paying for (bonding agent)
 function closestSlot() {
     let best = null;
@@ -5502,6 +5567,7 @@ function netDraw() {
         // zoomed out: plain dots, batched by colour
         const groups = new Map();
         const ring = new Path2D();
+        const red = new Path2D();
         const rr = Math.max(2, R);
         nodes.forEach(n => {
             const [x, y] = S(n.x, n.y);
@@ -5518,9 +5584,10 @@ function netDraw() {
             const p = groups.get(key);
             p.moveTo(x + rr, y);
             p.arc(x, y, rr, 0, Math.PI * 2);
-            if (avail) {
-                ring.moveTo(x + rr + 4, y);
-                ring.arc(x, y, rr + 4, 0, Math.PI * 2);
+            if (avail || pityReady(n)) {
+                const p2 = avail ? ring : red;
+                p2.moveTo(x + rr + 4, y);
+                p2.arc(x, y, rr + 4, 0, Math.PI * 2);
             }
         });
         groups.forEach((p, col) => {
@@ -5531,6 +5598,8 @@ function netDraw() {
         g.strokeStyle = '#f0c419';
         g.lineWidth = 2;
         g.stroke(ring);
+        g.strokeStyle = '#ff5a4a';
+        g.stroke(red);
         g.globalAlpha = 1;
     } else {
         nodes.forEach(n => {
@@ -5541,20 +5610,21 @@ function netDraw() {
             const filled = netFilled(n.id);
             const reach = netReachable(n.id);
             const avail = !filled && reach && canPay(n.req);
+            const pity = !avail && pityReady(n);
             const col = ringCol(n.ring);
-            anyAvail = anyAvail || avail;
+            anyAvail = anyAvail || avail || pity;
             g.globalAlpha = filled || reach ? 1 : 0.35;
             const hex = n.req.t === 'cp' || n.req.t === 'has';
             slotPath(g, x, y, R, hex);
             g.fillStyle = filled ? col : '#0d1311';
             g.fill();
             g.lineWidth = Math.max(1.2, (filled ? 2.5 : 1.6) * z);
-            g.strokeStyle = filled ? col : avail ? '#f0c419' : 'rgba(232,239,233,.4)';
+            g.strokeStyle = filled ? col : avail ? '#f0c419' : pity ? '#ff5a4a' : 'rgba(232,239,233,.4)';
             g.stroke();
-            if (avail) {
+            if (avail || pity) {
                 g.globalAlpha = 0.3 + 0.5 * pulse;
                 slotPath(g, x, y, R + (5 + 5 * pulse) * z, hex);
-                g.strokeStyle = '#f0c419';
+                g.strokeStyle = avail ? '#f0c419' : '#ff5a4a';
                 g.lineWidth = Math.max(1, 2 * z);
                 g.stroke();
             }
@@ -5779,6 +5849,8 @@ function netSelect(id) {
         bondSummary();
         $('netTotals').innerHTML = netTotalsHtml();
         renderRollStats();
+    } else if (pityReady(net().nodes[id])) {
+        pityAsk(net().nodes[id]);
     } else if (!netFilled(id)) {
         netFlash(id, '#ff5a4a');
     }
