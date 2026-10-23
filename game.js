@@ -2666,7 +2666,101 @@ function qsSprite(i) {
     }
     return qsSprites[i];
 }
-function scanField(reel, syms, labels, scores, dur, targets, storm) {
+const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'] };
+function evLayer(g, ev, t, W, H, f) {
+    const cx = W / 2;
+    const cy = H / 2;
+    g.save();
+    if (ev === 'collider') {
+        const rx = W * 0.42;
+        const ry = H * 0.3;
+        g.globalAlpha = 0.35 * f;
+        g.strokeStyle = '#5fd4ff';
+        g.lineWidth = 6;
+        g.beginPath();
+        g.ellipse(cx, cy, rx, ry, 0, 0, 6.2832);
+        g.stroke();
+        g.globalAlpha = 0.7 * f;
+        g.lineWidth = 1;
+        g.stroke();
+        const n = 5;
+        const gap = 6.2832 / n;
+        const sp = t / 520;
+        const bunch = (a, col) => {
+            for (let s = 0; s < 5; s++) {
+                const b = a - Math.sign(col.d) * s * 0.035;
+                g.globalAlpha = f * (1 - s / 5);
+                g.fillStyle = col.c;
+                g.beginPath();
+                g.arc(cx + Math.cos(b) * rx, cy + Math.sin(b) * ry, 3.2 - s * 0.45, 0, 6.2832);
+                g.fill();
+            }
+        };
+        for (let k = 0; k < n; k++) {
+            bunch(sp + k * gap, { c: '#5fd4ff', d: 1 });
+            bunch(-sp + k * gap + gap / 2, { c: '#ff6fae', d: -1 });
+        }
+        // collisions
+        for (let k = 0; k < n; k++) {
+            for (let j = 0; j < n; j++) {
+                const a1 = sp + k * gap;
+                const a2 = -sp + j * gap + gap / 2;
+                const dd = Math.atan2(Math.sin(a1 - a2), Math.cos(a1 - a2));
+                if (Math.abs(dd) >= 0.16) {
+                    continue;
+                }
+                const a = a2 + dd / 2;
+                const x = cx + Math.cos(a) * rx;
+                const y = cy + Math.sin(a) * ry;
+                const r = 26 * (1 - Math.abs(dd) / 0.16);
+                const gr = g.createRadialGradient(x, y, 0, x, y, r);
+                gr.addColorStop(0, 'rgba(255,255,255,' + 0.9 * f + ')');
+                gr.addColorStop(0.4, 'rgba(255,224,150,' + 0.5 * f + ')');
+                gr.addColorStop(1, 'rgba(255,224,150,0)');
+                g.globalAlpha = 1;
+                g.fillStyle = gr;
+                g.beginPath();
+                g.arc(x, y, r, 0, 6.2832);
+                g.fill();
+            }
+        }
+    } else {
+        const R = Math.min(W, H) * 0.13;
+        const disc = front => {
+            for (let k = 0; k < 90; k++) {
+                const a = k / 90 * 6.2832 + t / (900 + (k % 7) * 120);
+                const s = Math.sin(a);
+                if ((s > 0) !== front) {
+                    continue;
+                }
+                const rr = R * (1.5 + (k % 9) * 0.12);
+                g.globalAlpha = f * (0.35 + 0.5 * ((k * 37) % 10) / 10);
+                g.fillStyle = k % 3 ? '#ff9a3c' : '#ffe2a8';
+                g.beginPath();
+                g.arc(cx + Math.cos(a) * rr, cy + s * rr * 0.28, 1.6 + (k % 4) * 0.5, 0, 6.2832);
+                g.fill();
+            }
+        };
+        disc(false);
+        const gr = g.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.9);
+        gr.addColorStop(0, 'rgba(255,154,60,' + 0.55 * f + ')');
+        gr.addColorStop(1, 'rgba(255,154,60,0)');
+        g.globalAlpha = 1;
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(cx, cy, R * 1.9, 0, 6.2832);
+        g.fill();
+        g.globalAlpha = f;
+        g.fillStyle = '#000';
+        g.beginPath();
+        g.arc(cx, cy, R, 0, 6.2832);
+        g.fill();
+        disc(true);
+    }
+    g.restore();
+}
+function scanField(reel, syms, labels, scores, dur, targets, ev) {
+    const storm = ev === 'storm';
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -2767,16 +2861,24 @@ function scanField(reel, syms, labels, scores, dur, targets, storm) {
                     spawn(p, 13 + Math.random() * 2, cz);
                     d = p.z - cz;
                 }
-                const [sx, sy] = pr(p.x, p.y, d);
+                let px = p.x;
+                let py = p.y;
+                if (ev === 'hole') {
+                    const k = Math.min(1, d / 9);
+                    const sw = (1 - k) * 2.2 + t / 2600;
+                    px = (p.x * Math.cos(sw) - p.y * Math.sin(sw)) * (0.35 + 0.65 * k);
+                    py = (p.x * Math.sin(sw) + p.y * Math.cos(sw)) * (0.35 + 0.65 * k);
+                }
+                const [sx, sy] = pr(px, py, d);
                 if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) {
                     return;
                 }
-                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92);
+                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92) * (ev === 'hole' ? Math.min(1, d / 3) : 1);
                 if (a <= 0) {
                     return;
                 }
                 if (q > 0) {
-                    const [ex, ey] = pr(p.x, p.y, d + q * q * 3.5);
+                    const [ex, ey] = pr(px, py, d + q * q * 3.5);
                     g.globalAlpha = a * 0.7;
                     g.strokeStyle = tier ? acc : '#9fe0c8';
                     g.lineWidth = 1.5;
@@ -2790,6 +2892,9 @@ function scanField(reel, syms, labels, scores, dur, targets, storm) {
                 g.font = '700 ' + Math.max(5, base * p.s / d) + 'px ' + fam;
                 g.fillText(p.t, sx, sy);
             });
+            if (ev === 'collider' || ev === 'hole') {
+                evLayer(g, ev, t, W, H, 1 - q);
+            }
             Q.forEach(p => {
                 let d = p.z - cz;
                 if (d < 0.35) {
@@ -2896,11 +3001,11 @@ function scanField(reel, syms, labels, scores, dur, targets, storm) {
             g.fillText(u < 0.65 ? 'FIELD SCAN' : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
             g.textAlign = 'right';
             g.fillText('RNG ' + D.toFixed(1), W - 18, 26);
-            if (storm) {
+            if (ev) {
                 g.textAlign = 'left';
-                g.fillStyle = '#f0c419';
+                g.fillStyle = EV_HUD[ev][1];
                 g.globalAlpha = 0.75 + 0.25 * Math.sin(t / 160);
-                g.fillText('QUARK STORM', 18, H - 18);
+                g.fillText(EV_HUD[ev][0], 18, H - 18);
                 g.fillStyle = acc;
                 g.globalAlpha = 0.9;
             }
@@ -4304,7 +4409,28 @@ const CATALYSTS = [
     { id: 'fusion', name: 'Fusion Core', tier: 5, min: 30, fx: { luck: 600 }, price: 18000 },
     { id: 'horizon', name: 'Event Horizon', tier: 5, rolls: 1, fx: { rollLuck: 3000 }, price: 13000 },
     { id: 'singularity', name: 'Singularity', tier: 6, rolls: 1, fx: { rollLuck: 10000 }, price: 33000 },
-    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 27000 }
+    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 27000 },
+    // instant = used on the spot, takes no slot
+    { id: 'barometer', name: 'Barometer', tier: 0, min: 15, fx: { event: 50 }, price: 12 },
+    { id: 'courier', name: 'Courier', tier: 0, instant: true, fx: { restock: true }, price: 10 },
+    { id: 'qlens', name: 'Quark Lens', tier: 0, min: 15, fx: { lens: 50 }, price: 10 },
+    { id: 'stabiliser', name: 'Stabiliser', tier: 1, instant: true, fx: { extend: 10 }, price: 40 },
+    { id: 'rod', name: 'Lightning Rod', tier: 1, instant: true, fx: { rod: true }, price: 45 },
+    { id: 'magnet', name: 'Family Magnet', tier: 1, rolls: 20, fx: { magnet: true }, price: 35 },
+    { id: 'reagent', name: 'Practical Reagent', tier: 1, min: 15, joke: true, fx: { joke: 100 }, price: 50 },
+    { id: 'grant', name: 'Grant Funding', tier: 2, instant: true, fx: { grant: true }, price: 200 },
+    { id: 'heavy', name: 'Heavy Water', tier: 2, min: 20, fx: { heavy: 25 }, price: 230 },
+    { id: 'punchline', name: 'Punchline', tier: 2, min: 15, joke: true, fx: { joke: 300 }, price: 270 },
+    { id: 'accel', name: 'Particle Accelerator', tier: 3, rolls: 25, fx: { chain3: true }, price: 900 },
+    { id: 'logger', name: 'Event Logger', tier: 3, instant: true, fx: { logger: true }, price: 1000 },
+    { id: 'laugh', name: 'Laugh Track', tier: 3, min: 30, joke: true, fx: { laugh: true }, price: 800 },
+    { id: 'stormseed', name: 'Storm Seed', tier: 4, instant: true, fx: { start: 'storm' }, price: 5000 },
+    { id: 'colliderkey', name: 'Collider Key', tier: 4, instant: true, fx: { start: 'collider' }, price: 6200 },
+    { id: 'gag', name: 'Running Gag', tier: 4, min: 30, joke: true, fx: { gag: true }, price: 4000 },
+    { id: 'twinhorizon', name: 'Twin Horizon', tier: 5, rolls: 5, fx: { twice: true }, price: 16000 },
+    { id: 'containment', name: 'Containment Field', tier: 5, instant: true, fx: { extend: 30 }, price: 14000 },
+    { id: 'singseed', name: 'Singularity Seed', tier: 6, instant: true, fx: { start: 'hole' }, price: 30000 },
+    { id: 'insidejoke', name: 'Inside Joke', tier: 6, rolls: 1, joke: true, fx: { jokeNew: true }, price: 30000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
 function catEffect(c) {
@@ -4336,9 +4462,19 @@ function catEffect(c) {
     if (f.rollLuck) {
         return `+${f.rollLuck.toLocaleString('en-US')}% luck` + (f.rollLuck >= 10000 ? ', which guarantees Uranium' : '');
     }
-    return "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
+    const more = {
+        event: `Events are ${f.event}% more likely to start`, restock: 'Restocks the shop straight away', lens: `+${f.lens}% quarks from rolls that chain`,
+        extend: `Adds ${f.extend} minutes to every active timed catalyst`, rod: 'The next Quark Storm lasts 50% longer', magnet: "Chained elements come from the first element's family",
+        joke: `+${f.joke}% chance of joke elements`, grant: 'Your next catalyst purchase costs half', heavy: `Each chained element adds +${f.heavy}% quarks`,
+        chain3: 'Chain chance at its best (1 in 3)', logger: 'The next event lasts twice as long', laugh: 'Finds containing a joke element earn three times the quarks',
+        start: 'Starts a ' + (f.start === 'storm' ? 'Quark Storm' : f.start === 'collider' ? 'Supercollider' : 'Black Hole') + ' now (not while another event is running)',
+        gag: 'Joke elements are five times as likely, and ten times once you roll one while it lasts', twice: 'Each roll is rolled twice and keeps the rarer',
+        jokeNew: "The roll gives a joke element you haven't found yet"
+    };
+    const k = Object.keys(f).find(x => more[x]);
+    return k ? more[k] : "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
 }
-const catLength = c => c.rolls ? (c.rolls === 1 ? 'Single roll' : `Next ${c.rolls} rolls`) : `Timed, ${c.min} min`;
+const catLength = c => c.instant ? (c.fx.rod || c.fx.logger ? 'Waits for the next event' : 'Works straight away') : c.rolls ? (c.rolls === 1 ? 'Single roll' : `Next ${c.rolls} rolls`) : `Timed, ${c.min} min`;
 // saved state
 function loadJSON(k, d) {
     try {
@@ -4350,12 +4486,25 @@ function loadJSON(k, d) {
 let shopState = loadJSON('elementalShop', { slot: -1, stock: [] });
 let catInv = loadJSON('elementalCatInv', {});
 let catActive = loadJSON('elementalCatActive', {});
+let catFlags = loadJSON('elementalCatFlags', {});
 function saveCats() {
     try {
         localStorage.setItem('elementalShop', JSON.stringify(shopState));
         localStorage.setItem('elementalCatInv', JSON.stringify(catInv));
         localStorage.setItem('elementalCatActive', JSON.stringify(catActive));
+        localStorage.setItem('elementalCatFlags', JSON.stringify(catFlags));
     } catch (e) { }
+}
+function takeFlag(k) {
+    if (!(catFlags[k] > 0)) {
+        return false;
+    }
+    catFlags[k]--;
+    if (!catFlags[k]) {
+        delete catFlags[k];
+    }
+    saveCats();
+    return true;
 }
 // active catalysts
 function pruneActive() {
@@ -4381,13 +4530,21 @@ function activeList() {
 // totals from active timed catalysts, for computeBuffs and weightTable
 function catBonus() {
     const r = {
-        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {}
+        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {},
+        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0
     };
     activeList().forEach(({ a, c }) => {
         if (!a.until) {
             return;
         }
         const f = c.fx;
+        ['event', 'lens', 'heavy', 'joke'].forEach(k => r[k] += f[k] || 0);
+        if (f.laugh) {
+            r.laugh = true;
+        }
+        if (f.gag) {
+            r.gag = a.hit ? 10 : 5;
+        }
         if (f.luck) {
             r.luck += f.luck;
         }
@@ -4429,6 +4586,9 @@ function useCatalyst(id, n) {
     if (!n) {
         return 'You have none of these.';
     }
+    if (c.instant) {
+        return useInstant(c, n);
+    }
     pruneActive();
     const cur = catActive[c.tier];
     if (cur && cur.id !== id) {
@@ -4447,6 +4607,44 @@ function useCatalyst(id, n) {
     }
     saveCats();
     buffCache = weightCache = null;
+    return '';
+}
+function useInstant(c, n) {
+    const f = c.fx;
+    if (f.start) {
+        if (anyEventOn()) {
+            return 'An event is already running. Only one can run at a time.';
+        }
+        n = 1;
+        if (f.start === 'storm') {
+            qStormStart();
+        } else {
+            evStart(f.start);
+        }
+        renderQStorm();
+    } else if (f.restock) {
+        n = 1;
+        const held = bondBonus().hold && shopState.stock.find(s => s.held && !s.sold);
+        shopState.stock = held ? [held] : [];
+        shopCheck();
+    } else if (f.extend) {
+        pruneActive();
+        const timed = Object.values(catActive).filter(a => a.until);
+        if (!timed.length) {
+            return 'No timed catalysts are running to extend.';
+        }
+        timed.forEach(a => a.until += f.extend * 60000 * n);
+    } else {
+        const k = f.rod ? 'rod' : f.logger ? 'logger' : 'grant';
+        catFlags[k] = (catFlags[k] || 0) + n;
+    }
+    catInv[c.id] -= n;
+    if (!catInv[c.id]) {
+        delete catInv[c.id];
+    }
+    saveCats();
+    buffCache = weightCache = null;
+    renderActiveCats();
     return '';
 }
 function catLeft(a) {
@@ -4469,7 +4667,7 @@ function fmtClock(s) {
 // single-roll catalysts: take one charge for one individual roll
 function takeRollCharge() {
     pruneActive();
-    const out = { rollLuck: 0, unfound: false, linked: false, used: [] };
+    const out = { rollLuck: 0, unfound: false, linked: false, magnet: false, chain3: false, twice: false, jokeNew: false, used: [] };
     Object.keys(catActive).forEach(t => {
         const a = catActive[t];
         if (a.rolls == null || a.rolls <= 0) {
@@ -4483,9 +4681,11 @@ function takeRollCharge() {
         if (f.unfound) {
             out.unfound = true;
         }
-        if (f.linked) {
-            out.linked = true;
-        }
+        ['linked', 'magnet', 'chain3', 'twice', 'jokeNew'].forEach(k => {
+            if (f[k]) {
+                out[k] = true;
+            }
+        });
         // refund chance
         if (Math.random() >= bondBonus().refund / 100) {
             a.rolls -= 1;
@@ -4494,6 +4694,15 @@ function takeRollCharge() {
     pruneActive();
     saveCats();
     return out;
+}
+// running gag goes to x10
+function gagHit() {
+    const a = Object.values(catActive).find(x => x.id === 'gag' && !x.hit);
+    if (a) {
+        a.hit = true;
+        saveCats();
+        buffCache = weightCache = null;
+    }
 }
 function clearCatalyst(tier) {
     delete catActive[tier];
@@ -4507,8 +4716,8 @@ function shopPeriodMs() {
 }
 // 2 + bonds, max 6
 const shopSlots = () => Math.min(6, 2 + bondBonus().slots);
-function shopPrice(c) {
-    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
+function shopPrice(c, grant = true) {
+    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100) * (grant && catFlags.grant ? 0.5 : 1)));
 }
 var clockBase = null;
 var clockTried = false;
@@ -4555,8 +4764,11 @@ function shopRoll() {
             break;
         }
     }
-    const pool = CATALYSTS.filter(c => c.tier === tier);
-    return pool[Math.floor(Math.random() * pool.length)].id;
+    const jokes = bondBonus().jokecat && jokesOn();
+    const pool = CATALYSTS.filter(c => c.tier === tier && (!c.joke || jokes));
+    const wt = c => c.joke ? 1 + bondBonus().jokerate / 100 : 1;
+    let x = Math.random() * pool.reduce((s, c) => s + wt(c), 0);
+    return (pool.find(c => (x -= wt(c)) < 0) || pool[pool.length - 1]).id;
 }
 // a new save has no stock yet, so stock the shop before reading its timer
 function shopNextIn() {
@@ -4571,11 +4783,14 @@ function buyStock(i) {
         return;
     }
     const c = CAT[s.id];
-    const p = shopPrice(c);
+    const p = shopPrice(c, true);
     if (quarks < p) {
         return;
     }
     addQuarks(-p);
+    if (catFlags.grant) {
+        takeFlag('grant');
+    }
     s.sold = true;
     s.held = false;
     const two = Math.random() < bondBonus().dup / 100;
@@ -4615,11 +4830,13 @@ function renderShop() {
 }
 function renderActiveCats() {
     const list = activeList();
-    const html = list.length ? list.map(({ tier, a, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><span class="act-left" data-tier="${tier}">${catLeft(a)}</span></div>`).join('') : '<p class="muted">No catalysts active.</p>';
+    const waiting = [['rod', 'Lightning Rod', 'next Quark Storm'], ['logger', 'Event Logger', 'next event'], ['grant', 'Grant Funding', 'next purchase']]
+        .filter(([k]) => catFlags[k] > 0).map(([k, name, what]) => `<div class="act-row" style="--tc:${CAT_TIERS[CAT[k].tier].col}">${tierChip(CAT[k].tier)}<strong>${name}${catFlags[k] > 1 ? ' ×' + catFlags[k] : ''}</strong><span class="act-left">Waiting: ${what}</span></div>`).join('');
+    const html = list.length || waiting ? list.map(({ tier, a, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><span class="act-left" data-tier="${tier}">${catLeft(a)}</span></div>`).join('') + waiting : '<p class="muted">No catalysts active.</p>';
     ['catActive', 'rollCats'].forEach(k => {
         const el = $(k);
         if (el) {
-            el.innerHTML = list.length ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + html : '';
+            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + html : '';
         }
     });
     const cl = $('catClear');
@@ -4667,12 +4884,12 @@ function renderCatInv() {
         const c = CAT[invSel];
         const T = CAT_TIERS[c.tier];
         const a = catActive[c.tier];
-        const status = a && a.id === invSel ? `<p class="ip-status on">Running: ${catLeft(a)} left. Using more adds to it.</p>` : a ? `<p class="ip-status off">${CAT[a.id].name} is running for ${T.name.toLowerCase()} catalysts (${catLeft(a)} left), so this one can't be used until it ends.</p>` : '';
+        const status = c.instant ? '' : a && a.id === invSel ? `<p class="ip-status on">Running: ${catLeft(a)} left. Using more adds to it.</p>` : a ? `<p class="ip-status off">${CAT[a.id].name} is running for ${T.name.toLowerCase()} catalysts (${catLeft(a)} left), so this one can't be used until it ends.</p>` : '';
         const n = catInv[invSel];
         d.innerHTML = `<div class="inv-preview" style="--tc:${T.col}"><span class="ip-mark">${catMark(c)}</span><span class="ip-tier">${T.name}</span></div>
 <div class="ip-use"><button class="primary" data-use="1">Use</button>${n > 1 ? '<button class="ghost" data-use="pick">Use…</button><button class="ghost" data-use="all">Use all</button>' : ''}</div>
 <p class="shop-msg" id="invMsg" aria-live="polite"></p>
-<div class="ip-desc" style="--tc:${T.col}"><h2>${c.name}</h2>${tierChip(c.tier)}<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${n.toLocaleString('en-US')}</dd></div>${c.rolls ? '' : `<div><dt>Using all</dt><dd>${fmtClock(c.min * 60 * n)}</dd></div>`}</dl>${status}</div>`;
+<div class="ip-desc" style="--tc:${T.col}"><h2>${c.name}</h2>${tierChip(c.tier)}<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${n.toLocaleString('en-US')}</dd></div>${c.rolls || c.instant ? '' : `<div><dt>Using all</dt><dd>${fmtClock(c.min * 60 * n)}</dd></div>`}</dl>${status}</div>`;
     }
     renderActiveCats();
 }
@@ -4808,7 +5025,9 @@ function computeBuffs() {
     const cb = catBonus();
     const denom = Math.max(3, 8 - 0.625 * Math.min(8, chainSteps + bd.chain));
     return {
-        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark, exp: catNextExpiry()
+        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
+        // reagent/punchline add, running gag multiplies
+        jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
@@ -4823,7 +5042,7 @@ function weightTable(extraLuck, only) {
         if (only && !only(e)) {
             return 0;
         }
-        const v = (1 / e[2]) * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) * (1 + (b.fam[familyOf(e[0])] || 0) / 100);
+        const v = (1 / e[2]) * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) * (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1);
         total += v;
         return v;
     });
@@ -4865,6 +5084,29 @@ function chainStep(elements, e) {
         elements.push(e);
     }
     return false;
+}
+function rollElements(luckUp, first, o) {
+    const elements = [first || weightedElement(luckUp)];
+    const fam = o.magnet ? familyOf(elements[0][0]) : null;
+    const only = fam ? (e => familyOf(e[0]) === fam) : undefined;
+    while (elements.length < 30 && ((o.linked && elements.length === 1) || Math.random() < 1 / o.denom)) {
+        if (!chainStep(elements, weightedElement(luckUp, only))) {
+            break;
+        }
+    }
+    return elements;
+}
+// black hole / twin horizon
+function rollTwice(make) {
+    const a = make();
+    const b = make();
+    return exactRarity(b, 0) < exactRarity(a, 0) ? b : a;
+}
+function quarkMult(elements, buffs) {
+    const cb = catBonus();
+    const n = elements.length;
+    const pct = (buffs.quark || 0) + (n === 1 ? bondBonus().alone : 0) + (n > 1 ? cb.lens : 0) + cb.heavy * (n - 1);
+    return (1 + pct / 100) * (cb.laugh && elements.some(e => isJoke(e[0])) ? 3 : 1);
 }
 // + Redactium
 const secretChance = () => SECRET_CHANCE + bondBonus().secret / 100;
@@ -5041,7 +5283,16 @@ function qStormRange() {
     const s = bondBonus().storm / 100;
     return [QSTORM_MIN + Math.round(2 * s), QSTORM_MAX + Math.round(20 * s)];
 }
-const qStormChance = () => QSTORM_CHANCE * (1 + bondBonus().event / 100);
+const eventChanceMult = () => 1 + (bondBonus().event + catBonus().event) / 100;
+const qStormChance = () => QSTORM_CHANCE * eventChanceMult();
+// deja-vium, lightning rod, event logger
+function eventLength(base, storm) {
+    return Math.round(base * (1 + bondBonus().evlen / 100) * (storm && takeFlag('rod') ? 1.5 : 1) * (takeFlag('logger') ? 2 : 1));
+}
+function qStormStart() {
+    qStorm = { left: eventLength(QSTORM_PRESSES, true), got: 0 };
+    qStormSave();
+}
 // One press of Roll with count rolls
 function qStormPress(count) {
     if (qStormOn()) {
@@ -5058,16 +5309,68 @@ function qStormPress(count) {
         return { add, sum, ended };
     }
     if (Math.random() < qStormChance()) {
-        // deja-vium
-        qStorm = { left: Math.round(QSTORM_PRESSES * (1 + bondBonus().evlen / 100)), got: 0 };
-        qStormSave();
+        qStormStart();
         return { started: true };
+    }
+    return null;
+}
+// supercollider + black hole, one event at a time
+const EVENTS = {
+    collider: { name: 'Supercollider', chance: 1 / 8000, presses: 50, what: 'chain chance is 1 in 2' },
+    hole: { name: 'Black Hole', chance: 1 / 8000, presses: 50, what: 'every roll is rolled twice and keeps the rarer' }
+};
+let evRun = null;
+try {
+    const v = JSON.parse(localStorage.getItem('elementalEvent') || 'null');
+    evRun = v && EVENTS[v.id] && v.left > 0 ? { id: v.id, left: Math.min(500, Math.floor(v.left)) } : null;
+} catch (e) { }
+function evSave() {
+    try {
+        if (evRun) {
+            localStorage.setItem('elementalEvent', JSON.stringify(evRun));
+        } else {
+            localStorage.removeItem('elementalEvent');
+        }
+    } catch (e) { }
+}
+const evOn = id => !!(evRun && evRun.left > 0 && (!id || evRun.id === id));
+const anyEventOn = () => qStormOn() || evOn();
+const eventNow = () => qStormOn() ? 'storm' : evOn() ? evRun.id : null;
+function evStart(id) {
+    evRun = { id, left: eventLength(EVENTS[id].presses, false) };
+    evSave();
+}
+function eventsPress(count) {
+    if (evOn()) {
+        const id = evRun.id;
+        evRun.left--;
+        if (evRun.left <= 0) {
+            evRun = null;
+        }
+        evSave();
+        return { ev: id, ended: !evRun };
+    }
+    const st = qStormPress(count);
+    if (st) {
+        return st;
+    }
+    for (const id of Object.keys(EVENTS)) {
+        if (Math.random() < EVENTS[id].chance * eventChanceMult()) {
+            evStart(id);
+            return { ev: id, started: true };
+        }
     }
     return null;
 }
 function renderQStorm(last) {
     const bar = $('qStormBar');
     if (!bar) {
+        return;
+    }
+    bar.className = 'qstorm-bar' + (evOn() ? ' ev-' + evRun.id : '');
+    if (evOn()) {
+        bar.hidden = false;
+        bar.innerHTML = '<span class="qs-name">' + EVENTS[evRun.id].name + '</span><span class="qs-left"><b>' + evRun.left + '</b> ' + (evRun.left === 1 ? 'roll' : 'rolls') + ' left</span><span class="qs-got">' + EVENTS[evRun.id].what + '</span>';
         return;
     }
     bar.hidden = !qStormOn();
@@ -5417,6 +5720,8 @@ async function doRoll(preset, opts) {
         if (onRoll) {
             startRollTicks();
         }
+        // before it counts down
+        const evNow = pre ? null : eventNow();
         const rolls = pre || Array.from({ length: rollCount }, () => {
             // the catalysts behind this roll, noted before single-roll ones are used up
             const timed = activeList().filter(x => x.a.rolls == null && x.c).map(x => x.c.name);
@@ -5431,11 +5736,18 @@ async function doRoll(preset, opts) {
                     luckUp += 3000;
                 }
             }
-            const elements = [first || weightedElement(luckUp)];
-            while (elements.length < 30 && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {
-                if (!chainStep(elements, weightedElement(luckUp))) {
-                    break;
+            // inside joke
+            if (!first && ch.jokeNew && jokesOn()) {
+                const jf = jokesFound();
+                if (JOKES.some(j => !jf.has(j[0]))) {
+                    first = weightedElement(luckUp, e => isJoke(e[0]) && !jf.has(e[0]));
                 }
+            }
+            const denom = evNow === 'collider' ? 2 : ch.chain3 ? Math.min(3, buffs.chainDenom) : buffs.chainDenom;
+            const make = () => rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
+            const elements = evNow === 'hole' || ch.twice ? rollTwice(make) : make();
+            if (elements.some(e => isJoke(e[0]))) {
+                gagHit();
             }
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
@@ -5443,8 +5755,8 @@ async function doRoll(preset, opts) {
                 elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
             }, rollIon());
         });
-        const stormFx = !pre && qStormOn();
-        const storm = pre ? null : qStormPress(rolls.length);
+        const ev = pre ? null : eventsPress(rolls.length);
+        const storm = ev && !ev.ev ? ev : null;
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();
         const cut = pickCutscene(rolls);
@@ -5471,7 +5783,7 @@ async function doRoll(preset, opts) {
             await playCutscene(cut.sym, reel, multi ? [withIon(rolls[feat].formula, rolls[feat].ion)] : rolls.map(r => withIon(r.formula, r.ion)), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, stormFx);
+            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, evNow);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -5516,7 +5828,7 @@ async function doRoll(preset, opts) {
                 playResultChime(score, secret && i === bestIdx);
             }
             if (!pre) {
-                addQuarks(quarksFor(score, 1 + ((buffs.quark || 0) + (elements.length === 1 ? bondBonus().alone : 0)) / 100) + (storm && storm.add ? storm.add[i] : 0));
+                addQuarks(quarksFor(score, quarkMult(elements, buffs)) + (storm && storm.add ? storm.add[i] : 0));
             }
         });
         if (multi) {
@@ -5542,6 +5854,15 @@ async function doRoll(preset, opts) {
         }
         stopRollTicks();
         $('rollToast').textContent = '';
+        if (ev && ev.ev) {
+            renderQStorm();
+            const E = EVENTS[ev.ev];
+            if (ev.started) {
+                showAchievementToast({ kicker: 'Event', name: E.name, flavor: 'For the next ' + evRun.left + ' rolls, ' + E.what + '.' });
+            } else if (ev.ended) {
+                showAchievementToast({ kicker: 'Event over', name: E.name, flavor: 'Rolling is back to normal.' });
+            }
+        }
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
@@ -5686,9 +6007,19 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalShop');
             localStorage.removeItem('elementalCatInv');
             localStorage.removeItem('elementalCatActive');
+            localStorage.removeItem('elementalCatFlags');
+            localStorage.removeItem('elementalIons');
+            localStorage.removeItem('elementalJokeIntro');
             shopState = { slot: -1, stock: [] };
             catInv = {};
             catActive = {};
+            catFlags = {};
+            ionMarks = {};
+            ionNew = [];
+            qStorm = null;
+            qStormSave();
+            evRun = null;
+            evSave();
             buffCache = weightCache = null;
         } catch (e) { }
         collection = [];
@@ -8049,7 +8380,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalIons'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalIons'];
 const CLOUD_EVERY = 45000;
 let sb = null;
 let cloudUser = null;
@@ -9015,20 +9346,16 @@ function awayRollsFor(seconds) {
     const cycle = (b.autoGap + rollSec + 1) * AWAY_SLOWER;
     return Math.floor(seconds / cycle) * (1 + b.extra);
 }
-function awayMakeRoll(b) {
-    const elements = [weightedElement(0)];
-    while (elements.length < 30 && Math.random() < 1 / b.chainDenom) {
-        if (!chainStep(elements, weightedElement(0))) {
-            break;
-        }
-    }
+function awayMakeRoll(b, ev) {
+    const make = () => rollElements(0, null, { denom: ev === 'collider' ? 2 : b.chainDenom });
+    const elements = ev === 'hole' ? rollTwice(make) : make();
     const formula = hillFormula(elements);
     const log = exactRarity(elements, 0);
     const known = ACHIEVEMENTS.find(a => a.hill === formula);
     const name = elements.length === 1 ? elements[0][1] : (known ? known.name : elements.map(e => e[1]).join(' + '));
     return ionise({ elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) }, rollIon());
 }
-function fmtClock(s) {
+function awayClock(s) {
     s = Math.max(0, Math.floor(s));
     return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
@@ -9069,7 +9396,6 @@ async function awayProcess() {
     }
     const b = activeBuffStats();
     const index = new Map(collection.map(c => [c.formula, c]));
-    const mult = 1 + (b.quark || 0) / 100;
     const firstFinds = [];
     const hist = [];
     let total = totalRolls();
@@ -9081,17 +9407,23 @@ async function awayProcess() {
     let stormAdd = null;
     let stormQ = 0;
     let stormStarted = false;
+    const evSeen = {};
+    let ev = null;
     for (let i = 0; i < n; i++) {
         if (i % per === 0) {
-            const sp = qStormPress(Math.min(per, n - i));
-            stormAdd = sp && sp.add;
-            stormStarted = stormStarted || !!(sp && sp.started);
+            ev = eventNow();
+            const sp = eventsPress(Math.min(per, n - i));
+            stormAdd = sp && !sp.ev && sp.add;
+            stormStarted = stormStarted || !!(sp && !sp.ev && sp.started);
+        }
+        if (ev && ev !== 'storm') {
+            evSeen[ev] = (evSeen[ev] || 0) + 1;
         }
         if (stormAdd) {
             earned += stormAdd[i % per];
             stormQ += stormAdd[i % per];
         }
-        const r = awayMakeRoll(b);
+        const r = awayMakeRoll(b, ev);
         if (!best || (displayMode === 'score' ? r.score > best.score : r.log < best.log)) {
             best = r;
         }
@@ -9111,7 +9443,7 @@ async function awayProcess() {
         }
         ionCredit(r.elements[0][0], r.ion);
         total++;
-        earned += quarksFor(r.score, mult + (r.elements.length === 1 ? bondBonus().alone / 100 : 0));
+        earned += quarksFor(r.score, quarkMult(r.elements, b));
         if (n - i <= HISTORY_MAX) {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
@@ -9140,11 +9472,12 @@ async function awayProcess() {
     await doRoll([best]);
     const w = openDialog('<h2>While you were away</h2>' +
         '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
-        '<p class="away-clock">' + fmtClock(seconds) + ' / ' + fmtClock(awayMax()) + '</p>' +
+        '<p class="away-clock">' + awayClock(seconds) + ' / ' + awayClock(awayMax()) + '</p>' +
         '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
             (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +
+        Object.keys(evSeen).map(id => '<p class="away-storm ev-' + id + '"><b>' + EVENTS[id].name + '</b> covered ' + formatNumber(evSeen[id]) + ' of your rolls while you were away.' + (evOn(id) ? ' It is still going, with ' + evRun.left + ' rolls left.' : '') + '</p>').join('') +
         '<div class="btn-row"><button class="primary" id="awayOk">Nice</button></div>');
     w.querySelector('#awayOk').onclick = closeDialog;
 }

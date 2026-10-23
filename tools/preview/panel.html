@@ -183,9 +183,29 @@
         net().nodes.forEach(n => netState[n.id] = 1);
         saveNet();
     });
-    add('Start Quark Storm', () => {
-        qStorm = { left: QSTORM_PRESSES, got: 0 };
+    const evClear = () => {
+        qStorm = null;
         qStormSave();
+        evRun = null;
+        evSave();
+    };
+    add('Start Quark Storm', () => {
+        evClear();
+        qStormStart();
+        renderQStorm();
+    });
+    add('Start Supercollider', () => {
+        evClear();
+        evStart('collider');
+        renderQStorm();
+    });
+    add('Start Black Hole', () => {
+        evClear();
+        evStart('hole');
+        renderQStorm();
+    });
+    add('Stop events', () => {
+        evClear();
         renderQStorm();
     });
 })();

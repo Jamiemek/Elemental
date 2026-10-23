@@ -70,6 +70,8 @@ async function doRoll(preset, opts) {
         if (onRoll) {
             startRollTicks();
         }
+        // before it counts down
+        const evNow = pre ? null : eventNow();
         const rolls = pre || Array.from({ length: rollCount }, () => {
             // the catalysts behind this roll, noted before single-roll ones are used up
             const timed = activeList().filter(x => x.a.rolls == null && x.c).map(x => x.c.name);
@@ -84,11 +86,18 @@ async function doRoll(preset, opts) {
                     luckUp += 3000;
                 }
             }
-            const elements = [first || weightedElement(luckUp)];
-            while (elements.length < 30 && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {
-                if (!chainStep(elements, weightedElement(luckUp))) {
-                    break;
+            // inside joke
+            if (!first && ch.jokeNew && jokesOn()) {
+                const jf = jokesFound();
+                if (JOKES.some(j => !jf.has(j[0]))) {
+                    first = weightedElement(luckUp, e => isJoke(e[0]) && !jf.has(e[0]));
                 }
+            }
+            const denom = evNow === 'collider' ? 2 : ch.chain3 ? Math.min(3, buffs.chainDenom) : buffs.chainDenom;
+            const make = () => rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
+            const elements = evNow === 'hole' || ch.twice ? rollTwice(make) : make();
+            if (elements.some(e => isJoke(e[0]))) {
+                gagHit();
             }
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
@@ -96,8 +105,8 @@ async function doRoll(preset, opts) {
                 elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
             }, rollIon());
         });
-        const stormFx = !pre && qStormOn();
-        const storm = pre ? null : qStormPress(rolls.length);
+        const ev = pre ? null : eventsPress(rolls.length);
+        const storm = ev && !ev.ev ? ev : null;
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();
         const cut = pickCutscene(rolls);
@@ -124,7 +133,7 @@ async function doRoll(preset, opts) {
             await playCutscene(cut.sym, reel, multi ? [withIon(rolls[feat].formula, rolls[feat].ion)] : rolls.map(r => withIon(r.formula, r.ion)), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, stormFx);
+            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, evNow);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -169,7 +178,7 @@ async function doRoll(preset, opts) {
                 playResultChime(score, secret && i === bestIdx);
             }
             if (!pre) {
-                addQuarks(quarksFor(score, 1 + ((buffs.quark || 0) + (elements.length === 1 ? bondBonus().alone : 0)) / 100) + (storm && storm.add ? storm.add[i] : 0));
+                addQuarks(quarksFor(score, quarkMult(elements, buffs)) + (storm && storm.add ? storm.add[i] : 0));
             }
         });
         if (multi) {
@@ -195,6 +204,15 @@ async function doRoll(preset, opts) {
         }
         stopRollTicks();
         $('rollToast').textContent = '';
+        if (ev && ev.ev) {
+            renderQStorm();
+            const E = EVENTS[ev.ev];
+            if (ev.started) {
+                showAchievementToast({ kicker: 'Event', name: E.name, flavor: 'For the next ' + evRun.left + ' rolls, ' + E.what + '.' });
+            } else if (ev.ended) {
+                showAchievementToast({ kicker: 'Event over', name: E.name, flavor: 'Rolling is back to normal.' });
+            }
+        }
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
@@ -339,9 +357,19 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalShop');
             localStorage.removeItem('elementalCatInv');
             localStorage.removeItem('elementalCatActive');
+            localStorage.removeItem('elementalCatFlags');
+            localStorage.removeItem('elementalIons');
+            localStorage.removeItem('elementalJokeIntro');
             shopState = { slot: -1, stock: [] };
             catInv = {};
             catActive = {};
+            catFlags = {};
+            ionMarks = {};
+            ionNew = [];
+            qStorm = null;
+            qStormSave();
+            evRun = null;
+            evSave();
             buffCache = weightCache = null;
         } catch (e) { }
         collection = [];

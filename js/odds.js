@@ -48,7 +48,9 @@ function computeBuffs() {
     const cb = catBonus();
     const denom = Math.max(3, 8 - 0.625 * Math.min(8, chainSteps + bd.chain));
     return {
-        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark, exp: catNextExpiry()
+        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? 3 : Math.max(3, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
+        // reagent/punchline add, running gag multiplies
+        jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
@@ -63,7 +65,7 @@ function weightTable(extraLuck, only) {
         if (only && !only(e)) {
             return 0;
         }
-        const v = (1 / e[2]) * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) * (1 + (b.fam[familyOf(e[0])] || 0) / 100);
+        const v = (1 / e[2]) * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) * (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1);
         total += v;
         return v;
     });
@@ -105,6 +107,29 @@ function chainStep(elements, e) {
         elements.push(e);
     }
     return false;
+}
+function rollElements(luckUp, first, o) {
+    const elements = [first || weightedElement(luckUp)];
+    const fam = o.magnet ? familyOf(elements[0][0]) : null;
+    const only = fam ? (e => familyOf(e[0]) === fam) : undefined;
+    while (elements.length < 30 && ((o.linked && elements.length === 1) || Math.random() < 1 / o.denom)) {
+        if (!chainStep(elements, weightedElement(luckUp, only))) {
+            break;
+        }
+    }
+    return elements;
+}
+// black hole / twin horizon
+function rollTwice(make) {
+    const a = make();
+    const b = make();
+    return exactRarity(b, 0) < exactRarity(a, 0) ? b : a;
+}
+function quarkMult(elements, buffs) {
+    const cb = catBonus();
+    const n = elements.length;
+    const pct = (buffs.quark || 0) + (n === 1 ? bondBonus().alone : 0) + (n > 1 ? cb.lens : 0) + cb.heavy * (n - 1);
+    return (1 + pct / 100) * (cb.laugh && elements.some(e => isJoke(e[0])) ? 3 : 1);
 }
 // + Redactium
 const secretChance = () => SECRET_CHANCE + bondBonus().secret / 100;
@@ -281,7 +306,16 @@ function qStormRange() {
     const s = bondBonus().storm / 100;
     return [QSTORM_MIN + Math.round(2 * s), QSTORM_MAX + Math.round(20 * s)];
 }
-const qStormChance = () => QSTORM_CHANCE * (1 + bondBonus().event / 100);
+const eventChanceMult = () => 1 + (bondBonus().event + catBonus().event) / 100;
+const qStormChance = () => QSTORM_CHANCE * eventChanceMult();
+// deja-vium, lightning rod, event logger
+function eventLength(base, storm) {
+    return Math.round(base * (1 + bondBonus().evlen / 100) * (storm && takeFlag('rod') ? 1.5 : 1) * (takeFlag('logger') ? 2 : 1));
+}
+function qStormStart() {
+    qStorm = { left: eventLength(QSTORM_PRESSES, true), got: 0 };
+    qStormSave();
+}
 // One press of Roll with count rolls
 function qStormPress(count) {
     if (qStormOn()) {
@@ -298,16 +332,68 @@ function qStormPress(count) {
         return { add, sum, ended };
     }
     if (Math.random() < qStormChance()) {
-        // deja-vium
-        qStorm = { left: Math.round(QSTORM_PRESSES * (1 + bondBonus().evlen / 100)), got: 0 };
-        qStormSave();
+        qStormStart();
         return { started: true };
+    }
+    return null;
+}
+// supercollider + black hole, one event at a time
+const EVENTS = {
+    collider: { name: 'Supercollider', chance: 1 / 8000, presses: 50, what: 'chain chance is 1 in 2' },
+    hole: { name: 'Black Hole', chance: 1 / 8000, presses: 50, what: 'every roll is rolled twice and keeps the rarer' }
+};
+let evRun = null;
+try {
+    const v = JSON.parse(localStorage.getItem('elementalEvent') || 'null');
+    evRun = v && EVENTS[v.id] && v.left > 0 ? { id: v.id, left: Math.min(500, Math.floor(v.left)) } : null;
+} catch (e) { }
+function evSave() {
+    try {
+        if (evRun) {
+            localStorage.setItem('elementalEvent', JSON.stringify(evRun));
+        } else {
+            localStorage.removeItem('elementalEvent');
+        }
+    } catch (e) { }
+}
+const evOn = id => !!(evRun && evRun.left > 0 && (!id || evRun.id === id));
+const anyEventOn = () => qStormOn() || evOn();
+const eventNow = () => qStormOn() ? 'storm' : evOn() ? evRun.id : null;
+function evStart(id) {
+    evRun = { id, left: eventLength(EVENTS[id].presses, false) };
+    evSave();
+}
+function eventsPress(count) {
+    if (evOn()) {
+        const id = evRun.id;
+        evRun.left--;
+        if (evRun.left <= 0) {
+            evRun = null;
+        }
+        evSave();
+        return { ev: id, ended: !evRun };
+    }
+    const st = qStormPress(count);
+    if (st) {
+        return st;
+    }
+    for (const id of Object.keys(EVENTS)) {
+        if (Math.random() < EVENTS[id].chance * eventChanceMult()) {
+            evStart(id);
+            return { ev: id, started: true };
+        }
     }
     return null;
 }
 function renderQStorm(last) {
     const bar = $('qStormBar');
     if (!bar) {
+        return;
+    }
+    bar.className = 'qstorm-bar' + (evOn() ? ' ev-' + evRun.id : '');
+    if (evOn()) {
+        bar.hidden = false;
+        bar.innerHTML = '<span class="qs-name">' + EVENTS[evRun.id].name + '</span><span class="qs-left"><b>' + evRun.left + '</b> ' + (evRun.left === 1 ? 'roll' : 'rolls') + ' left</span><span class="qs-got">' + EVENTS[evRun.id].what + '</span>';
         return;
     }
     bar.hidden = !qStormOn();

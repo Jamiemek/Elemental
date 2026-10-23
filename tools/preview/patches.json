@@ -4,8 +4,8 @@
   "<title>Elemental (preview copy)</title>"
  ],
  [
-  "            const elements = [first || weightedElement(luckUp)];\n            while (elements.length < 30 && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {",
-  "            const forcedList = window.__forceList;\n            window.__forceList = null;\n            const forcedEl = window.__forceEl ? elementBySymbol[window.__forceEl] : null;\n            window.__forceEl = null;\n            const forced = forcedList || (forcedEl ? [forcedEl] : null);\n            const elements = forced ? forced.slice() : [first || weightedElement(luckUp)];\n            while (elements.length < 30 && !forced && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {"
+  "            const elements = evNow === 'hole' || ch.twice ? rollTwice(make) : make();",
+  "            const forcedList = window.__forceList;\n            window.__forceList = null;\n            const forcedEl = window.__forceEl ? elementBySymbol[window.__forceEl] : null;\n            window.__forceEl = null;\n            const forced = forcedList || (forcedEl ? [forcedEl] : null);\n            const elements = forced ? forced.slice() : evNow === 'hole' || ch.twice ? rollTwice(make) : make();"
  ],
  [
   "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();",

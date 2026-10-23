@@ -56,20 +56,16 @@ function awayRollsFor(seconds) {
     const cycle = (b.autoGap + rollSec + 1) * AWAY_SLOWER;
     return Math.floor(seconds / cycle) * (1 + b.extra);
 }
-function awayMakeRoll(b) {
-    const elements = [weightedElement(0)];
-    while (elements.length < 30 && Math.random() < 1 / b.chainDenom) {
-        if (!chainStep(elements, weightedElement(0))) {
-            break;
-        }
-    }
+function awayMakeRoll(b, ev) {
+    const make = () => rollElements(0, null, { denom: ev === 'collider' ? 2 : b.chainDenom });
+    const elements = ev === 'hole' ? rollTwice(make) : make();
     const formula = hillFormula(elements);
     const log = exactRarity(elements, 0);
     const known = ACHIEVEMENTS.find(a => a.hill === formula);
     const name = elements.length === 1 ? elements[0][1] : (known ? known.name : elements.map(e => e[1]).join(' + '));
     return ionise({ elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) }, rollIon());
 }
-function fmtClock(s) {
+function awayClock(s) {
     s = Math.max(0, Math.floor(s));
     return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
@@ -110,7 +106,6 @@ async function awayProcess() {
     }
     const b = activeBuffStats();
     const index = new Map(collection.map(c => [c.formula, c]));
-    const mult = 1 + (b.quark || 0) / 100;
     const firstFinds = [];
     const hist = [];
     let total = totalRolls();
@@ -122,17 +117,23 @@ async function awayProcess() {
     let stormAdd = null;
     let stormQ = 0;
     let stormStarted = false;
+    const evSeen = {};
+    let ev = null;
     for (let i = 0; i < n; i++) {
         if (i % per === 0) {
-            const sp = qStormPress(Math.min(per, n - i));
-            stormAdd = sp && sp.add;
-            stormStarted = stormStarted || !!(sp && sp.started);
+            ev = eventNow();
+            const sp = eventsPress(Math.min(per, n - i));
+            stormAdd = sp && !sp.ev && sp.add;
+            stormStarted = stormStarted || !!(sp && !sp.ev && sp.started);
+        }
+        if (ev && ev !== 'storm') {
+            evSeen[ev] = (evSeen[ev] || 0) + 1;
         }
         if (stormAdd) {
             earned += stormAdd[i % per];
             stormQ += stormAdd[i % per];
         }
-        const r = awayMakeRoll(b);
+        const r = awayMakeRoll(b, ev);
         if (!best || (displayMode === 'score' ? r.score > best.score : r.log < best.log)) {
             best = r;
         }
@@ -152,7 +153,7 @@ async function awayProcess() {
         }
         ionCredit(r.elements[0][0], r.ion);
         total++;
-        earned += quarksFor(r.score, mult + (r.elements.length === 1 ? bondBonus().alone / 100 : 0));
+        earned += quarksFor(r.score, quarkMult(r.elements, b));
         if (n - i <= HISTORY_MAX) {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
@@ -181,11 +182,12 @@ async function awayProcess() {
     await doRoll([best]);
     const w = openDialog('<h2>While you were away</h2>' +
         '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
-        '<p class="away-clock">' + fmtClock(seconds) + ' / ' + fmtClock(awayMax()) + '</p>' +
+        '<p class="away-clock">' + awayClock(seconds) + ' / ' + awayClock(awayMax()) + '</p>' +
         '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
             (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +
+        Object.keys(evSeen).map(id => '<p class="away-storm ev-' + id + '"><b>' + EVENTS[id].name + '</b> covered ' + formatNumber(evSeen[id]) + ' of your rolls while you were away.' + (evOn(id) ? ' It is still going, with ' + evRun.left + ' rolls left.' : '') + '</p>').join('') +
         '<div class="btn-row"><button class="primary" id="awayOk">Nice</button></div>');
     w.querySelector('#awayOk').onclick = closeDialog;
 }

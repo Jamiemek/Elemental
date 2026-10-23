@@ -19,7 +19,101 @@ function qsSprite(i) {
     }
     return qsSprites[i];
 }
-function scanField(reel, syms, labels, scores, dur, targets, storm) {
+const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'] };
+function evLayer(g, ev, t, W, H, f) {
+    const cx = W / 2;
+    const cy = H / 2;
+    g.save();
+    if (ev === 'collider') {
+        const rx = W * 0.42;
+        const ry = H * 0.3;
+        g.globalAlpha = 0.35 * f;
+        g.strokeStyle = '#5fd4ff';
+        g.lineWidth = 6;
+        g.beginPath();
+        g.ellipse(cx, cy, rx, ry, 0, 0, 6.2832);
+        g.stroke();
+        g.globalAlpha = 0.7 * f;
+        g.lineWidth = 1;
+        g.stroke();
+        const n = 5;
+        const gap = 6.2832 / n;
+        const sp = t / 520;
+        const bunch = (a, col) => {
+            for (let s = 0; s < 5; s++) {
+                const b = a - Math.sign(col.d) * s * 0.035;
+                g.globalAlpha = f * (1 - s / 5);
+                g.fillStyle = col.c;
+                g.beginPath();
+                g.arc(cx + Math.cos(b) * rx, cy + Math.sin(b) * ry, 3.2 - s * 0.45, 0, 6.2832);
+                g.fill();
+            }
+        };
+        for (let k = 0; k < n; k++) {
+            bunch(sp + k * gap, { c: '#5fd4ff', d: 1 });
+            bunch(-sp + k * gap + gap / 2, { c: '#ff6fae', d: -1 });
+        }
+        // collisions
+        for (let k = 0; k < n; k++) {
+            for (let j = 0; j < n; j++) {
+                const a1 = sp + k * gap;
+                const a2 = -sp + j * gap + gap / 2;
+                const dd = Math.atan2(Math.sin(a1 - a2), Math.cos(a1 - a2));
+                if (Math.abs(dd) >= 0.16) {
+                    continue;
+                }
+                const a = a2 + dd / 2;
+                const x = cx + Math.cos(a) * rx;
+                const y = cy + Math.sin(a) * ry;
+                const r = 26 * (1 - Math.abs(dd) / 0.16);
+                const gr = g.createRadialGradient(x, y, 0, x, y, r);
+                gr.addColorStop(0, 'rgba(255,255,255,' + 0.9 * f + ')');
+                gr.addColorStop(0.4, 'rgba(255,224,150,' + 0.5 * f + ')');
+                gr.addColorStop(1, 'rgba(255,224,150,0)');
+                g.globalAlpha = 1;
+                g.fillStyle = gr;
+                g.beginPath();
+                g.arc(x, y, r, 0, 6.2832);
+                g.fill();
+            }
+        }
+    } else {
+        const R = Math.min(W, H) * 0.13;
+        const disc = front => {
+            for (let k = 0; k < 90; k++) {
+                const a = k / 90 * 6.2832 + t / (900 + (k % 7) * 120);
+                const s = Math.sin(a);
+                if ((s > 0) !== front) {
+                    continue;
+                }
+                const rr = R * (1.5 + (k % 9) * 0.12);
+                g.globalAlpha = f * (0.35 + 0.5 * ((k * 37) % 10) / 10);
+                g.fillStyle = k % 3 ? '#ff9a3c' : '#ffe2a8';
+                g.beginPath();
+                g.arc(cx + Math.cos(a) * rr, cy + s * rr * 0.28, 1.6 + (k % 4) * 0.5, 0, 6.2832);
+                g.fill();
+            }
+        };
+        disc(false);
+        const gr = g.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.9);
+        gr.addColorStop(0, 'rgba(255,154,60,' + 0.55 * f + ')');
+        gr.addColorStop(1, 'rgba(255,154,60,0)');
+        g.globalAlpha = 1;
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(cx, cy, R * 1.9, 0, 6.2832);
+        g.fill();
+        g.globalAlpha = f;
+        g.fillStyle = '#000';
+        g.beginPath();
+        g.arc(cx, cy, R, 0, 6.2832);
+        g.fill();
+        disc(true);
+    }
+    g.restore();
+}
+function scanField(reel, syms, labels, scores, dur, targets, ev) {
+    const storm = ev === 'storm';
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -120,16 +214,24 @@ function scanField(reel, syms, labels, scores, dur, targets, storm) {
                     spawn(p, 13 + Math.random() * 2, cz);
                     d = p.z - cz;
                 }
-                const [sx, sy] = pr(p.x, p.y, d);
+                let px = p.x;
+                let py = p.y;
+                if (ev === 'hole') {
+                    const k = Math.min(1, d / 9);
+                    const sw = (1 - k) * 2.2 + t / 2600;
+                    px = (p.x * Math.cos(sw) - p.y * Math.sin(sw)) * (0.35 + 0.65 * k);
+                    py = (p.x * Math.sin(sw) + p.y * Math.cos(sw)) * (0.35 + 0.65 * k);
+                }
+                const [sx, sy] = pr(px, py, d);
                 if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) {
                     return;
                 }
-                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92);
+                const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92) * (ev === 'hole' ? Math.min(1, d / 3) : 1);
                 if (a <= 0) {
                     return;
                 }
                 if (q > 0) {
-                    const [ex, ey] = pr(p.x, p.y, d + q * q * 3.5);
+                    const [ex, ey] = pr(px, py, d + q * q * 3.5);
                     g.globalAlpha = a * 0.7;
                     g.strokeStyle = tier ? acc : '#9fe0c8';
                     g.lineWidth = 1.5;
@@ -143,6 +245,9 @@ function scanField(reel, syms, labels, scores, dur, targets, storm) {
                 g.font = '700 ' + Math.max(5, base * p.s / d) + 'px ' + fam;
                 g.fillText(p.t, sx, sy);
             });
+            if (ev === 'collider' || ev === 'hole') {
+                evLayer(g, ev, t, W, H, 1 - q);
+            }
             Q.forEach(p => {
                 let d = p.z - cz;
                 if (d < 0.35) {
@@ -249,11 +354,11 @@ function scanField(reel, syms, labels, scores, dur, targets, storm) {
             g.fillText(u < 0.65 ? 'FIELD SCAN' : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
             g.textAlign = 'right';
             g.fillText('RNG ' + D.toFixed(1), W - 18, 26);
-            if (storm) {
+            if (ev) {
                 g.textAlign = 'left';
-                g.fillStyle = '#f0c419';
+                g.fillStyle = EV_HUD[ev][1];
                 g.globalAlpha = 0.75 + 0.25 * Math.sin(t / 160);
-                g.fillText('QUARK STORM', 18, H - 18);
+                g.fillText(EV_HUD[ev][0], 18, H - 18);
                 g.fillStyle = acc;
                 g.globalAlpha = 0.9;
             }

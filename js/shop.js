@@ -38,7 +38,28 @@ const CATALYSTS = [
     { id: 'fusion', name: 'Fusion Core', tier: 5, min: 30, fx: { luck: 600 }, price: 18000 },
     { id: 'horizon', name: 'Event Horizon', tier: 5, rolls: 1, fx: { rollLuck: 3000 }, price: 13000 },
     { id: 'singularity', name: 'Singularity', tier: 6, rolls: 1, fx: { rollLuck: 10000 }, price: 33000 },
-    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 27000 }
+    { id: 'stone', name: "Philosopher's Stone", tier: 6, rolls: 1, fx: { unfound: true }, price: 27000 },
+    // instant = used on the spot, takes no slot
+    { id: 'barometer', name: 'Barometer', tier: 0, min: 15, fx: { event: 50 }, price: 12 },
+    { id: 'courier', name: 'Courier', tier: 0, instant: true, fx: { restock: true }, price: 10 },
+    { id: 'qlens', name: 'Quark Lens', tier: 0, min: 15, fx: { lens: 50 }, price: 10 },
+    { id: 'stabiliser', name: 'Stabiliser', tier: 1, instant: true, fx: { extend: 10 }, price: 40 },
+    { id: 'rod', name: 'Lightning Rod', tier: 1, instant: true, fx: { rod: true }, price: 45 },
+    { id: 'magnet', name: 'Family Magnet', tier: 1, rolls: 20, fx: { magnet: true }, price: 35 },
+    { id: 'reagent', name: 'Practical Reagent', tier: 1, min: 15, joke: true, fx: { joke: 100 }, price: 50 },
+    { id: 'grant', name: 'Grant Funding', tier: 2, instant: true, fx: { grant: true }, price: 200 },
+    { id: 'heavy', name: 'Heavy Water', tier: 2, min: 20, fx: { heavy: 25 }, price: 230 },
+    { id: 'punchline', name: 'Punchline', tier: 2, min: 15, joke: true, fx: { joke: 300 }, price: 270 },
+    { id: 'accel', name: 'Particle Accelerator', tier: 3, rolls: 25, fx: { chain3: true }, price: 900 },
+    { id: 'logger', name: 'Event Logger', tier: 3, instant: true, fx: { logger: true }, price: 1000 },
+    { id: 'laugh', name: 'Laugh Track', tier: 3, min: 30, joke: true, fx: { laugh: true }, price: 800 },
+    { id: 'stormseed', name: 'Storm Seed', tier: 4, instant: true, fx: { start: 'storm' }, price: 5000 },
+    { id: 'colliderkey', name: 'Collider Key', tier: 4, instant: true, fx: { start: 'collider' }, price: 6200 },
+    { id: 'gag', name: 'Running Gag', tier: 4, min: 30, joke: true, fx: { gag: true }, price: 4000 },
+    { id: 'twinhorizon', name: 'Twin Horizon', tier: 5, rolls: 5, fx: { twice: true }, price: 16000 },
+    { id: 'containment', name: 'Containment Field', tier: 5, instant: true, fx: { extend: 30 }, price: 14000 },
+    { id: 'singseed', name: 'Singularity Seed', tier: 6, instant: true, fx: { start: 'hole' }, price: 30000 },
+    { id: 'insidejoke', name: 'Inside Joke', tier: 6, rolls: 1, joke: true, fx: { jokeNew: true }, price: 30000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
 function catEffect(c) {
@@ -70,9 +91,19 @@ function catEffect(c) {
     if (f.rollLuck) {
         return `+${f.rollLuck.toLocaleString('en-US')}% luck` + (f.rollLuck >= 10000 ? ', which guarantees Uranium' : '');
     }
-    return "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
+    const more = {
+        event: `Events are ${f.event}% more likely to start`, restock: 'Restocks the shop straight away', lens: `+${f.lens}% quarks from rolls that chain`,
+        extend: `Adds ${f.extend} minutes to every active timed catalyst`, rod: 'The next Quark Storm lasts 50% longer', magnet: "Chained elements come from the first element's family",
+        joke: `+${f.joke}% chance of joke elements`, grant: 'Your next catalyst purchase costs half', heavy: `Each chained element adds +${f.heavy}% quarks`,
+        chain3: 'Chain chance at its best (1 in 3)', logger: 'The next event lasts twice as long', laugh: 'Finds containing a joke element earn three times the quarks',
+        start: 'Starts a ' + (f.start === 'storm' ? 'Quark Storm' : f.start === 'collider' ? 'Supercollider' : 'Black Hole') + ' now (not while another event is running)',
+        gag: 'Joke elements are five times as likely, and ten times once you roll one while it lasts', twice: 'Each roll is rolled twice and keeps the rarer',
+        jokeNew: "The roll gives a joke element you haven't found yet"
+    };
+    const k = Object.keys(f).find(x => more[x]);
+    return k ? more[k] : "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
 }
-const catLength = c => c.rolls ? (c.rolls === 1 ? 'Single roll' : `Next ${c.rolls} rolls`) : `Timed, ${c.min} min`;
+const catLength = c => c.instant ? (c.fx.rod || c.fx.logger ? 'Waits for the next event' : 'Works straight away') : c.rolls ? (c.rolls === 1 ? 'Single roll' : `Next ${c.rolls} rolls`) : `Timed, ${c.min} min`;
 // saved state
 function loadJSON(k, d) {
     try {
@@ -84,12 +115,25 @@ function loadJSON(k, d) {
 let shopState = loadJSON('elementalShop', { slot: -1, stock: [] });
 let catInv = loadJSON('elementalCatInv', {});
 let catActive = loadJSON('elementalCatActive', {});
+let catFlags = loadJSON('elementalCatFlags', {});
 function saveCats() {
     try {
         localStorage.setItem('elementalShop', JSON.stringify(shopState));
         localStorage.setItem('elementalCatInv', JSON.stringify(catInv));
         localStorage.setItem('elementalCatActive', JSON.stringify(catActive));
+        localStorage.setItem('elementalCatFlags', JSON.stringify(catFlags));
     } catch (e) { }
+}
+function takeFlag(k) {
+    if (!(catFlags[k] > 0)) {
+        return false;
+    }
+    catFlags[k]--;
+    if (!catFlags[k]) {
+        delete catFlags[k];
+    }
+    saveCats();
+    return true;
 }
 // active catalysts
 function pruneActive() {
@@ -115,13 +159,21 @@ function activeList() {
 // totals from active timed catalysts, for computeBuffs and weightTable
 function catBonus() {
     const r = {
-        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {}
+        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {},
+        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0
     };
     activeList().forEach(({ a, c }) => {
         if (!a.until) {
             return;
         }
         const f = c.fx;
+        ['event', 'lens', 'heavy', 'joke'].forEach(k => r[k] += f[k] || 0);
+        if (f.laugh) {
+            r.laugh = true;
+        }
+        if (f.gag) {
+            r.gag = a.hit ? 10 : 5;
+        }
         if (f.luck) {
             r.luck += f.luck;
         }
@@ -163,6 +215,9 @@ function useCatalyst(id, n) {
     if (!n) {
         return 'You have none of these.';
     }
+    if (c.instant) {
+        return useInstant(c, n);
+    }
     pruneActive();
     const cur = catActive[c.tier];
     if (cur && cur.id !== id) {
@@ -181,6 +236,44 @@ function useCatalyst(id, n) {
     }
     saveCats();
     buffCache = weightCache = null;
+    return '';
+}
+function useInstant(c, n) {
+    const f = c.fx;
+    if (f.start) {
+        if (anyEventOn()) {
+            return 'An event is already running. Only one can run at a time.';
+        }
+        n = 1;
+        if (f.start === 'storm') {
+            qStormStart();
+        } else {
+            evStart(f.start);
+        }
+        renderQStorm();
+    } else if (f.restock) {
+        n = 1;
+        const held = bondBonus().hold && shopState.stock.find(s => s.held && !s.sold);
+        shopState.stock = held ? [held] : [];
+        shopCheck();
+    } else if (f.extend) {
+        pruneActive();
+        const timed = Object.values(catActive).filter(a => a.until);
+        if (!timed.length) {
+            return 'No timed catalysts are running to extend.';
+        }
+        timed.forEach(a => a.until += f.extend * 60000 * n);
+    } else {
+        const k = f.rod ? 'rod' : f.logger ? 'logger' : 'grant';
+        catFlags[k] = (catFlags[k] || 0) + n;
+    }
+    catInv[c.id] -= n;
+    if (!catInv[c.id]) {
+        delete catInv[c.id];
+    }
+    saveCats();
+    buffCache = weightCache = null;
+    renderActiveCats();
     return '';
 }
 function catLeft(a) {
@@ -203,7 +296,7 @@ function fmtClock(s) {
 // single-roll catalysts: take one charge for one individual roll
 function takeRollCharge() {
     pruneActive();
-    const out = { rollLuck: 0, unfound: false, linked: false, used: [] };
+    const out = { rollLuck: 0, unfound: false, linked: false, magnet: false, chain3: false, twice: false, jokeNew: false, used: [] };
     Object.keys(catActive).forEach(t => {
         const a = catActive[t];
         if (a.rolls == null || a.rolls <= 0) {
@@ -217,9 +310,11 @@ function takeRollCharge() {
         if (f.unfound) {
             out.unfound = true;
         }
-        if (f.linked) {
-            out.linked = true;
-        }
+        ['linked', 'magnet', 'chain3', 'twice', 'jokeNew'].forEach(k => {
+            if (f[k]) {
+                out[k] = true;
+            }
+        });
         // refund chance
         if (Math.random() >= bondBonus().refund / 100) {
             a.rolls -= 1;
@@ -228,6 +323,15 @@ function takeRollCharge() {
     pruneActive();
     saveCats();
     return out;
+}
+// running gag goes to x10
+function gagHit() {
+    const a = Object.values(catActive).find(x => x.id === 'gag' && !x.hit);
+    if (a) {
+        a.hit = true;
+        saveCats();
+        buffCache = weightCache = null;
+    }
 }
 function clearCatalyst(tier) {
     delete catActive[tier];
@@ -241,8 +345,8 @@ function shopPeriodMs() {
 }
 // 2 + bonds, max 6
 const shopSlots = () => Math.min(6, 2 + bondBonus().slots);
-function shopPrice(c) {
-    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100)));
+function shopPrice(c, grant = true) {
+    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100) * (grant && catFlags.grant ? 0.5 : 1)));
 }
 var clockBase = null;
 var clockTried = false;
@@ -289,8 +393,11 @@ function shopRoll() {
             break;
         }
     }
-    const pool = CATALYSTS.filter(c => c.tier === tier);
-    return pool[Math.floor(Math.random() * pool.length)].id;
+    const jokes = bondBonus().jokecat && jokesOn();
+    const pool = CATALYSTS.filter(c => c.tier === tier && (!c.joke || jokes));
+    const wt = c => c.joke ? 1 + bondBonus().jokerate / 100 : 1;
+    let x = Math.random() * pool.reduce((s, c) => s + wt(c), 0);
+    return (pool.find(c => (x -= wt(c)) < 0) || pool[pool.length - 1]).id;
 }
 // a new save has no stock yet, so stock the shop before reading its timer
 function shopNextIn() {
@@ -305,11 +412,14 @@ function buyStock(i) {
         return;
     }
     const c = CAT[s.id];
-    const p = shopPrice(c);
+    const p = shopPrice(c, true);
     if (quarks < p) {
         return;
     }
     addQuarks(-p);
+    if (catFlags.grant) {
+        takeFlag('grant');
+    }
     s.sold = true;
     s.held = false;
     const two = Math.random() < bondBonus().dup / 100;
@@ -349,11 +459,13 @@ function renderShop() {
 }
 function renderActiveCats() {
     const list = activeList();
-    const html = list.length ? list.map(({ tier, a, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><span class="act-left" data-tier="${tier}">${catLeft(a)}</span></div>`).join('') : '<p class="muted">No catalysts active.</p>';
+    const waiting = [['rod', 'Lightning Rod', 'next Quark Storm'], ['logger', 'Event Logger', 'next event'], ['grant', 'Grant Funding', 'next purchase']]
+        .filter(([k]) => catFlags[k] > 0).map(([k, name, what]) => `<div class="act-row" style="--tc:${CAT_TIERS[CAT[k].tier].col}">${tierChip(CAT[k].tier)}<strong>${name}${catFlags[k] > 1 ? ' ×' + catFlags[k] : ''}</strong><span class="act-left">Waiting: ${what}</span></div>`).join('');
+    const html = list.length || waiting ? list.map(({ tier, a, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><span class="act-left" data-tier="${tier}">${catLeft(a)}</span></div>`).join('') + waiting : '<p class="muted">No catalysts active.</p>';
     ['catActive', 'rollCats'].forEach(k => {
         const el = $(k);
         if (el) {
-            el.innerHTML = list.length ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + html : '';
+            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + html : '';
         }
     });
     const cl = $('catClear');
@@ -401,12 +513,12 @@ function renderCatInv() {
         const c = CAT[invSel];
         const T = CAT_TIERS[c.tier];
         const a = catActive[c.tier];
-        const status = a && a.id === invSel ? `<p class="ip-status on">Running: ${catLeft(a)} left. Using more adds to it.</p>` : a ? `<p class="ip-status off">${CAT[a.id].name} is running for ${T.name.toLowerCase()} catalysts (${catLeft(a)} left), so this one can't be used until it ends.</p>` : '';
+        const status = c.instant ? '' : a && a.id === invSel ? `<p class="ip-status on">Running: ${catLeft(a)} left. Using more adds to it.</p>` : a ? `<p class="ip-status off">${CAT[a.id].name} is running for ${T.name.toLowerCase()} catalysts (${catLeft(a)} left), so this one can't be used until it ends.</p>` : '';
         const n = catInv[invSel];
         d.innerHTML = `<div class="inv-preview" style="--tc:${T.col}"><span class="ip-mark">${catMark(c)}</span><span class="ip-tier">${T.name}</span></div>
 <div class="ip-use"><button class="primary" data-use="1">Use</button>${n > 1 ? '<button class="ghost" data-use="pick">Use…</button><button class="ghost" data-use="all">Use all</button>' : ''}</div>
 <p class="shop-msg" id="invMsg" aria-live="polite"></p>
-<div class="ip-desc" style="--tc:${T.col}"><h2>${c.name}</h2>${tierChip(c.tier)}<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${n.toLocaleString('en-US')}</dd></div>${c.rolls ? '' : `<div><dt>Using all</dt><dd>${fmtClock(c.min * 60 * n)}</dd></div>`}</dl>${status}</div>`;
+<div class="ip-desc" style="--tc:${T.col}"><h2>${c.name}</h2>${tierChip(c.tier)}<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${n.toLocaleString('en-US')}</dd></div>${c.rolls || c.instant ? '' : `<div><dt>Using all</dt><dd>${fmtClock(c.min * 60 * n)}</dd></div>`}</dl>${status}</div>`;
     }
     renderActiveCats();
 }
