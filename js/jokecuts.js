@@ -654,3 +654,60 @@ CUTSCENES.Dj = {
         drawCard(ctx, scene, time, 7000, '#ff9ce6', '#8a3bd1');
     }
 };
+// Ha: half of it decays, then half of what's left, and so on forever
+CUTSCENES.Ha = {
+    z: 0, dur: 8600,
+    snd(audio, start) {
+        for (let i = 0; i < 7; i++) {
+            playTone(audio, 1200 * Math.pow(0.85, i), start + 0.8 + i * 0.72, 0.25, 0.022, 'triangle', 600 * Math.pow(0.85, i), 0.3);
+            playNoise(audio, start + 0.8 + i * 0.72, 0.15, 0.012, 3000, 900, 'bandpass', 1, 0.2);
+        }
+        padChord(audio, start + 6.4, [349.2, 440, 523.3], 2, 0.014, 'triangle', 2400);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2 - 2 * u;
+        const step = 720;
+        const first = 800;
+        const n = Math.max(0, Math.min(7, Math.floor((time - first) / step) + 1));
+        ctx.fillStyle = '#081a12';
+        ctx.fillRect(0, 0, W, H);
+        const fade = 1 - smoothstep(6500, 7000, time);
+        const r0 = 12 * u;
+        // the halves that leave
+        for (let i = 0; i < n; i++) {
+            const d = time - first - i * step;
+            const r = r0 * Math.sqrt(Math.pow(0.5, i));
+            const s = i % 2 ? -1 : 1;
+            const a = (1 - smoothstep(0, 900, d)) * fade;
+            if (a <= 0) {
+                continue;
+            }
+            ctx.save();
+            ctx.globalAlpha = a * 0.8;
+            ctx.translate(cx + s * (r * 0.4 + d * 0.03 * u), cy + d * 0.012 * u);
+            ctx.rotate(s * d / 900);
+            ctx.fillStyle = '#3fbf7f';
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.71, s > 0 ? -Math.PI / 2 : Math.PI / 2, s > 0 ? Math.PI / 2 : Math.PI * 1.5);
+            ctx.fill();
+            ctx.restore();
+        }
+        // what's left
+        const r = r0 * Math.sqrt(Math.pow(0.5, n));
+        drawGlow(ctx, cx, cy, r * 2.2, '#7dffb0', 0.5 * fade);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#b8ffd6';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        const left = 100 * Math.pow(0.5, n);
+        drawText(ctx, left + '%', cx, cy + 22 * u, 4 * u, '#7dffb0', smoothstep(400, 800, time) * fade, 800, 0.3 * u);
+        drawText(ctx, 'Still halfway', cx, cy + 29 * u, 2.4 * u, '#c9f5dc', smoothstep(5600, 6000, time) * fade, 500);
+        drawCard(ctx, scene, time, 6900, '#7dffb0', '#2fae6a');
+    }
+};
