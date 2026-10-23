@@ -578,3 +578,79 @@ CUTSCENES.Mb = {
         drawCard(ctx, scene, time, 6400, '#c9a7ff', '#6b3fd1');
     }
 };
+// Dj: the same discovery plays, rewinds, plays again, rewinds...
+CUTSCENES.Dj = {
+    z: 0, dur: 9000,
+    snd(audio, start) {
+        [0, 2.4, 4.8].forEach((x, i) => {
+            playNoise(audio, start + x + 0.2, 0.8, 0.02, 400, 2400, 'bandpass', 1, 0.2, 0.3);
+            playTone(audio, 1046.5 - i * 60, start + x + 1, 0.5, 0.025, 'sine', null, 0.4);
+        });
+        [1.8, 4.2].forEach(x => {
+            riser(audio, start + x, 0.55, 0.02, 2400, 300);
+            playNoise(audio, start + x, 0.55, 0.025, 6000, 3000, 'highpass', 1, 0.05);
+        });
+        padChord(audio, start + 7, [311.1, 392, 466.2], 2, 0.016, 'triangle', 2400);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        if (!st.r) {
+            st.r = seededRandom(19);
+        }
+        const takes = [[0, 1800, 'A new discovery!'], [2400, 4200, 'A new discovery?'], [4800, 6600, 'A new discovery…?']];
+        const rewinds = [[1800, 2400], [4200, 4800]];
+        ctx.fillStyle = '#140a1c';
+        ctx.fillRect(0, 0, W, H);
+        let t = -1;
+        let take = 0;
+        takes.forEach(([a, b], i) => {
+            if (time >= a && time < b) {
+                t = time - a;
+                take = i;
+            }
+        });
+        rewinds.forEach(([a, b], i) => {
+            if (time >= a && time < b) {
+                // running it backwards
+                t = 1800 * (1 - (time - a) / (b - a));
+                take = i;
+            }
+        });
+        const rw = rewinds.some(([a, b]) => time >= a && time < b);
+        if (t >= 0) {
+            const k = smoothstep(0, 900, t);
+            const x = cx - 30 * u * (1 - k);
+            drawGlow(ctx, x, cy, (8 + 10 * smoothstep(900, 1100, t)) * u, '#ff9ce6', 0.7);
+            ctx.fillStyle = '#ffe3f7';
+            ctx.beginPath();
+            ctx.arc(x, cy, 2.4 * u, 0, TAU);
+            ctx.fill();
+            drawText(ctx, takes[take][2], cx, cy + 12 * u, 3.4 * u, '#ff9ce6', smoothstep(1000, 1300, t), 800, 0.3 * u);
+            if (take === 2) {
+                drawText(ctx, "Haven't we done this before?", cx, cy + 18 * u, 2.2 * u, '#e6c9f2', smoothstep(1300, 1600, t), 500);
+            }
+        }
+        if (rw) {
+            const n = calmFx ? 0.35 : 1;
+            for (let i = 0; i < 14; i++) {
+                const y = st.r() * H;
+                ctx.fillStyle = 'rgba(255,255,255,' + 0.08 * n + ')';
+                ctx.fillRect(0, y, W, st.r() * 1.2 * u);
+            }
+            ctx.fillStyle = 'rgba(255,255,255,' + 0.12 * n + ')';
+            ctx.fillRect(0, (time * 0.8) % H, W, 3 * u);
+            drawText(ctx, '◀◀ REWIND', 12 * u, 6 * u, 2.6 * u, '#ffffff', 0.85, 700, 0.3 * u);
+        }
+        const out = smoothstep(6600, 7000, time);
+        if (out > 0) {
+            ctx.fillStyle = 'rgba(20,10,28,' + out + ')';
+            ctx.fillRect(0, 0, W, H);
+        }
+        drawCard(ctx, scene, time, 7000, '#ff9ce6', '#8a3bd1');
+    }
+};
