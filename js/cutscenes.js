@@ -61,7 +61,7 @@ function drawCard(ctx, scene, time, start, color, color2) {
         drawText(ctx, scene.sym, W / 2, H / 2 - 2 * u, 26 * u * (0.92 + 0.08 * a), color, a, 800);
     }
     drawText(ctx, scene.name.toUpperCase(), W / 2, H / 2 + 17 * u, 3.6 * u, '#fff', a * 0.9, 600, 0.9 * u);
-    drawText(ctx, 'ELEMENT ' + scene.atomicNumber, W / 2, H / 2 - 24 * u, 2.2 * u, color, a * 0.85, 600, 0.6 * u);
+    drawText(ctx, scene.atomicNumber ? 'ELEMENT ' + scene.atomicNumber : 'JOKE ELEMENT', W / 2, H / 2 - 24 * u, 2.2 * u, color, a * 0.85, 600, 0.6 * u);
 }
 // Picks the rarest roll that contains an element with its own cutscene.
 function pickCutscene(rolls) {

@@ -36,11 +36,15 @@ function seenAdd(kind, v) {
         seenSave();
     }
 }
-const VIEW_ORDER = () => Object.keys(CUTSCENES).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
+const VIEW_ORDER = (jokes = false) => Object.keys(CUTSCENES).filter(s => isJoke(s) === jokes).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
 function renderViewer() {
     const s = seenLoad();
     const cuts = $('vwCuts');
     cuts.innerHTML = VIEW_ORDER().map(sym => s.cut.includes(sym) ?
+        '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
+        '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
+    $('vwJokeWrap').hidden = !jokesOn();
+    $('vwJokes').innerHTML = VIEW_ORDER(true).map(sym => s.cut.includes(sym) ?
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
     const tiers = Math.max(9, tierTop());
@@ -50,7 +54,7 @@ function renderViewer() {
     const dark = s.dark.filter(t => RARITY_DARK[t]).sort((a, b) => a - b);
     $('vwDarkWrap').hidden = !dark.length;
     $('vwDark').innerHTML = dark.map(t => '<button class="vw-tile dark" data-dark="' + t + '" style="--tc:' + RARITY_DARK[t].c + '"><b>' + t + '</b><span>Secret tier ' + t + '</span></button>').join('');
-    $('vwCount').textContent = s.cut.length + ' of ' + Object.keys(CUTSCENES).length + ' cutscenes and ' + s.fx.length + ' of ' + tiers + ' effects seen.';
+    $('vwCount').textContent = s.cut.filter(x => !isJoke(x)).length + ' of ' + VIEW_ORDER().length + ' cutscenes and ' + s.fx.length + ' of ' + tiers + ' effects seen.';
 }
 async function viewerPlay(btn) {
     if (rolling) {
@@ -75,7 +79,7 @@ async function viewerPlay(btn) {
         playRarityFx(t, dark);
     }, 250);
 }
-['vwCuts', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
+['vwCuts', 'vwJokes', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
     const b = e.target.closest('button[data-cut], button[data-fx], button[data-dark]');
     if (b) {
         viewerPlay(b);

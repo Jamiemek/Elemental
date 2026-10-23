@@ -30,6 +30,7 @@ JS_FILES = [
     'settings.js',   # achievement rarities, settings, theme, start-up renders
     'cosmetics.js',  # scanner and page skins, the Final Element badge, the shop's Cosmetics tab
     'cutscenes.js',  # the 15 element cutscenes
+    'jokecuts.js',   # the 15 joke element cutscenes
     'storage.js',    # storage use and "Clear redundant finds"
     'viewer.js',     # cutscene and effect viewer, donation links
     'cloud.js',      # accounts and cloud saves

@@ -249,6 +249,31 @@
 })();
 </script>
 <script>
+// every joke cutscene, seen or not
+(function () {
+    const box = document.getElementById('fxPreview');
+    const lab = document.createElement('span');
+    lab.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#c45cff;margin-top:4px';
+    lab.textContent = 'JOKE CUTSCENES';
+    box.appendChild(lab);
+    JOKES.forEach(j => {
+        const b = document.createElement('button');
+        b.className = 'ghost';
+        b.textContent = j[0];
+        b.style.cssText = 'padding:4px 8px;font-size:15px;color:#c45cff;border-color:#c45cff';
+        b.onclick = () => {
+            if (rolling || !CUTSCENES[j[0]]) {
+                return;
+            }
+            go('game');
+            const log = exactRarity([j], 0);
+            doRoll([{ elements: [j], formula: j[0], name: j[1], log, rarity: rarityText(log), score: rollScore([j]) }], { replay: true });
+        };
+        box.appendChild(b);
+    });
+})();
+</script>
+<script>
 // minimise button for the preview panel; remembers its state
 (function () {
     const box = document.getElementById('fxPreview');
