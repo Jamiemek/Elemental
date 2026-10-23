@@ -5240,13 +5240,30 @@ function fillSlot(id) {
     const plan = payPlan(n.req);
     plan.forEach(p => p.c.spent = (p.c.spent || 0) + p.take);
     save();
+    fillFree(id);
+    return true;
+}
+function fillFree(id) {
     netState[id] = 1;
     saveNet();
     netVer++;
     buffCache = weightCache = null;
     setTimeout(jokeIntroCheck, 600);
     applyCosmetics();
-    return true;
+}
+// the open slot you're nearest to paying for (bonding agent)
+function closestSlot() {
+    let best = null;
+    shownNet().nodes.forEach(n => {
+        if (netFilled(n.id) || !netReachable(n.id)) {
+            return;
+        }
+        const have = Math.min(1, eligible(n.req).reduce((s, x) => s + x.n, 0) / n.req.n);
+        if (!best || have > best.have || (have === best.have && n.req.n < best.n.req.n)) {
+            best = { n, have };
+        }
+    });
+    return best && best.n;
 }
 // joke element bonuses, no luck or speed ones
 const JOKE_BONUS = {
@@ -5952,6 +5969,7 @@ const CATALYSTS = [
     { id: 'heavy', name: 'Heavy Water', tier: 2, min: 20, fx: { heavy: 25 }, price: 230 },
     { id: 'punchline', name: 'Punchline', tier: 2, min: 15, joke: true, fx: { joke: 300 }, price: 270 },
     { id: 'accel', name: 'Particle Accelerator', tier: 3, rolls: 25, fx: { chain3: true }, price: 900 },
+    { id: 'bondagent', name: 'Bonding Agent', tier: 3, instant: true, fx: { bond: true }, price: 2500 },
     { id: 'logger', name: 'Event Logger', tier: 3, instant: true, fx: { logger: true }, price: 1000 },
     { id: 'laugh', name: 'Laugh Track', tier: 3, min: 30, joke: true, fx: { laugh: true }, price: 800 },
     { id: 'stormseed', name: 'Storm Seed', tier: 4, instant: true, fx: { start: 'storm' }, price: 5000 },
@@ -5999,7 +6017,8 @@ function catEffect(c) {
         chain3: 'Chain chance at its best (1 in 3)', logger: 'The next event lasts twice as long', laugh: 'Finds containing a joke element earn three times the quarks',
         start: 'Starts a ' + (f.start === 'storm' ? 'Quark Storm' : f.start === 'collider' ? 'Supercollider' : 'Black Hole') + ' now (not while another event is running)',
         gag: 'Joke elements are five times as likely, and ten times once you roll one while it lasts', twice: 'Each roll is rolled twice and keeps the rarer',
-        jokeNew: "The roll gives a joke element you haven't found yet", level: 'Elements your luck has made rarer go back to their odds at 0% luck'
+        jokeNew: "The roll gives a joke element you haven't found yet", level: 'Elements your luck has made rarer go back to their odds at 0% luck',
+        bond: 'Fills the bond slot you are closest to completing, for free'
     };
     const k = Object.keys(f).find(x => more[x]);
     return k ? more[k] : "The roll gives an element you haven't found yet (+3,000% luck if you've found them all)";
@@ -6160,6 +6179,24 @@ function useInstant(c, n) {
         const held = bondBonus().hold && shopState.stock.find(s => s.held && !s.sold);
         shopState.stock = held ? [held] : [];
         shopCheck();
+    } else if (f.bond) {
+        let done = 0;
+        for (; done < n; done++) {
+            const s = closestSlot();
+            if (!s) {
+                break;
+            }
+            fillFree(s.id);
+        }
+        if (!done) {
+            return 'There are no open bond slots to fill.';
+        }
+        n = done;
+        showAchievementToast({ kicker: 'Bonding Agent', name: done > 1 ? done + ' bond slots filled' : 'Bond slot filled', flavor: 'Paid for in full. Check the bonds tree.' });
+        if ($('bonds').classList.contains('active')) {
+            bondSummary();
+            netDrawSoon();
+        }
     } else if (f.extend) {
         pruneActive();
         const timed = Object.values(catActive).filter(a => a.until);

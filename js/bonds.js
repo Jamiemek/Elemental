@@ -387,13 +387,30 @@ function fillSlot(id) {
     const plan = payPlan(n.req);
     plan.forEach(p => p.c.spent = (p.c.spent || 0) + p.take);
     save();
+    fillFree(id);
+    return true;
+}
+function fillFree(id) {
     netState[id] = 1;
     saveNet();
     netVer++;
     buffCache = weightCache = null;
     setTimeout(jokeIntroCheck, 600);
     applyCosmetics();
-    return true;
+}
+// the open slot you're nearest to paying for (bonding agent)
+function closestSlot() {
+    let best = null;
+    shownNet().nodes.forEach(n => {
+        if (netFilled(n.id) || !netReachable(n.id)) {
+            return;
+        }
+        const have = Math.min(1, eligible(n.req).reduce((s, x) => s + x.n, 0) / n.req.n);
+        if (!best || have > best.have || (have === best.have && n.req.n < best.n.req.n)) {
+            best = { n, have };
+        }
+    });
+    return best && best.n;
 }
 // joke element bonuses, no luck or speed ones
 const JOKE_BONUS = {
