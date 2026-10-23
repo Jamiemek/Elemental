@@ -167,6 +167,14 @@
             addRecord({ id: Math.random(), formula: f, name: a.name, elements: els, log: exactRarity(els), rarity: rarityText(exactRarity(els)), score: rollScore(els), when: new Date().toISOString() });
         }
     }));
+    // "any compound with X" slots: plenty of elements are in none of the named compounds
+    add('+5 compounds with every element', () => ELEMENTS.forEach(e => {
+        const els = [e, elementBySymbol[e[0] === 'O' ? 'H' : 'O']];
+        const f = hillFormula(els);
+        for (let i = 0; i < 5; i++) {
+            addRecord({ id: Math.random(), formula: f, name: els.map(x => x[1]).join(' + '), elements: els, log: exactRarity(els), rarity: rarityText(exactRarity(els)), score: rollScore(els), when: new Date().toISOString() });
+        }
+    }));
     add('Restock shop now', () => {
         shopState = { slot: -1, stock: [] };
     });
