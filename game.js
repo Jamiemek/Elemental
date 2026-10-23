@@ -5053,7 +5053,7 @@ function genNetwork() {
         list.forEach(e => e.val = Math.max(1 / dp, Math.round(NET_TOTALS[kind] * Math.pow(e.ring, NET_WEIGHT[kind]) / wsum * dp) / dp));
     });
     const base = nodes.length;
-    genOuter(nodes, edges, reqFor, grind);
+    genOuter(nodes, edges, reqFor);
     // the easy bridge: cheapest rim slot to the nearest outer slot, which only asks for oxygen
     const from = nodes.slice(0, base).filter(n => n.ring === NET_RINGS && n.req.t === 'el').reduce((b, n) => grind(n) < grind(b) ? n : b);
     const to = nodes.slice(base).filter(n => n.orbit === 0).reduce((b, n) => Math.hypot(n.x - from.x, n.y - from.y) < Math.hypot(b.x - from.x, b.y - from.y) ? n : b);
@@ -5066,7 +5066,37 @@ function genNetwork() {
     });
     return { nodes, edges, adj, base };
 }
-function genOuter(nodes, edges, reqFor, grind) {
+// expected rolls to get a slot's full amount at a given luck and chain chance
+const shareMemo = {};
+function rollsFor(q, luck, denom) {
+    let share = shareMemo[luck];
+    if (!share) {
+        share = shareMemo[luck] = {};
+        let tot = 0;
+        ELEMENTS.forEach(e => {
+            share[e[0]] = Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) / e[2];
+            tot += share[e[0]];
+        });
+        Object.keys(share).forEach(k => share[k] /= tot);
+    }
+    const go = 1 / denom;
+    let p;
+    if (q.t === 'el') {
+        p = share[q.k] * (1 - go);
+    } else if (q.t === 'fam') {
+        p = ELEMENTS.filter(e => familyOf(e[0]) === q.k).reduce((s, e) => s + share[e[0]], 0) * (1 - go);
+    } else if (q.t === 'has') {
+        p = share[q.k] * go * 2;
+    } else {
+        const counts = parseFormula(q.l);
+        const m = Object.values(counts).reduce((a, c) => a + c, 0);
+        const fact = k => k < 2 ? 1 : k * fact(k - 1);
+        p = Math.pow(go, m - 1) * (1 - go) * fact(m);
+        Object.keys(counts).forEach(k => p *= Math.pow(share[k], counts[k]) / fact(counts[k]));
+    }
+    return q.n / p;
+}
+function genOuter(nodes, edges, reqFor) {
     const R = seededRnd(OUTER_SEED);
     const base = nodes.length;
     const nearest = (list, n) => list.reduce((b, m) => Math.hypot(m.x - n.x, m.y - n.y) < Math.hypot(b.x - n.x, b.y - n.y) ? m : b, list[0]);
@@ -5104,7 +5134,14 @@ function genOuter(nodes, edges, reqFor, grind) {
     }
     for (let i = base; i < nodes.length; i++) {
         nodes[i].req = reqFor(nodes[i].ring, R);
+        // late luck makes some of these near impossible, so ask for the rarest element instead
+        const q = nodes[i].req;
+        if (q.t === 'cp' && rollsFor(q, 700, 3) > 3e5) {
+            const els = ELEMENTS.filter(e => parseFormula(q.l)[e[0]]);
+            nodes[i].req = { t: 'has', k: els.reduce((a, b) => b[2] > a[2] ? b : a)[0], n: 10 };
+        }
     }
+    const hard = n => rollsFor(n.req, 700, 3);
     // unlocks go on the hardest line in each orbit
     const outerEdges = edges.filter(e => e.orbit != null);
     const taken = new Set();
@@ -5115,7 +5152,7 @@ function genOuter(nodes, edges, reqFor, grind) {
             if (e.orbit !== o || e.bridge || taken.has(e)) {
                 return;
             }
-            const c = grind(nodes[e.b]);
+            const c = Math.max(hard(nodes[e.a]), hard(nodes[e.b]));
             if (c > bc) {
                 bc = c;
                 best = e;
@@ -5271,33 +5308,10 @@ function pityPrice(n) {
         return pityMemo.price.get(key);
     }
     const b = activeBuffStats();
-    const luck = b.luck - catBonus().luck;
-    const share = {};
-    let tot = 0;
-    ELEMENTS.forEach(e => {
-        const v = Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) / e[2];
-        share[e[0]] = v;
-        tot += v;
-    });
-    Object.keys(share).forEach(k => share[k] /= tot);
-    const go = 1 / b.chainDenom;
     const q = n.req;
     const left = Math.max(1, q.n - eligible(q).reduce((s, x) => s + x.n, 0));
-    let p;
-    if (q.t === 'el') {
-        p = share[q.k] * (1 - go);
-    } else if (q.t === 'fam') {
-        p = ELEMENTS.filter(e => familyOf(e[0]) === q.k).reduce((s, e) => s + share[e[0]], 0) * (1 - go);
-    } else if (q.t === 'has') {
-        p = share[q.k] * go * 2;
-    } else {
-        const counts = parseFormula(q.l);
-        const m = Object.values(counts).reduce((a, c) => a + c, 0);
-        const fact = k => k < 2 ? 1 : k * fact(k - 1);
-        p = Math.pow(go, m - 1) * (1 - go) * fact(m);
-        Object.keys(counts).forEach(s => p *= Math.pow(share[s], counts[s]) / fact(counts[s]));
-    }
-    const price = Number(Math.min(2.5e7, Math.max(1e6, left / p * 0.5)).toPrecision(2));
+    const rolls = rollsFor(q, Math.round(b.luck - catBonus().luck), b.chainDenom) * left / q.n;
+    const price = Number(Math.min(2.5e7, Math.max(1e6, rolls * 0.5)).toPrecision(2));
     pityMemo.price.set(key, price);
     return price;
 }
