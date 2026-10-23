@@ -1,6 +1,6 @@
 let toastTimer;
 const EFFECT_DEFAULTS = {
-    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true
+    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true
 };
 let rarityEffects = { ...EFFECT_DEFAULTS };
 try {
@@ -26,7 +26,7 @@ let audioContext = null;
 let tickTimer = null;
 let tickIndex = 0;
 const soundTierDefaults = {
-    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true
+    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true
 };
 let soundTiers = { ...soundTierDefaults };
 try {
@@ -102,7 +102,7 @@ function stopRollTicks() {
     }
 }
 // Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion
-const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000];
+const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000, 30000000, 100000000, 300000000];
 function getRarityTier(score) {
     let t = 0;
     TIER_SCORES.forEach((min, i) => {
@@ -394,7 +394,7 @@ function darkSound(ctx, start, tier) {
         scrape(ctx, R + 0.3, 3.4, 0.1, 4500, 300);
         toll(ctx, R + 0.5, 55, 0.07, 5);
         boom(ctx, R + 2.8, 0.4, 2.4);
-    } else {
+    } else if (tier === 9) {
         const v = 4.32;
         const hb = RARITY_DARK[9].hb;
         hb.forEach((ms, i) => heartbeat(ctx, S + ms / 1000, 0.16 + i * 0.035));
@@ -422,6 +422,60 @@ function darkSound(ctx, start, tier) {
         toll(ctx, R + 1, 41.2, 0.09, 6);
         toll(ctx, R + 4.2, 38.9, 0.06, 5);
         boom(ctx, R + 4.2, 0.45, 3);
+    } else if (tier === 10) {
+        // failed supernova
+        const v = 3.6;
+        RARITY_DARK[10].hb.forEach((ms, i) => {
+            heartbeat(ctx, S + ms / 1000, 0.16 + i * 0.03);
+            playTone(ctx, 233.08 + i * 41, S + ms / 1000, 0.5, 0.02, 'sawtooth', 220 + i * 33, 0.4, 0, 0.01);
+        });
+        dread(ctx, S, [46.25, 49, 65.41], v + 0.4, 0.014, 600);
+        playTone(ctx, 60, S, v, 0.1, 'sine', 140, 0.3, 0, v * 0.7);
+        swellCut(ctx, S + v - 1.5, 1.5, 0.24, 9000, 200);
+        const R = S + v + 0.3;
+        glassBreak(ctx, R, 0.2, 2.6);
+        boom(ctx, R, 0.7, 2.4);
+        playTone(ctx, 300, R, 3, 0.05, 'sawtooth', 30, 0.4, 0, 0.02);
+        playTone(ctx, 318, R, 3, 0.045, 'sawtooth', 31, 0.4, 0, 0.02);
+        dread(ctx, R + 0.4, [34.65, 36.71, 48.99, 103.83, 146.83, 207.65], 6.5, 0.014, 1500);
+        scrape(ctx, R + 0.6, 3.6, 0.12, 5200, 260);
+        toll(ctx, R + 0.8, 46.25, 0.08, 6);
+        toll(ctx, R + 3.8, 43.65, 0.06, 5);
+    } else if (tier === 11) {
+        // black hole, wrong page
+        const v = 4.6;
+        playTone(ctx, 700, S, v, 0.035, 'sawtooth', 28, 0.4, 0, v * 0.3);
+        playTone(ctx, 742, S, v, 0.03, 'sawtooth', 29, 0.4, 0, v * 0.3);
+        RARITY_DARK[11].hb.forEach((ms, i) => heartbeat(ctx, S + ms / 1000, 0.14 + i * 0.03));
+        dread(ctx, S, [36.71, 38.89, 51.91], v + 1.8, 0.013, 500);
+        for (let i = 0; i < 70; i++) {
+            playNoise(ctx, S + v + Math.random() * 1.6, 0.01 + Math.random() * 0.03, 0.04 + Math.random() * 0.06, 2000 + Math.random() * 8000, 800, 'bandpass', 2, 0.1, 0.001);
+        }
+        const R = S + v + 1.75;
+        boom(ctx, R, 0.85, 3);
+        glassBreak(ctx, R, 0.16, 2.2);
+        playTone(ctx, 466.16, R, 4.5, 0.03, 'sawtooth', 440, 0.5, 0, 0.02);
+        playTone(ctx, 493.88, R, 4.5, 0.03, 'sawtooth', 466.16, 0.5, 0, 0.02);
+        playTone(ctx, 311.13, R, 4.5, 0.03, 'sawtooth', 293.66, 0.5, 0, 0.02);
+        dread(ctx, R + 0.3, [32.7, 34.65, 46.25, 92.5, 138.59, 185], 6, 0.014, 1400);
+        toll(ctx, R + 0.4, 38.89, 0.08, 6);
+        scrape(ctx, R + 1.4, 3, 0.1, 3800, 300);
+    } else if (tier === 12) {
+        // heat death
+        const v = 5.6;
+        RARITY_DARK[12].hb.forEach((ms, i, a) => {
+            heartbeat(ctx, S + ms / 1000, 0.22 - i * 0.03);
+            playTone(ctx, 220 - i * 26, S + ms / 1000, 1.4, 0.02, 'triangle', 200 - i * 26, 0.6, 0, 0.05);
+        });
+        playTone(ctx, 130.81, S, v, 0.05, 'sawtooth', 32, 0.5, 0, 1);
+        playNoise(ctx, S, v, 0.06, 1200, 90, 'lowpass', 2, 0.5, v * 0.3);
+        toll(ctx, S + v - 0.4, 32.7, 0.1, 6);
+        const R = S + v + 1.5;
+        dread(ctx, R + 0.5, [41.2, 43.65, 61.74, 87.31, 116.54], 6, 0.01, 900);
+        for (let i = 0; i < 16; i++) {
+            playNoise(ctx, R + Math.random() * 5, 0.04, 0.03, 2400, 600, 'bandpass', 3, 0.1, 0.002);
+        }
+        playTone(ctx, 1046.5, R + 2.5, 4, 0.012, 'sine', 1040, 0.9, 0, 1.2);
     }
 }
 function bigSound(ctx, start, tier) {
@@ -468,7 +522,7 @@ function bigSound(ctx, start, tier) {
         arp(ctx, R + 0.05, [261.63, 329.63, 392, 523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093], 0.07, 0.055);
         [1046.5, 1318.51, 1567.98, 2093, 2637.02].forEach((f, i) => playTone(ctx, f, R + 0.1 + i * 0.1, 3.4, 0.035, 'sine', null, 0.8, 3, 0.01));
         sparkle(ctx, R + 0.3, 30, 3.2, 0.03);
-    } else {
+    } else if (tier === 9) {
         const v = 4.2;
         [0, 0.9, 1.7, 2.4, 3, 3.5, 3.9].forEach((d, i) => {
             boom(ctx, start + d, 0.16 + i * 0.04, 0.7);
@@ -497,6 +551,72 @@ function bigSound(ctx, start, tier) {
         for (let i = 0; i < 40; i++) {
             playNoise(ctx, R + 0.3 + Math.random() * 5, 0.03 + Math.random() * 0.05, 0.04 + Math.random() * 0.05, 4000 + Math.random() * 5000, 900, 'highpass', 1, 0.2, 0.002);
         }
+    } else if (tier === 10) {
+        // supernova
+        const v = 3.6;
+        RARITY_FX[10].hb.forEach((ms, i) => {
+            boom(ctx, start + ms / 1000, 0.14 + i * 0.05, 0.7);
+            playTone(ctx, 220 + i * 60, start + ms / 1000, 0.5, 0.02 + i * 0.006, 'sine', 330 + i * 80, 0.6, 0, 0.01);
+        });
+        riser(ctx, start, v, 0.08, 60, 4200);
+        playTone(ctx, 40, start, v, 0.14, 'sine', 160, 0.3, 0, v * 0.8);
+        playNoise(ctx, start + 1, v - 1, 0.1, 300, 9000, 'bandpass', 3, 0.4, v * 0.6);
+        const R = start + v;
+        boom(ctx, R, 1, 4.5);
+        boom(ctx, R + 0.03, 0.85, 3.6);
+        boom(ctx, R + 0.5, 0.6, 3);
+        playNoise(ctx, R, 3.4, 0.4, 13000, 160, 'highpass', 0.7, 0.6, 0.003);
+        padChord(ctx, R, [73.42, 146.83, 220, 293.66, 369.99, 440, 587.33, 739.99, 880], 7.5, 0.013, 'sawtooth', 4600);
+        padChord(ctx, R + 0.4, [1174.66, 1479.98, 1760, 2349.32], 6.5, 0.011, 'triangle', 7000);
+        arp(ctx, R + 0.05, [293.66, 369.99, 440, 587.33, 739.99, 880, 1174.66, 1479.98, 1760, 2349.32, 2959.96], 0.055, 0.06);
+        sparkle(ctx, R + 0.3, 70, 6, 0.034, [1174.66, 1479.98, 1760, 2349.32, 2959.96, 3520, 4698.63]);
+        [2349.32, 2959.96, 3520].forEach((f, i) => playTone(ctx, f, R + 1 + i * 0.35, 5.5, 0.028, 'sine', f * 1.012, 0.9, 0, 0.05));
+        playTone(ctx, 55, R + 2.5, 5, 0.09, 'sine', 36, 0.5, 0, 0.8);
+    } else if (tier === 11) {
+        // black hole into white hole
+        const v = 4.6;
+        playTone(ctx, 880, start, v, 0.035, 'sawtooth', 34, 0.4, 0, v * 0.3);
+        playTone(ctx, 830, start, v, 0.03, 'sawtooth', 32, 0.4, 0, v * 0.3);
+        playTone(ctx, 32, start, v + 0.3, 0.16, 'sine', 28, 0.3, 0, 1.5);
+        RARITY_FX[11].hb.forEach((ms, i) => boom(ctx, start + ms / 1000, 0.12 + i * 0.05, 0.9));
+        playNoise(ctx, start, v, 0.12, 2000, 80, 'lowpass', 3, 0.5, v * 0.5);
+        swellCut(ctx, start + v - 1.6, 1.6, 0.26, 200, 12000);
+        const R = start + v + 0.05;
+        boom(ctx, R, 1, 4.6);
+        boom(ctx, R + 0.03, 0.9, 3.8);
+        boom(ctx, R + 0.45, 0.65, 3.2);
+        playNoise(ctx, R, 3.6, 0.42, 14000, 150, 'highpass', 0.7, 0.6, 0.003);
+        padChord(ctx, R, [82.41, 164.81, 246.94, 329.63, 415.3, 493.88, 659.25, 830.61, 987.77], 8, 0.013, 'sawtooth', 5000);
+        padChord(ctx, R + 0.3, [1318.51, 1661.22, 1975.53, 2637.02], 7, 0.011, 'triangle', 7400);
+        arp(ctx, R + 0.05, [329.63, 415.3, 493.88, 659.25, 830.61, 987.77, 1318.51, 1661.22, 1975.53, 2637.02, 3322.44], 0.05, 0.06);
+        arp(ctx, R + 0.9, [3322.44, 2637.02, 1975.53, 1661.22, 1318.51, 987.77, 830.61, 659.25], 0.07, 0.04, 'sine');
+        sparkle(ctx, R + 0.2, 80, 6.4, 0.034, [1318.51, 1661.22, 1975.53, 2637.02, 3322.44, 3951, 5274]);
+        [2637.02, 3322.44, 3951].forEach((f, i) => playTone(ctx, f, R + 1.2 + i * 0.4, 6, 0.028, 'sine', f * 0.99, 0.9, 0, 0.05));
+        playTone(ctx, 41.2, R + 3, 5, 0.09, 'sine', 30, 0.5, 0, 0.8);
+    } else if (tier === 12) {
+        // big bang
+        const v = 5.6;
+        RARITY_FX[12].hb.forEach((ms, i, a) => {
+            const k = (i + 1) / a.length;
+            const t = start + ms / 1000;
+            playTone(ctx, 3520 - i * 330, t, 0.9 + k, 0.012 + k * 0.03, 'sine', null, 0.9, 0, 0.003);
+            playTone(ctx, 55 * (1 + k), t, 0.6, 0.04 * k, 'sine', 40, 0.5, 0, 0.01);
+        });
+        riser(ctx, start + 2.6, v - 2.9, 0.07, 80, 5200);
+        const R = start + v + 0.15;
+        boom(ctx, R, 1, 5.5);
+        boom(ctx, R + 0.03, 1, 4.6);
+        boom(ctx, R + 0.4, 0.75, 3.8);
+        boom(ctx, R + 1.1, 0.5, 3);
+        playNoise(ctx, R, 4.4, 0.45, 15000, 120, 'highpass', 0.7, 0.7, 0.002);
+        padChord(ctx, R, [32.7, 65.41, 98, 130.81, 196, 261.63, 293.66, 392, 523.25, 587.33, 783.99, 1046.5], 10, 0.012, 'sawtooth', 5600);
+        padChord(ctx, R + 0.5, [1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96], 9, 0.011, 'triangle', 8000);
+        arp(ctx, R + 0.05, [261.63, 293.66, 392, 523.25, 587.33, 783.99, 1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96, 4186], 0.05, 0.065);
+        arp(ctx, R + 1.4, [392, 523.25, 587.33, 783.99, 1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96, 4186, 4698.63], 0.075, 0.05, 'sine');
+        sparkle(ctx, R + 0.2, 100, 8.5, 0.036, [1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96, 4186, 4698.63]);
+        [1567.98, 2093, 3135.96, 4186].forEach((f, i) => playTone(ctx, f, R + 2.4 + i * 0.5, 7, 0.03, 'sine', f * 1.006, 0.9, 0, 0.08));
+        toll(ctx, R + 3.4, 261.63, 0.05, 6);
+        playTone(ctx, 65.41, R + 4, 6, 0.08, 'sine', 49, 0.5, 0, 1);
     }
 }
 function playBuildup(tier, seconds) {

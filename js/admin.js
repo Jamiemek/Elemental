@@ -38,7 +38,7 @@ function renderAdmin() {
     const sel = $('admTier');
     if (!sel.options.length) {
         TIER_SCORES.forEach((min, i) => sel.add(new Option('Tier ' + (i + 1) + ' and above (score ' + fmtScore(min) + '+)', i + 1)));
-        sel.add(new Option('No tier: only new global top 10 entries', 10));
+        sel.add(new Option('No tier: only new global top 10 entries', 13));
     }
     sel.value = globalSettings.min_tier;
     $('admTop10').checked = globalSettings.announce_top10;

@@ -20,14 +20,14 @@
         };
         box.appendChild(b);
     };
-    for (let t = 1; t <= 9; t++) {
+    for (let t = 1; t <= 12; t++) {
         add(t, false);
     }
     const lab = document.createElement('span');
     lab.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#ff4a3a;margin-top:4px';
     lab.textContent = 'SECRET';
     box.appendChild(lab);
-    for (let t = 5; t <= 9; t++) {
+    for (let t = 5; t <= 12; t++) {
         add(t, true);
     }
 })();

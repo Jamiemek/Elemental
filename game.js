@@ -467,7 +467,7 @@ try {
 }
 let toastTimer;
 const EFFECT_DEFAULTS = {
-    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true
+    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true
 };
 let rarityEffects = { ...EFFECT_DEFAULTS };
 try {
@@ -493,7 +493,7 @@ let audioContext = null;
 let tickTimer = null;
 let tickIndex = 0;
 const soundTierDefaults = {
-    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true
+    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true
 };
 let soundTiers = { ...soundTierDefaults };
 try {
@@ -569,7 +569,7 @@ function stopRollTicks() {
     }
 }
 // Tier 1 starts at 1 in 10,000 and each tier is ten times rarer, up to tier 9 at 1 in a trillion
-const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000];
+const TIER_SCORES = [10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000, 30000000, 100000000, 300000000];
 function getRarityTier(score) {
     let t = 0;
     TIER_SCORES.forEach((min, i) => {
@@ -861,7 +861,7 @@ function darkSound(ctx, start, tier) {
         scrape(ctx, R + 0.3, 3.4, 0.1, 4500, 300);
         toll(ctx, R + 0.5, 55, 0.07, 5);
         boom(ctx, R + 2.8, 0.4, 2.4);
-    } else {
+    } else if (tier === 9) {
         const v = 4.32;
         const hb = RARITY_DARK[9].hb;
         hb.forEach((ms, i) => heartbeat(ctx, S + ms / 1000, 0.16 + i * 0.035));
@@ -889,6 +889,60 @@ function darkSound(ctx, start, tier) {
         toll(ctx, R + 1, 41.2, 0.09, 6);
         toll(ctx, R + 4.2, 38.9, 0.06, 5);
         boom(ctx, R + 4.2, 0.45, 3);
+    } else if (tier === 10) {
+        // failed supernova
+        const v = 3.6;
+        RARITY_DARK[10].hb.forEach((ms, i) => {
+            heartbeat(ctx, S + ms / 1000, 0.16 + i * 0.03);
+            playTone(ctx, 233.08 + i * 41, S + ms / 1000, 0.5, 0.02, 'sawtooth', 220 + i * 33, 0.4, 0, 0.01);
+        });
+        dread(ctx, S, [46.25, 49, 65.41], v + 0.4, 0.014, 600);
+        playTone(ctx, 60, S, v, 0.1, 'sine', 140, 0.3, 0, v * 0.7);
+        swellCut(ctx, S + v - 1.5, 1.5, 0.24, 9000, 200);
+        const R = S + v + 0.3;
+        glassBreak(ctx, R, 0.2, 2.6);
+        boom(ctx, R, 0.7, 2.4);
+        playTone(ctx, 300, R, 3, 0.05, 'sawtooth', 30, 0.4, 0, 0.02);
+        playTone(ctx, 318, R, 3, 0.045, 'sawtooth', 31, 0.4, 0, 0.02);
+        dread(ctx, R + 0.4, [34.65, 36.71, 48.99, 103.83, 146.83, 207.65], 6.5, 0.014, 1500);
+        scrape(ctx, R + 0.6, 3.6, 0.12, 5200, 260);
+        toll(ctx, R + 0.8, 46.25, 0.08, 6);
+        toll(ctx, R + 3.8, 43.65, 0.06, 5);
+    } else if (tier === 11) {
+        // black hole, wrong page
+        const v = 4.6;
+        playTone(ctx, 700, S, v, 0.035, 'sawtooth', 28, 0.4, 0, v * 0.3);
+        playTone(ctx, 742, S, v, 0.03, 'sawtooth', 29, 0.4, 0, v * 0.3);
+        RARITY_DARK[11].hb.forEach((ms, i) => heartbeat(ctx, S + ms / 1000, 0.14 + i * 0.03));
+        dread(ctx, S, [36.71, 38.89, 51.91], v + 1.8, 0.013, 500);
+        for (let i = 0; i < 70; i++) {
+            playNoise(ctx, S + v + Math.random() * 1.6, 0.01 + Math.random() * 0.03, 0.04 + Math.random() * 0.06, 2000 + Math.random() * 8000, 800, 'bandpass', 2, 0.1, 0.001);
+        }
+        const R = S + v + 1.75;
+        boom(ctx, R, 0.85, 3);
+        glassBreak(ctx, R, 0.16, 2.2);
+        playTone(ctx, 466.16, R, 4.5, 0.03, 'sawtooth', 440, 0.5, 0, 0.02);
+        playTone(ctx, 493.88, R, 4.5, 0.03, 'sawtooth', 466.16, 0.5, 0, 0.02);
+        playTone(ctx, 311.13, R, 4.5, 0.03, 'sawtooth', 293.66, 0.5, 0, 0.02);
+        dread(ctx, R + 0.3, [32.7, 34.65, 46.25, 92.5, 138.59, 185], 6, 0.014, 1400);
+        toll(ctx, R + 0.4, 38.89, 0.08, 6);
+        scrape(ctx, R + 1.4, 3, 0.1, 3800, 300);
+    } else if (tier === 12) {
+        // heat death
+        const v = 5.6;
+        RARITY_DARK[12].hb.forEach((ms, i, a) => {
+            heartbeat(ctx, S + ms / 1000, 0.22 - i * 0.03);
+            playTone(ctx, 220 - i * 26, S + ms / 1000, 1.4, 0.02, 'triangle', 200 - i * 26, 0.6, 0, 0.05);
+        });
+        playTone(ctx, 130.81, S, v, 0.05, 'sawtooth', 32, 0.5, 0, 1);
+        playNoise(ctx, S, v, 0.06, 1200, 90, 'lowpass', 2, 0.5, v * 0.3);
+        toll(ctx, S + v - 0.4, 32.7, 0.1, 6);
+        const R = S + v + 1.5;
+        dread(ctx, R + 0.5, [41.2, 43.65, 61.74, 87.31, 116.54], 6, 0.01, 900);
+        for (let i = 0; i < 16; i++) {
+            playNoise(ctx, R + Math.random() * 5, 0.04, 0.03, 2400, 600, 'bandpass', 3, 0.1, 0.002);
+        }
+        playTone(ctx, 1046.5, R + 2.5, 4, 0.012, 'sine', 1040, 0.9, 0, 1.2);
     }
 }
 function bigSound(ctx, start, tier) {
@@ -935,7 +989,7 @@ function bigSound(ctx, start, tier) {
         arp(ctx, R + 0.05, [261.63, 329.63, 392, 523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98, 2093], 0.07, 0.055);
         [1046.5, 1318.51, 1567.98, 2093, 2637.02].forEach((f, i) => playTone(ctx, f, R + 0.1 + i * 0.1, 3.4, 0.035, 'sine', null, 0.8, 3, 0.01));
         sparkle(ctx, R + 0.3, 30, 3.2, 0.03);
-    } else {
+    } else if (tier === 9) {
         const v = 4.2;
         [0, 0.9, 1.7, 2.4, 3, 3.5, 3.9].forEach((d, i) => {
             boom(ctx, start + d, 0.16 + i * 0.04, 0.7);
@@ -964,6 +1018,72 @@ function bigSound(ctx, start, tier) {
         for (let i = 0; i < 40; i++) {
             playNoise(ctx, R + 0.3 + Math.random() * 5, 0.03 + Math.random() * 0.05, 0.04 + Math.random() * 0.05, 4000 + Math.random() * 5000, 900, 'highpass', 1, 0.2, 0.002);
         }
+    } else if (tier === 10) {
+        // supernova
+        const v = 3.6;
+        RARITY_FX[10].hb.forEach((ms, i) => {
+            boom(ctx, start + ms / 1000, 0.14 + i * 0.05, 0.7);
+            playTone(ctx, 220 + i * 60, start + ms / 1000, 0.5, 0.02 + i * 0.006, 'sine', 330 + i * 80, 0.6, 0, 0.01);
+        });
+        riser(ctx, start, v, 0.08, 60, 4200);
+        playTone(ctx, 40, start, v, 0.14, 'sine', 160, 0.3, 0, v * 0.8);
+        playNoise(ctx, start + 1, v - 1, 0.1, 300, 9000, 'bandpass', 3, 0.4, v * 0.6);
+        const R = start + v;
+        boom(ctx, R, 1, 4.5);
+        boom(ctx, R + 0.03, 0.85, 3.6);
+        boom(ctx, R + 0.5, 0.6, 3);
+        playNoise(ctx, R, 3.4, 0.4, 13000, 160, 'highpass', 0.7, 0.6, 0.003);
+        padChord(ctx, R, [73.42, 146.83, 220, 293.66, 369.99, 440, 587.33, 739.99, 880], 7.5, 0.013, 'sawtooth', 4600);
+        padChord(ctx, R + 0.4, [1174.66, 1479.98, 1760, 2349.32], 6.5, 0.011, 'triangle', 7000);
+        arp(ctx, R + 0.05, [293.66, 369.99, 440, 587.33, 739.99, 880, 1174.66, 1479.98, 1760, 2349.32, 2959.96], 0.055, 0.06);
+        sparkle(ctx, R + 0.3, 70, 6, 0.034, [1174.66, 1479.98, 1760, 2349.32, 2959.96, 3520, 4698.63]);
+        [2349.32, 2959.96, 3520].forEach((f, i) => playTone(ctx, f, R + 1 + i * 0.35, 5.5, 0.028, 'sine', f * 1.012, 0.9, 0, 0.05));
+        playTone(ctx, 55, R + 2.5, 5, 0.09, 'sine', 36, 0.5, 0, 0.8);
+    } else if (tier === 11) {
+        // black hole into white hole
+        const v = 4.6;
+        playTone(ctx, 880, start, v, 0.035, 'sawtooth', 34, 0.4, 0, v * 0.3);
+        playTone(ctx, 830, start, v, 0.03, 'sawtooth', 32, 0.4, 0, v * 0.3);
+        playTone(ctx, 32, start, v + 0.3, 0.16, 'sine', 28, 0.3, 0, 1.5);
+        RARITY_FX[11].hb.forEach((ms, i) => boom(ctx, start + ms / 1000, 0.12 + i * 0.05, 0.9));
+        playNoise(ctx, start, v, 0.12, 2000, 80, 'lowpass', 3, 0.5, v * 0.5);
+        swellCut(ctx, start + v - 1.6, 1.6, 0.26, 200, 12000);
+        const R = start + v + 0.05;
+        boom(ctx, R, 1, 4.6);
+        boom(ctx, R + 0.03, 0.9, 3.8);
+        boom(ctx, R + 0.45, 0.65, 3.2);
+        playNoise(ctx, R, 3.6, 0.42, 14000, 150, 'highpass', 0.7, 0.6, 0.003);
+        padChord(ctx, R, [82.41, 164.81, 246.94, 329.63, 415.3, 493.88, 659.25, 830.61, 987.77], 8, 0.013, 'sawtooth', 5000);
+        padChord(ctx, R + 0.3, [1318.51, 1661.22, 1975.53, 2637.02], 7, 0.011, 'triangle', 7400);
+        arp(ctx, R + 0.05, [329.63, 415.3, 493.88, 659.25, 830.61, 987.77, 1318.51, 1661.22, 1975.53, 2637.02, 3322.44], 0.05, 0.06);
+        arp(ctx, R + 0.9, [3322.44, 2637.02, 1975.53, 1661.22, 1318.51, 987.77, 830.61, 659.25], 0.07, 0.04, 'sine');
+        sparkle(ctx, R + 0.2, 80, 6.4, 0.034, [1318.51, 1661.22, 1975.53, 2637.02, 3322.44, 3951, 5274]);
+        [2637.02, 3322.44, 3951].forEach((f, i) => playTone(ctx, f, R + 1.2 + i * 0.4, 6, 0.028, 'sine', f * 0.99, 0.9, 0, 0.05));
+        playTone(ctx, 41.2, R + 3, 5, 0.09, 'sine', 30, 0.5, 0, 0.8);
+    } else if (tier === 12) {
+        // big bang
+        const v = 5.6;
+        RARITY_FX[12].hb.forEach((ms, i, a) => {
+            const k = (i + 1) / a.length;
+            const t = start + ms / 1000;
+            playTone(ctx, 3520 - i * 330, t, 0.9 + k, 0.012 + k * 0.03, 'sine', null, 0.9, 0, 0.003);
+            playTone(ctx, 55 * (1 + k), t, 0.6, 0.04 * k, 'sine', 40, 0.5, 0, 0.01);
+        });
+        riser(ctx, start + 2.6, v - 2.9, 0.07, 80, 5200);
+        const R = start + v + 0.15;
+        boom(ctx, R, 1, 5.5);
+        boom(ctx, R + 0.03, 1, 4.6);
+        boom(ctx, R + 0.4, 0.75, 3.8);
+        boom(ctx, R + 1.1, 0.5, 3);
+        playNoise(ctx, R, 4.4, 0.45, 15000, 120, 'highpass', 0.7, 0.7, 0.002);
+        padChord(ctx, R, [32.7, 65.41, 98, 130.81, 196, 261.63, 293.66, 392, 523.25, 587.33, 783.99, 1046.5], 10, 0.012, 'sawtooth', 5600);
+        padChord(ctx, R + 0.5, [1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96], 9, 0.011, 'triangle', 8000);
+        arp(ctx, R + 0.05, [261.63, 293.66, 392, 523.25, 587.33, 783.99, 1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96, 4186], 0.05, 0.065);
+        arp(ctx, R + 1.4, [392, 523.25, 587.33, 783.99, 1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96, 4186, 4698.63], 0.075, 0.05, 'sine');
+        sparkle(ctx, R + 0.2, 100, 8.5, 0.036, [1046.5, 1174.66, 1567.98, 2093, 2349.32, 3135.96, 4186, 4698.63]);
+        [1567.98, 2093, 3135.96, 4186].forEach((f, i) => playTone(ctx, f, R + 2.4 + i * 0.5, 7, 0.03, 'sine', f * 1.006, 0.9, 0, 0.08));
+        toll(ctx, R + 3.4, 261.63, 0.05, 6);
+        playTone(ctx, 65.41, R + 4, 6, 0.08, 'sine', 49, 0.5, 0, 1);
     }
 }
 function playBuildup(tier, seconds) {
@@ -1057,9 +1177,13 @@ const RARITY_FX = [
     { c: '#ff9a5c', c2: '#e8431a', ms: 5200 },
     { c: '#ff5d7a', c2: '#b0123a', ms: 6000 },
     { c: '#c9b8ff', c2: '#4b2bff', ms: 6200, vd: 2400, hb: [500, 1050, 1500, 1850, 2100] },
-    { c: '#fff6d6', c2: '#ff7ad9', ms: 8000, vd: 4320, hb: [0, 900, 1700, 2400, 3000, 3500, 3900] }
+    { c: '#fff6d6', c2: '#ff7ad9', ms: 8000, vd: 4320, hb: [0, 900, 1700, 2400, 3000, 3500, 3900] },
+    // 10-12 also have a gradient (g)
+    { c: '#3ff0ff', c2: '#7a5cff', g: 'linear-gradient(100deg,#3ff0ff,#7a5cff)', ms: 8400, vd: 3600, hb: [0, 800, 1500, 2100, 2600, 3000, 3300] },
+    { c: '#c45cff', c2: '#ff4fd8', g: 'linear-gradient(100deg,#3ff0ff,#c45cff,#ff4fd8)', ms: 9000, vd: 4600, hb: [0, 1100, 2000, 2800, 3400, 3900, 4250, 4450] },
+    { c: '#ffd36e', c2: '#ff7ad9', g: 'linear-gradient(100deg,#ffd36e,#ff7ad9,#7a5cff,#3ff0ff)', ms: 10400, vd: 5600, hb: [1400, 2600, 3500, 4200, 4700, 5100, 5350] }
 ];
-// Secret variants for tiers 5 to 9: about 1 in 10 of those rolls play these instead.
+// secret variants, tiers 5-12
 const SECRET_CHANCE = 0.1;
 const RARITY_DARK = [
     null, null, null, null, null,
@@ -1067,7 +1191,10 @@ const RARITY_DARK = [
     { c: '#e0261c', c2: '#3a0000', ms: 5600 },
     { c: '#9dff3a', c2: '#0b2205', ms: 6400 },
     { c: '#ff2a2a', c2: '#160000', ms: 6200, vd: 2400, hb: [400, 1150, 1320, 1900, 2040, 2230] },
-    { c: '#ff2a2a', c2: '#5a0000', ms: 8400, vd: 4320, hb: [0, 700, 1600, 1760, 2600, 3100, 3260, 3700, 3950, 4120] }
+    { c: '#ff2a2a', c2: '#5a0000', ms: 8400, vd: 4320, hb: [0, 700, 1600, 1760, 2600, 3100, 3260, 3700, 3950, 4120] },
+    { c: '#ff3b2a', c2: '#2a0008', ms: 8200, vd: 3600, hb: [0, 800, 1500, 2100, 2350, 3000, 3150, 3400] },
+    { c: '#b0123a', c2: '#000000', ms: 9200, vd: 4600, hb: [0, 1100, 2000, 2150, 2800, 3400, 3550, 3900, 4250, 4400] },
+    { c: '#d8d2c8', c2: '#3a0000', ms: 10600, vd: 5600, hb: [0, 900, 1900, 3000, 4200, 5300] }
 ];
 let rarityEffectTimer = null;
 let fxRunId = 0;
@@ -1957,6 +2084,113 @@ function playRarityFx(tier, dark) {
                 Object.assign({ at: vd + 1200, until: vd + 7400, rate: 45, life: 3.6, size: 3, wide: 1 }, ash)
             ], vd + 7600);
         }
+        // secret 10-12
+        if (tier === 10) {
+            // failed supernova
+            const v = veil(0, vd + 1200, 0.9, [vd / (vd + 1200) * 0.7, vd / (vd + 1200)], '14,0,2', 6);
+            v.style.mixBlendMode = 'multiply';
+            if (app) {
+                app.style.transformOrigin = origin(app);
+            }
+            P(app, [{ transform: 'none' }, { transform: 'scale(.9)', offset: 0.95 }, { transform: 'scale(.86) rotate(-1deg)' }], { duration: vd, easing: 'cubic-bezier(.5,0,.9,.5)' });
+            rumble(game, 0, vd, 6);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                bloom(ms, 500, 8 + k * 14, i % 2 ? c2 : c, 0.35 + k * 0.4);
+                flash(ms, 260, c, 0.08 + k * 0.18, 24);
+                reelCrack(ms, 1 + (i >> 1), 'rgba(255,255,255,.85)');
+                shake(game, ms, 140, 3 + k * 7, 0);
+            });
+            blackout(vd, 520, 1);
+            eclipse(vd + 260, 6800, 48, c, c2);
+            raysIn(vd + 260, 6400, 0.55, -200, [c, '#000', c2, '#000', '#ff8a6a'], 40);
+            cracks(vd + 300, 420, 18, Math.hypot(W, H) * 0.9, 'rgba(255,255,255,.88)', 1.5, null, null, 6200);
+            shards(vd + 300, 40, 700, 'rgba(60,0,0,.9)');
+            shake(game, vd + 260, 2000, 24, 1.1);
+            slip(vd + 400, 3600, 34);
+            staticNoise(vd + 600, 3000, 0.2);
+            P(app, [{ filter: 'none' }, { filter: 'grayscale(1) contrast(1.4)', offset: 0.1 }, { filter: 'grayscale(1) contrast(1.4)', offset: 0.75 }, { filter: 'none' }], { duration: 4800, delay: vd + 300, easing: 'ease-in-out' });
+            const ed = edge(vd + 260, 7400, c, 3.2);
+            ed.style.boxShadow = 'inset 0 0 0 2px ' + c + ',inset 0 0 150px 16px #4a0006,inset 0 0 320px 40px #000';
+            particles([
+                { type: 'spiral', at: 400, until: vd, rate: 70, ramp: 1, cols: [c, '#ffb08a', '#fff'], life: 1.4, size: 2, dir: -1 },
+                { type: 'spiral', at: vd + 300, until: vd + 6400, rate: 110, cols: [c, '#ff8a6a', '#fff'], life: 1.5, size: 2.2, dir: -1 },
+                Object.assign({ at: vd + 800, until: vd + 7600, rate: 50, life: 3.6, size: 3, wide: 1 }, ash)
+            ], vd + 7800);
+        }
+        if (tier === 11) {
+            // black hole, gives back the wrong page
+            const v = E('fx-fill', 'background:radial-gradient(circle at ' + cx + 'px ' + cy + 'px,rgba(0,0,0,.2) 0,rgba(10,0,2,.96) 34%,#000 100%)');
+            A(v, [{ opacity: 0 }, { opacity: 0.7, offset: 0.3 }, { opacity: 1, offset: 0.62 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], { duration: vd + 2200, easing: 'ease-in' });
+            const back = vd + 1700;
+            parts.forEach((el, i) => {
+                const vv = vec(el);
+                const L = back + 2600;
+                const o = ms => Math.min(1, ms / L);
+                const turn = (i % 2 ? 1 : -1) * (160 + Math.random() * 160);
+                const wrong = (Math.random() - 0.5) * 16;
+                P(el, [
+                    { transform: 'none', opacity: 1, offset: 0 },
+                    { transform: 'none', opacity: 1, offset: o(i * 90), easing: 'cubic-bezier(.6,0,.9,.4)' },
+                    { transform: 'translate(' + (-vv.dx * vv.d).toFixed(0) + 'px,' + (-vv.dy * vv.d).toFixed(0) + 'px) rotate(' + turn.toFixed(0) + 'deg) scale(.05)', opacity: 0, offset: o(vd * 0.92) },
+                    { transform: 'translate(' + (-vv.dx * vv.d).toFixed(0) + 'px,' + (-vv.dy * vv.d).toFixed(0) + 'px) scale(.05)', opacity: 0, offset: o(back) },
+                    { transform: 'translate(' + (vv.dx * 30).toFixed(0) + 'px,' + (20 + Math.random() * 40).toFixed(0) + 'px) rotate(' + wrong.toFixed(1) + 'deg) scale(1.02)', opacity: 0.85, offset: o(back + 350), easing: 'steps(1,end)' },
+                    { transform: 'translate(' + (vv.dx * 26).toFixed(0) + 'px,' + (24 + Math.random() * 40).toFixed(0) + 'px) rotate(' + (wrong * 1.1).toFixed(1) + 'deg)', opacity: 0.85, offset: o(back + 1900), easing: 'cubic-bezier(.3,1.5,.4,1)' },
+                    { transform: 'none', opacity: 1, offset: 1 }
+                ], { duration: L, easing: 'linear' });
+            });
+            raysIn(0, vd, 0.6, -900, [c, '#000', '#ff2a2a', '#000'], 60);
+            warpFx(tok, 400, vd, 16, 'ripple');
+            eclipse(300, vd + 3400, 34, c, c2);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                ringIn(ms, 900, 6 + k * 8, i % 2 ? '#ff2a2a' : '#fff');
+                flash(ms, 200, '#ff2a2a', 0.06 + k * 0.14, 22);
+            });
+            staticNoise(vd, 1700, 0.32);
+            flicker(vd + 200, 1400, 0.85);
+            tear(game, back + 300, 1500);
+            P(app, [{ filter: 'invert(1) hue-rotate(160deg)' }, { filter: 'invert(1) hue-rotate(160deg)', offset: 0.9 }, { filter: 'none' }], { duration: 130, delay: back + 350, easing: 'steps(1,end)' });
+            P(app, [{ filter: 'none' }, { filter: 'saturate(.2) contrast(1.3) sepia(.4)', offset: 0.1 }, { filter: 'saturate(.2) contrast(1.3) sepia(.4)', offset: 0.8 }, { filter: 'none' }], { duration: 3000, delay: back + 500, easing: 'ease-in-out' });
+            cracks(back + 300, 320, 12, Math.hypot(W, H) * 0.8, 'rgba(255,40,60,.9)', 1.4, null, null, 4200);
+            shake(game, back + 300, 1400, 18, 1);
+            const ed = edge(back, 5200, '#ff2a2a', 3);
+            ed.style.boxShadow = 'inset 0 0 0 2px #ff2a2a,inset 0 0 140px 14px #3a0010,inset 0 0 300px 40px #000';
+            particles([
+                { type: 'spiral', at: 0, until: vd, rate: 120, ramp: 1, cols: ['#ff2a2a', '#7a0010', '#fff'], life: 1.2, size: 2, dir: -1 },
+                { type: 'stars', at: 0, n: 120, cols: ['#ffd6d6', '#ffffff'], life: vd / 1000 * 0.8, size: 1.5, pull: 160, rot: -0.4 },
+                Object.assign({ at: back, until: back + 5200, rate: 46, life: 3.4, size: 3, wide: 1 }, ash)
+            ], back + 5600);
+        }
+        if (tier === 12) {
+            // heat death
+            P(app, [{ filter: 'none' }, { filter: 'grayscale(.6) blur(.6px) brightness(.85)', offset: 0.6 }, { filter: 'grayscale(1) blur(1.4px) brightness(.55)' }], { duration: vd, easing: 'ease-in' });
+            if (app) {
+                app.style.transformOrigin = origin(app);
+            }
+            P(app, [{ transform: 'none' }, { transform: 'scale(.97)' }], { duration: vd, easing: 'ease-in' });
+            const v = veil(0, vd + 2000, 0.9, [vd / (vd + 2000) * 0.8, (vd + 1600) / (vd + 2000)], '6,6,6', 10);
+            reelFx(b => {
+                const f = E('fx-fill', 'inset:auto;left:' + b.left + 'px;top:' + b.top + 'px;width:' + b.width + 'px;height:' + b.height + 'px;box-shadow:inset 0 0 40px 10px rgba(235,240,255,.55),0 0 0 1px rgba(235,240,255,.5)');
+                A(f, [{ opacity: 0 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], { duration: vd + 600, easing: 'ease-in' });
+            });
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = 1 - i / a.length;
+                ring(ms, 1400, 4 + k * 4, 'rgba(216,210,200,.7)', 1, 8, 0.6);
+                shake(game, ms, 200, 2 + k * 3, 0);
+            });
+            flash(vd - 500, 700, c2, 0.5, 60);
+            blackout(vd, 2400, 1);
+            P(app, [{ filter: 'grayscale(1) brightness(.6)' }, { filter: 'grayscale(1) brightness(.8)', offset: 0.35 }, { filter: 'none' }], { duration: 5200, delay: vd + 1500, easing: 'ease-in' });
+            const ed = edge(vd + 1500, 6800, c, 2.6);
+            ed.style.boxShadow = 'inset 0 0 0 1px ' + c + ',inset 0 0 160px 18px rgba(40,0,0,.6),inset 0 0 320px 50px #000';
+            eclipse(vd + 1800, 6200, 40, c, c2);
+            particles([
+                { type: 'stars', at: 0, n: 160, cols: ['#ffffff', '#d8d2c8', '#9a948a'], life: vd / 1000 * 0.95, size: 1.5, pull: 10, rot: 0.02 },
+                Object.assign({ at: 300, until: vd + 7600, rate: 34, life: 4.2, size: 3, wide: 1 }, ash),
+                { type: 'embers', at: vd + 1800, until: vd + 6400, rate: 10, cols: ['#ff5a3a', '#7a1000'], life: 2.6, size: 1.6, wide: 1 }
+            ], vd + 8000);
+        }
         done();
         return;
     }
@@ -2206,6 +2440,151 @@ function playRarityFx(tier, dark) {
             { type: 'burst', at: vd + 500, n: 100, cols: 'rainbow', speed: 420, life: 4.2, size: 1.7, drag: 0.8, grav: -8 },
             { type: 'embers', at: vd + 800, until: vd + 6000, rate: 26, cols: 'rainbow', life: 2.6, size: 1.8, wide: 1 }
         ]);
+    }
+    if (tier >= 10) {
+        const disc = (delay, dur, size, rim, glow) => {
+            const e = E('fx-eclipse', at + 'width:' + size + 'vmin;height:' + size + 'vmin;margin:-' + size / 2 + 'vmin 0 0 -' + size / 2 + 'vmin;box-shadow:0 0 0 2px ' + rim + ',0 0 40px 8px ' + rim + ',0 0 140px 50px ' + glow + ',inset 0 0 30px 4px ' + glow);
+            A(e, [{ opacity: 0, transform: 'scale(.1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.35 }, { opacity: 1, transform: 'scale(1.08)', offset: 0.9 }, { opacity: 0, transform: 'scale(.02)' }], { duration: dur, delay, easing: 'cubic-bezier(.4,0,.6,1)' });
+            return e;
+        };
+        const whiteout = (delay, dur) => {
+            const wo = E('fx-fill', 'background:#fff');
+            A(wo, [{ opacity: 0 }, { opacity: 1, offset: 0.04 }, { opacity: 1, offset: 0.14 }, { opacity: 0 }], { duration: dur, delay, easing: 'ease-out' });
+        };
+        const prism = ['#ff6b9a', '#ffd36b', '#7dffa0', '#6bdcff', '#a58bff'];
+        if (tier === 10) {
+            // supernova
+            veil(0, vd + 1400, 0.94, [vd / (vd + 1400) * 0.8, vd / (vd + 1400)], '2,4,20', 5);
+            if (app) {
+                app.style.transformOrigin = origin(app);
+            }
+            {
+                const L = vd + 2200;
+                const o = ms => ms / L;
+                P(app, [
+                    { transform: 'none', easing: 'cubic-bezier(.5,0,.9,.5)' },
+                    { transform: 'scale(.88)', offset: o(vd) , easing: 'cubic-bezier(.15,.9,.25,1)' },
+                    { transform: 'scale(1.07)', offset: o(vd + 260) },
+                    { transform: 'scale(.99)', offset: o(vd + 900) },
+                    { transform: 'none' }
+                ], { duration: L, easing: 'linear' });
+            }
+            rumble(game, 0, vd, 5);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                bloom(ms, 700, 6 + k * 22, i % 2 ? c2 : c, 0.4 + k * 0.6);
+                ring(ms, 1000, 2 + k * 4, c, 1.5, 14, 0.4);
+                flash(ms, 400, c, 0.1 + k * 0.2, 30);
+            });
+            ringIn(0, vd * 0.8, 18, c);
+            ringIn(vd * 0.4, vd * 0.6, 14, c2);
+            // blast
+            whiteout(vd - 60, 1800);
+            bloom(vd, 3200, 220, c, 1);
+            for (let i = 0; i < 5; i++) {
+                ring(vd + i * 140, 2200 + i * 260, 32 + i * 4, [c, '#fff', c2, '#ff7ad9', c][i], 3.5 - i * 0.5, 30);
+            }
+            shockPage(vd + 40, 120, 6, 2.8);
+            shake(game, vd, 1800, 22, 1);
+            warpFx(tok, vd + 100, 2600, 20, 'ripple');
+            rays(vd, 6400, 0.55, 90, [c, c2, '#fff', '#ff7ad9', c2], 44);
+            aurora(vd + 300, 6800, [c2, c, '#ff7ad9', c], 0.5);
+            const ed = edge(vd, 7400, c, 3.2);
+            ed.style.boxShadow = 'inset 0 0 0 2px ' + c + ',inset 0 0 160px 16px ' + c2 + ',inset 0 0 320px 40px #10003a';
+            reelGlow(vd, 6000, c, 1.1);
+            trace(vd + 200, 4200, '#fff', 4, 4);
+            particles([
+                { type: 'stars', at: 0, n: 140, cols: ['#ffffff', '#bff7ff', '#d6ccff'], life: vd / 1000 * 0.8, size: 1.5, pull: 140, rot: 0.1 },
+                { type: 'spiral', at: 500, until: vd, rate: 90, ramp: 1, cols: [c, c2, '#fff'], life: 1.3, size: 2, dir: -1 },
+                { type: 'galaxy', at: vd, n: 260, cols: [c, c2, '#fff', '#ff7ad9'], speed: 1250, life: 3.2, size: 2.5, trail: 1, drag: 1.2, spin: 0.6 },
+                { type: 'burst', at: vd + 400, n: 90, cols: [c, '#fff'], speed: 380, life: 4, size: 1.7, drag: 0.8, grav: -6 },
+                { type: 'embers', at: vd + 700, until: vd + 7000, rate: 30, cols: [c, c2, '#ff7ad9'], life: 2.8, size: 1.9, wide: 1 }
+            ], vd + 8000);
+        }
+        if (tier === 11) {
+            // black hole into white hole
+            const v = E('fx-fill', 'background:radial-gradient(circle at ' + cx + 'px ' + cy + 'px,rgba(20,0,30,.3) 0,rgba(4,0,10,.96) 34%,#000 100%)');
+            A(v, [{ opacity: 0 }, { opacity: 0.7, offset: 0.3 }, { opacity: 1, offset: (vd - 200) / (vd + 700) }, { opacity: 1, offset: vd / (vd + 700) }, { opacity: 0 }], { duration: vd + 700, easing: 'ease-in' });
+            parts.forEach((el, i) => {
+                const vv = vec(el);
+                const L = vd + 2400;
+                const o = ms => Math.min(1, ms / L);
+                const turn = (i % 2 ? 1 : -1) * (200 + Math.random() * 160);
+                const tx = k => 'translate(' + (-vv.dx * vv.d * k).toFixed(0) + 'px,' + (-vv.dy * vv.d * k).toFixed(0) + 'px)';
+                P(el, [
+                    { transform: 'none', opacity: 1, offset: 0 },
+                    { transform: 'none', opacity: 1, offset: o(i * 110), easing: 'cubic-bezier(.6,0,.9,.4)' },
+                    { transform: tx(0.5) + ' rotate(' + (turn * 0.3).toFixed(0) + 'deg) scale(.6)', opacity: 0.8, offset: o(i * 110 + vd * 0.45), easing: 'cubic-bezier(.6,0,.9,.4)' },
+                    { transform: tx(1) + ' rotate(' + turn.toFixed(0) + 'deg) scale(.04)', opacity: 0, offset: o(vd * 0.94) },
+                    { transform: tx(1) + ' scale(.04)', opacity: 0, offset: o(vd + 150) },
+                    { transform: 'translate(' + (vv.dx * 70).toFixed(0) + 'px,' + (vv.dy * 70).toFixed(0) + 'px) scale(1.05)', opacity: 1, offset: o(vd + 750), easing: 'cubic-bezier(.2,.9,.3,1)' },
+                    { transform: 'none', opacity: 1, offset: 1 }
+                ], { duration: L, easing: 'linear' });
+            });
+            rays(0, vd + 300, 0.6, 1080, [c, '#000', c2, '#000', '#3ff0ff', '#000'], 64, 70);
+            warpFx(tok, 300, vd - 200, 18, 'ripple');
+            disc(200, vd, 30, c, c2);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                ringIn(ms, 1000, 8 + k * 10, i % 2 ? c2 : c);
+                flash(ms, 300, c, 0.05 + k * 0.15, 25);
+            });
+            // white hole
+            whiteout(vd - 40, 2000);
+            bloom(vd, 3400, 240, '#fff', 1);
+            for (let i = 0; i < 5; i++) {
+                ring(vd + i * 160, 2400 + i * 260, 34 + i * 4, ['#fff', c, '#3ff0ff', c2, '#fff'][i], 3.5 - i * 0.5, 32);
+            }
+            rays(vd, 6800, 0.6, -140, prism, 48);
+            rays(vd + 200, 6800, 0.35, 120, [c, c2, '#3ff0ff'], 20, 150);
+            aurora(vd + 300, 7200, ['#3ff0ff', c, c2, '#ffd36e'], 0.45);
+            shake(game, vd, 1900, 24, 1);
+            const ed = edge(vd, 7600, c, 3.4);
+            ed.style.boxShadow = 'inset 0 0 0 2px #3ff0ff,inset 0 0 160px 16px ' + c + ',inset 0 0 320px 40px ' + c2;
+            trace(vd + 300, 4400, '#fff', 4, 4);
+            particles([
+                { type: 'spiral', at: 0, until: vd, rate: 130, ramp: 1, cols: [c, c2, '#3ff0ff', '#fff'], life: 1.2, size: 2, dir: -1 },
+                { type: 'stars', at: 0, n: 150, cols: ['#ffffff', '#e8d0ff'], life: vd / 1000 * 0.85, size: 1.5, pull: 200, rot: 0.5 },
+                { type: 'galaxy', at: vd, n: 300, cols: 'rainbow', speed: 1300, life: 3.4, size: 2.5, trail: 1, drag: 1.2, spin: -1.8 },
+                { type: 'burst', at: vd + 500, n: 110, cols: 'rainbow', speed: 460, life: 4.4, size: 1.7, drag: 0.8, grav: -8 },
+                { type: 'embers', at: vd + 800, until: vd + 7400, rate: 30, cols: [c, c2, '#3ff0ff', '#fff'], life: 2.8, size: 1.9, wide: 1 }
+            ], vd + 8400);
+        }
+        if (tier === 12) {
+            // big bang
+            const dark0 = E('fx-fill', 'background:#000');
+            A(dark0, [{ opacity: 0 }, { opacity: 1, offset: 1400 / (vd + 300) }, { opacity: 1, offset: vd / (vd + 300) }, { opacity: 0 }], { duration: vd + 300, easing: 'ease-in-out' });
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                bloom(ms, 900, 2 + k * 9, i % 2 ? c2 : '#fff', 0.5 + k * 0.5);
+                ringIn(ms, 1000, 3 + k * 5, i % 3 === 2 ? c : '#fff');
+            });
+            whiteout(vd + 120, 2600);
+            const sphere = E('fx-bloom', at + 'width:300vmax;height:300vmax;margin:-150vmax 0 0 -150vmax;background:radial-gradient(circle,#fff 0,#fff 30%,' + c + ' 48%,' + c2 + ' 58%,transparent 70%)');
+            A(sphere, [{ opacity: 1, transform: 'scale(.002)' }, { opacity: 1, transform: 'scale(1)', offset: 0.3 }, { opacity: 0, transform: 'scale(1.1)' }], { duration: 2200, delay: vd - 200, easing: 'cubic-bezier(.7,0,.3,1)' });
+            parts.forEach((el, i) => P(el, [
+                { opacity: 0, transform: 'scale(.4)', filter: 'blur(14px) brightness(3)' },
+                { opacity: 1, transform: 'scale(1.03)', filter: 'blur(2px) brightness(1.4)', offset: 0.6 },
+                { opacity: 1, transform: 'none', filter: 'none' }
+            ], { duration: 1200, delay: vd + 1200 + i * 220, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' }));
+            rays(vd + 300, 8200, 0.6, 160, prism, 52);
+            rays(vd + 500, 8200, 0.4, -120, [c, c2, '#7a5cff', '#3ff0ff'], 24, 160);
+            aurora(vd + 600, 8400, [c, c2, '#7a5cff', '#3ff0ff'], 0.5);
+            for (let i = 0; i < 6; i++) {
+                ring(vd + 400 + i * 220, 2600 + i * 240, 36 + i * 3, i % 2 ? prism[i % 5] : c, 3.5 - i * 0.4, 32);
+            }
+            shake(game, vd + 100, 2200, 26, 1.2);
+            trace(vd + 2400, 5600, c, 5, 5);
+            reelGlow(vd + 2400, 6000, c, 1.1);
+            const ed = edge(vd + 300, 8800, c, 3.6);
+            ed.style.boxShadow = 'inset 0 0 0 2px ' + c + ',inset 0 0 140px 14px ' + c2 + ',inset 0 0 260px 30px #7a5cff,inset 0 0 380px 50px #0a3a5a';
+            particles([
+                { type: 'galaxy', at: vd + 200, n: 320, cols: 'rainbow', speed: 1500, life: 3.8, size: 2.6, trail: 1, drag: 1.1, spin: 1.2 },
+                { type: 'burst', at: vd + 900, n: 140, cols: [c, '#fff', c2], speed: 600, life: 4.6, size: 1.9, drag: 0.8, grav: -6 },
+                { type: 'stars', at: vd + 1400, n: 160, cols: ['#ffffff', '#fff2c4', '#ffd6f2'], life: 6, size: 1.5, pull: -40, rot: 0.06 },
+                { type: 'embers', at: vd + 1200, until: vd + 9200, rate: 34, cols: 'rainbow', life: 3, size: 1.9, wide: 1 }
+            ], vd + 10200);
+        }
     }
     done();
 }
@@ -4871,7 +5250,7 @@ function fitText(el, text, room, base) {
     const w = m.measureText(text).width;
     el.style.fontSize = (w > room ? Math.max(9, b * room / w) : b) + 'px';
 }
-const MR_TIER_COL = ['rgba(232,239,233,.35)', '#7cc8ff', '#5eead4', '#b39dff', '#f78fd8', '#ffd166', '#ff9a5c', '#ff5d7a', '#c9b8ff', '#fff6d6'];
+const MR_TIER_COL = ['rgba(232,239,233,.35)', '#7cc8ff', '#5eead4', '#b39dff', '#f78fd8', '#ffd166', '#ff9a5c', '#ff5d7a', '#c9b8ff', '#fff6d6', '#3ff0ff', '#c45cff', '#ffd36e'];
 // multiroll: show one roll large with its details; the strip picks which
 function showMultiRoll(col, records, i, best, swap) {
     const r = records[i];
@@ -8173,7 +8552,7 @@ function bannerNext() {
     }
     bannerBusy = true;
     const a = bannerQueue.shift();
-    const fx = RARITY_FX[Math.min(9, a.tier)];
+    const fx = RARITY_FX[Math.min(12, a.tier)];
     el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
     el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + ionText(a.ion || 0)) + '</b><span>' +
         (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
@@ -8269,7 +8648,7 @@ function renderAdmin() {
     const sel = $('admTier');
     if (!sel.options.length) {
         TIER_SCORES.forEach((min, i) => sel.add(new Option('Tier ' + (i + 1) + ' and above (score ' + fmtScore(min) + '+)', i + 1)));
-        sel.add(new Option('No tier: only new global top 10 entries', 10));
+        sel.add(new Option('No tier: only new global top 10 entries', 13));
     }
     sel.value = globalSettings.min_tier;
     $('admTop10').checked = globalSettings.announce_top10;

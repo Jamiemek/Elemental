@@ -7,7 +7,7 @@ function fitText(el, text, room, base) {
     const w = m.measureText(text).width;
     el.style.fontSize = (w > room ? Math.max(9, b * room / w) : b) + 'px';
 }
-const MR_TIER_COL = ['rgba(232,239,233,.35)', '#7cc8ff', '#5eead4', '#b39dff', '#f78fd8', '#ffd166', '#ff9a5c', '#ff5d7a', '#c9b8ff', '#fff6d6'];
+const MR_TIER_COL = ['rgba(232,239,233,.35)', '#7cc8ff', '#5eead4', '#b39dff', '#f78fd8', '#ffd166', '#ff9a5c', '#ff5d7a', '#c9b8ff', '#fff6d6', '#3ff0ff', '#c45cff', '#ffd36e'];
 // multiroll: show one roll large with its details; the strip picks which
 function showMultiRoll(col, records, i, best, swap) {
     const r = records[i];

@@ -8,9 +8,13 @@ const RARITY_FX = [
     { c: '#ff9a5c', c2: '#e8431a', ms: 5200 },
     { c: '#ff5d7a', c2: '#b0123a', ms: 6000 },
     { c: '#c9b8ff', c2: '#4b2bff', ms: 6200, vd: 2400, hb: [500, 1050, 1500, 1850, 2100] },
-    { c: '#fff6d6', c2: '#ff7ad9', ms: 8000, vd: 4320, hb: [0, 900, 1700, 2400, 3000, 3500, 3900] }
+    { c: '#fff6d6', c2: '#ff7ad9', ms: 8000, vd: 4320, hb: [0, 900, 1700, 2400, 3000, 3500, 3900] },
+    // 10-12 also have a gradient (g)
+    { c: '#3ff0ff', c2: '#7a5cff', g: 'linear-gradient(100deg,#3ff0ff,#7a5cff)', ms: 8400, vd: 3600, hb: [0, 800, 1500, 2100, 2600, 3000, 3300] },
+    { c: '#c45cff', c2: '#ff4fd8', g: 'linear-gradient(100deg,#3ff0ff,#c45cff,#ff4fd8)', ms: 9000, vd: 4600, hb: [0, 1100, 2000, 2800, 3400, 3900, 4250, 4450] },
+    { c: '#ffd36e', c2: '#ff7ad9', g: 'linear-gradient(100deg,#ffd36e,#ff7ad9,#7a5cff,#3ff0ff)', ms: 10400, vd: 5600, hb: [1400, 2600, 3500, 4200, 4700, 5100, 5350] }
 ];
-// Secret variants for tiers 5 to 9: about 1 in 10 of those rolls play these instead.
+// secret variants, tiers 5-12
 const SECRET_CHANCE = 0.1;
 const RARITY_DARK = [
     null, null, null, null, null,
@@ -18,7 +22,10 @@ const RARITY_DARK = [
     { c: '#e0261c', c2: '#3a0000', ms: 5600 },
     { c: '#9dff3a', c2: '#0b2205', ms: 6400 },
     { c: '#ff2a2a', c2: '#160000', ms: 6200, vd: 2400, hb: [400, 1150, 1320, 1900, 2040, 2230] },
-    { c: '#ff2a2a', c2: '#5a0000', ms: 8400, vd: 4320, hb: [0, 700, 1600, 1760, 2600, 3100, 3260, 3700, 3950, 4120] }
+    { c: '#ff2a2a', c2: '#5a0000', ms: 8400, vd: 4320, hb: [0, 700, 1600, 1760, 2600, 3100, 3260, 3700, 3950, 4120] },
+    { c: '#ff3b2a', c2: '#2a0008', ms: 8200, vd: 3600, hb: [0, 800, 1500, 2100, 2350, 3000, 3150, 3400] },
+    { c: '#b0123a', c2: '#000000', ms: 9200, vd: 4600, hb: [0, 1100, 2000, 2150, 2800, 3400, 3550, 3900, 4250, 4400] },
+    { c: '#d8d2c8', c2: '#3a0000', ms: 10600, vd: 5600, hb: [0, 900, 1900, 3000, 4200, 5300] }
 ];
 let rarityEffectTimer = null;
 let fxRunId = 0;
@@ -908,6 +915,113 @@ function playRarityFx(tier, dark) {
                 Object.assign({ at: vd + 1200, until: vd + 7400, rate: 45, life: 3.6, size: 3, wide: 1 }, ash)
             ], vd + 7600);
         }
+        // secret 10-12
+        if (tier === 10) {
+            // failed supernova
+            const v = veil(0, vd + 1200, 0.9, [vd / (vd + 1200) * 0.7, vd / (vd + 1200)], '14,0,2', 6);
+            v.style.mixBlendMode = 'multiply';
+            if (app) {
+                app.style.transformOrigin = origin(app);
+            }
+            P(app, [{ transform: 'none' }, { transform: 'scale(.9)', offset: 0.95 }, { transform: 'scale(.86) rotate(-1deg)' }], { duration: vd, easing: 'cubic-bezier(.5,0,.9,.5)' });
+            rumble(game, 0, vd, 6);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                bloom(ms, 500, 8 + k * 14, i % 2 ? c2 : c, 0.35 + k * 0.4);
+                flash(ms, 260, c, 0.08 + k * 0.18, 24);
+                reelCrack(ms, 1 + (i >> 1), 'rgba(255,255,255,.85)');
+                shake(game, ms, 140, 3 + k * 7, 0);
+            });
+            blackout(vd, 520, 1);
+            eclipse(vd + 260, 6800, 48, c, c2);
+            raysIn(vd + 260, 6400, 0.55, -200, [c, '#000', c2, '#000', '#ff8a6a'], 40);
+            cracks(vd + 300, 420, 18, Math.hypot(W, H) * 0.9, 'rgba(255,255,255,.88)', 1.5, null, null, 6200);
+            shards(vd + 300, 40, 700, 'rgba(60,0,0,.9)');
+            shake(game, vd + 260, 2000, 24, 1.1);
+            slip(vd + 400, 3600, 34);
+            staticNoise(vd + 600, 3000, 0.2);
+            P(app, [{ filter: 'none' }, { filter: 'grayscale(1) contrast(1.4)', offset: 0.1 }, { filter: 'grayscale(1) contrast(1.4)', offset: 0.75 }, { filter: 'none' }], { duration: 4800, delay: vd + 300, easing: 'ease-in-out' });
+            const ed = edge(vd + 260, 7400, c, 3.2);
+            ed.style.boxShadow = 'inset 0 0 0 2px ' + c + ',inset 0 0 150px 16px #4a0006,inset 0 0 320px 40px #000';
+            particles([
+                { type: 'spiral', at: 400, until: vd, rate: 70, ramp: 1, cols: [c, '#ffb08a', '#fff'], life: 1.4, size: 2, dir: -1 },
+                { type: 'spiral', at: vd + 300, until: vd + 6400, rate: 110, cols: [c, '#ff8a6a', '#fff'], life: 1.5, size: 2.2, dir: -1 },
+                Object.assign({ at: vd + 800, until: vd + 7600, rate: 50, life: 3.6, size: 3, wide: 1 }, ash)
+            ], vd + 7800);
+        }
+        if (tier === 11) {
+            // black hole, gives back the wrong page
+            const v = E('fx-fill', 'background:radial-gradient(circle at ' + cx + 'px ' + cy + 'px,rgba(0,0,0,.2) 0,rgba(10,0,2,.96) 34%,#000 100%)');
+            A(v, [{ opacity: 0 }, { opacity: 0.7, offset: 0.3 }, { opacity: 1, offset: 0.62 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], { duration: vd + 2200, easing: 'ease-in' });
+            const back = vd + 1700;
+            parts.forEach((el, i) => {
+                const vv = vec(el);
+                const L = back + 2600;
+                const o = ms => Math.min(1, ms / L);
+                const turn = (i % 2 ? 1 : -1) * (160 + Math.random() * 160);
+                const wrong = (Math.random() - 0.5) * 16;
+                P(el, [
+                    { transform: 'none', opacity: 1, offset: 0 },
+                    { transform: 'none', opacity: 1, offset: o(i * 90), easing: 'cubic-bezier(.6,0,.9,.4)' },
+                    { transform: 'translate(' + (-vv.dx * vv.d).toFixed(0) + 'px,' + (-vv.dy * vv.d).toFixed(0) + 'px) rotate(' + turn.toFixed(0) + 'deg) scale(.05)', opacity: 0, offset: o(vd * 0.92) },
+                    { transform: 'translate(' + (-vv.dx * vv.d).toFixed(0) + 'px,' + (-vv.dy * vv.d).toFixed(0) + 'px) scale(.05)', opacity: 0, offset: o(back) },
+                    { transform: 'translate(' + (vv.dx * 30).toFixed(0) + 'px,' + (20 + Math.random() * 40).toFixed(0) + 'px) rotate(' + wrong.toFixed(1) + 'deg) scale(1.02)', opacity: 0.85, offset: o(back + 350), easing: 'steps(1,end)' },
+                    { transform: 'translate(' + (vv.dx * 26).toFixed(0) + 'px,' + (24 + Math.random() * 40).toFixed(0) + 'px) rotate(' + (wrong * 1.1).toFixed(1) + 'deg)', opacity: 0.85, offset: o(back + 1900), easing: 'cubic-bezier(.3,1.5,.4,1)' },
+                    { transform: 'none', opacity: 1, offset: 1 }
+                ], { duration: L, easing: 'linear' });
+            });
+            raysIn(0, vd, 0.6, -900, [c, '#000', '#ff2a2a', '#000'], 60);
+            warpFx(tok, 400, vd, 16, 'ripple');
+            eclipse(300, vd + 3400, 34, c, c2);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                ringIn(ms, 900, 6 + k * 8, i % 2 ? '#ff2a2a' : '#fff');
+                flash(ms, 200, '#ff2a2a', 0.06 + k * 0.14, 22);
+            });
+            staticNoise(vd, 1700, 0.32);
+            flicker(vd + 200, 1400, 0.85);
+            tear(game, back + 300, 1500);
+            P(app, [{ filter: 'invert(1) hue-rotate(160deg)' }, { filter: 'invert(1) hue-rotate(160deg)', offset: 0.9 }, { filter: 'none' }], { duration: 130, delay: back + 350, easing: 'steps(1,end)' });
+            P(app, [{ filter: 'none' }, { filter: 'saturate(.2) contrast(1.3) sepia(.4)', offset: 0.1 }, { filter: 'saturate(.2) contrast(1.3) sepia(.4)', offset: 0.8 }, { filter: 'none' }], { duration: 3000, delay: back + 500, easing: 'ease-in-out' });
+            cracks(back + 300, 320, 12, Math.hypot(W, H) * 0.8, 'rgba(255,40,60,.9)', 1.4, null, null, 4200);
+            shake(game, back + 300, 1400, 18, 1);
+            const ed = edge(back, 5200, '#ff2a2a', 3);
+            ed.style.boxShadow = 'inset 0 0 0 2px #ff2a2a,inset 0 0 140px 14px #3a0010,inset 0 0 300px 40px #000';
+            particles([
+                { type: 'spiral', at: 0, until: vd, rate: 120, ramp: 1, cols: ['#ff2a2a', '#7a0010', '#fff'], life: 1.2, size: 2, dir: -1 },
+                { type: 'stars', at: 0, n: 120, cols: ['#ffd6d6', '#ffffff'], life: vd / 1000 * 0.8, size: 1.5, pull: 160, rot: -0.4 },
+                Object.assign({ at: back, until: back + 5200, rate: 46, life: 3.4, size: 3, wide: 1 }, ash)
+            ], back + 5600);
+        }
+        if (tier === 12) {
+            // heat death
+            P(app, [{ filter: 'none' }, { filter: 'grayscale(.6) blur(.6px) brightness(.85)', offset: 0.6 }, { filter: 'grayscale(1) blur(1.4px) brightness(.55)' }], { duration: vd, easing: 'ease-in' });
+            if (app) {
+                app.style.transformOrigin = origin(app);
+            }
+            P(app, [{ transform: 'none' }, { transform: 'scale(.97)' }], { duration: vd, easing: 'ease-in' });
+            const v = veil(0, vd + 2000, 0.9, [vd / (vd + 2000) * 0.8, (vd + 1600) / (vd + 2000)], '6,6,6', 10);
+            reelFx(b => {
+                const f = E('fx-fill', 'inset:auto;left:' + b.left + 'px;top:' + b.top + 'px;width:' + b.width + 'px;height:' + b.height + 'px;box-shadow:inset 0 0 40px 10px rgba(235,240,255,.55),0 0 0 1px rgba(235,240,255,.5)');
+                A(f, [{ opacity: 0 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], { duration: vd + 600, easing: 'ease-in' });
+            });
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = 1 - i / a.length;
+                ring(ms, 1400, 4 + k * 4, 'rgba(216,210,200,.7)', 1, 8, 0.6);
+                shake(game, ms, 200, 2 + k * 3, 0);
+            });
+            flash(vd - 500, 700, c2, 0.5, 60);
+            blackout(vd, 2400, 1);
+            P(app, [{ filter: 'grayscale(1) brightness(.6)' }, { filter: 'grayscale(1) brightness(.8)', offset: 0.35 }, { filter: 'none' }], { duration: 5200, delay: vd + 1500, easing: 'ease-in' });
+            const ed = edge(vd + 1500, 6800, c, 2.6);
+            ed.style.boxShadow = 'inset 0 0 0 1px ' + c + ',inset 0 0 160px 18px rgba(40,0,0,.6),inset 0 0 320px 50px #000';
+            eclipse(vd + 1800, 6200, 40, c, c2);
+            particles([
+                { type: 'stars', at: 0, n: 160, cols: ['#ffffff', '#d8d2c8', '#9a948a'], life: vd / 1000 * 0.95, size: 1.5, pull: 10, rot: 0.02 },
+                Object.assign({ at: 300, until: vd + 7600, rate: 34, life: 4.2, size: 3, wide: 1 }, ash),
+                { type: 'embers', at: vd + 1800, until: vd + 6400, rate: 10, cols: ['#ff5a3a', '#7a1000'], life: 2.6, size: 1.6, wide: 1 }
+            ], vd + 8000);
+        }
         done();
         return;
     }
@@ -1157,6 +1271,151 @@ function playRarityFx(tier, dark) {
             { type: 'burst', at: vd + 500, n: 100, cols: 'rainbow', speed: 420, life: 4.2, size: 1.7, drag: 0.8, grav: -8 },
             { type: 'embers', at: vd + 800, until: vd + 6000, rate: 26, cols: 'rainbow', life: 2.6, size: 1.8, wide: 1 }
         ]);
+    }
+    if (tier >= 10) {
+        const disc = (delay, dur, size, rim, glow) => {
+            const e = E('fx-eclipse', at + 'width:' + size + 'vmin;height:' + size + 'vmin;margin:-' + size / 2 + 'vmin 0 0 -' + size / 2 + 'vmin;box-shadow:0 0 0 2px ' + rim + ',0 0 40px 8px ' + rim + ',0 0 140px 50px ' + glow + ',inset 0 0 30px 4px ' + glow);
+            A(e, [{ opacity: 0, transform: 'scale(.1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.35 }, { opacity: 1, transform: 'scale(1.08)', offset: 0.9 }, { opacity: 0, transform: 'scale(.02)' }], { duration: dur, delay, easing: 'cubic-bezier(.4,0,.6,1)' });
+            return e;
+        };
+        const whiteout = (delay, dur) => {
+            const wo = E('fx-fill', 'background:#fff');
+            A(wo, [{ opacity: 0 }, { opacity: 1, offset: 0.04 }, { opacity: 1, offset: 0.14 }, { opacity: 0 }], { duration: dur, delay, easing: 'ease-out' });
+        };
+        const prism = ['#ff6b9a', '#ffd36b', '#7dffa0', '#6bdcff', '#a58bff'];
+        if (tier === 10) {
+            // supernova
+            veil(0, vd + 1400, 0.94, [vd / (vd + 1400) * 0.8, vd / (vd + 1400)], '2,4,20', 5);
+            if (app) {
+                app.style.transformOrigin = origin(app);
+            }
+            {
+                const L = vd + 2200;
+                const o = ms => ms / L;
+                P(app, [
+                    { transform: 'none', easing: 'cubic-bezier(.5,0,.9,.5)' },
+                    { transform: 'scale(.88)', offset: o(vd) , easing: 'cubic-bezier(.15,.9,.25,1)' },
+                    { transform: 'scale(1.07)', offset: o(vd + 260) },
+                    { transform: 'scale(.99)', offset: o(vd + 900) },
+                    { transform: 'none' }
+                ], { duration: L, easing: 'linear' });
+            }
+            rumble(game, 0, vd, 5);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                bloom(ms, 700, 6 + k * 22, i % 2 ? c2 : c, 0.4 + k * 0.6);
+                ring(ms, 1000, 2 + k * 4, c, 1.5, 14, 0.4);
+                flash(ms, 400, c, 0.1 + k * 0.2, 30);
+            });
+            ringIn(0, vd * 0.8, 18, c);
+            ringIn(vd * 0.4, vd * 0.6, 14, c2);
+            // blast
+            whiteout(vd - 60, 1800);
+            bloom(vd, 3200, 220, c, 1);
+            for (let i = 0; i < 5; i++) {
+                ring(vd + i * 140, 2200 + i * 260, 32 + i * 4, [c, '#fff', c2, '#ff7ad9', c][i], 3.5 - i * 0.5, 30);
+            }
+            shockPage(vd + 40, 120, 6, 2.8);
+            shake(game, vd, 1800, 22, 1);
+            warpFx(tok, vd + 100, 2600, 20, 'ripple');
+            rays(vd, 6400, 0.55, 90, [c, c2, '#fff', '#ff7ad9', c2], 44);
+            aurora(vd + 300, 6800, [c2, c, '#ff7ad9', c], 0.5);
+            const ed = edge(vd, 7400, c, 3.2);
+            ed.style.boxShadow = 'inset 0 0 0 2px ' + c + ',inset 0 0 160px 16px ' + c2 + ',inset 0 0 320px 40px #10003a';
+            reelGlow(vd, 6000, c, 1.1);
+            trace(vd + 200, 4200, '#fff', 4, 4);
+            particles([
+                { type: 'stars', at: 0, n: 140, cols: ['#ffffff', '#bff7ff', '#d6ccff'], life: vd / 1000 * 0.8, size: 1.5, pull: 140, rot: 0.1 },
+                { type: 'spiral', at: 500, until: vd, rate: 90, ramp: 1, cols: [c, c2, '#fff'], life: 1.3, size: 2, dir: -1 },
+                { type: 'galaxy', at: vd, n: 260, cols: [c, c2, '#fff', '#ff7ad9'], speed: 1250, life: 3.2, size: 2.5, trail: 1, drag: 1.2, spin: 0.6 },
+                { type: 'burst', at: vd + 400, n: 90, cols: [c, '#fff'], speed: 380, life: 4, size: 1.7, drag: 0.8, grav: -6 },
+                { type: 'embers', at: vd + 700, until: vd + 7000, rate: 30, cols: [c, c2, '#ff7ad9'], life: 2.8, size: 1.9, wide: 1 }
+            ], vd + 8000);
+        }
+        if (tier === 11) {
+            // black hole into white hole
+            const v = E('fx-fill', 'background:radial-gradient(circle at ' + cx + 'px ' + cy + 'px,rgba(20,0,30,.3) 0,rgba(4,0,10,.96) 34%,#000 100%)');
+            A(v, [{ opacity: 0 }, { opacity: 0.7, offset: 0.3 }, { opacity: 1, offset: (vd - 200) / (vd + 700) }, { opacity: 1, offset: vd / (vd + 700) }, { opacity: 0 }], { duration: vd + 700, easing: 'ease-in' });
+            parts.forEach((el, i) => {
+                const vv = vec(el);
+                const L = vd + 2400;
+                const o = ms => Math.min(1, ms / L);
+                const turn = (i % 2 ? 1 : -1) * (200 + Math.random() * 160);
+                const tx = k => 'translate(' + (-vv.dx * vv.d * k).toFixed(0) + 'px,' + (-vv.dy * vv.d * k).toFixed(0) + 'px)';
+                P(el, [
+                    { transform: 'none', opacity: 1, offset: 0 },
+                    { transform: 'none', opacity: 1, offset: o(i * 110), easing: 'cubic-bezier(.6,0,.9,.4)' },
+                    { transform: tx(0.5) + ' rotate(' + (turn * 0.3).toFixed(0) + 'deg) scale(.6)', opacity: 0.8, offset: o(i * 110 + vd * 0.45), easing: 'cubic-bezier(.6,0,.9,.4)' },
+                    { transform: tx(1) + ' rotate(' + turn.toFixed(0) + 'deg) scale(.04)', opacity: 0, offset: o(vd * 0.94) },
+                    { transform: tx(1) + ' scale(.04)', opacity: 0, offset: o(vd + 150) },
+                    { transform: 'translate(' + (vv.dx * 70).toFixed(0) + 'px,' + (vv.dy * 70).toFixed(0) + 'px) scale(1.05)', opacity: 1, offset: o(vd + 750), easing: 'cubic-bezier(.2,.9,.3,1)' },
+                    { transform: 'none', opacity: 1, offset: 1 }
+                ], { duration: L, easing: 'linear' });
+            });
+            rays(0, vd + 300, 0.6, 1080, [c, '#000', c2, '#000', '#3ff0ff', '#000'], 64, 70);
+            warpFx(tok, 300, vd - 200, 18, 'ripple');
+            disc(200, vd, 30, c, c2);
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                ringIn(ms, 1000, 8 + k * 10, i % 2 ? c2 : c);
+                flash(ms, 300, c, 0.05 + k * 0.15, 25);
+            });
+            // white hole
+            whiteout(vd - 40, 2000);
+            bloom(vd, 3400, 240, '#fff', 1);
+            for (let i = 0; i < 5; i++) {
+                ring(vd + i * 160, 2400 + i * 260, 34 + i * 4, ['#fff', c, '#3ff0ff', c2, '#fff'][i], 3.5 - i * 0.5, 32);
+            }
+            rays(vd, 6800, 0.6, -140, prism, 48);
+            rays(vd + 200, 6800, 0.35, 120, [c, c2, '#3ff0ff'], 20, 150);
+            aurora(vd + 300, 7200, ['#3ff0ff', c, c2, '#ffd36e'], 0.45);
+            shake(game, vd, 1900, 24, 1);
+            const ed = edge(vd, 7600, c, 3.4);
+            ed.style.boxShadow = 'inset 0 0 0 2px #3ff0ff,inset 0 0 160px 16px ' + c + ',inset 0 0 320px 40px ' + c2;
+            trace(vd + 300, 4400, '#fff', 4, 4);
+            particles([
+                { type: 'spiral', at: 0, until: vd, rate: 130, ramp: 1, cols: [c, c2, '#3ff0ff', '#fff'], life: 1.2, size: 2, dir: -1 },
+                { type: 'stars', at: 0, n: 150, cols: ['#ffffff', '#e8d0ff'], life: vd / 1000 * 0.85, size: 1.5, pull: 200, rot: 0.5 },
+                { type: 'galaxy', at: vd, n: 300, cols: 'rainbow', speed: 1300, life: 3.4, size: 2.5, trail: 1, drag: 1.2, spin: -1.8 },
+                { type: 'burst', at: vd + 500, n: 110, cols: 'rainbow', speed: 460, life: 4.4, size: 1.7, drag: 0.8, grav: -8 },
+                { type: 'embers', at: vd + 800, until: vd + 7400, rate: 30, cols: [c, c2, '#3ff0ff', '#fff'], life: 2.8, size: 1.9, wide: 1 }
+            ], vd + 8400);
+        }
+        if (tier === 12) {
+            // big bang
+            const dark0 = E('fx-fill', 'background:#000');
+            A(dark0, [{ opacity: 0 }, { opacity: 1, offset: 1400 / (vd + 300) }, { opacity: 1, offset: vd / (vd + 300) }, { opacity: 0 }], { duration: vd + 300, easing: 'ease-in-out' });
+            (T.hb || []).forEach((ms, i, a) => {
+                const k = (i + 1) / a.length;
+                bloom(ms, 900, 2 + k * 9, i % 2 ? c2 : '#fff', 0.5 + k * 0.5);
+                ringIn(ms, 1000, 3 + k * 5, i % 3 === 2 ? c : '#fff');
+            });
+            whiteout(vd + 120, 2600);
+            const sphere = E('fx-bloom', at + 'width:300vmax;height:300vmax;margin:-150vmax 0 0 -150vmax;background:radial-gradient(circle,#fff 0,#fff 30%,' + c + ' 48%,' + c2 + ' 58%,transparent 70%)');
+            A(sphere, [{ opacity: 1, transform: 'scale(.002)' }, { opacity: 1, transform: 'scale(1)', offset: 0.3 }, { opacity: 0, transform: 'scale(1.1)' }], { duration: 2200, delay: vd - 200, easing: 'cubic-bezier(.7,0,.3,1)' });
+            parts.forEach((el, i) => P(el, [
+                { opacity: 0, transform: 'scale(.4)', filter: 'blur(14px) brightness(3)' },
+                { opacity: 1, transform: 'scale(1.03)', filter: 'blur(2px) brightness(1.4)', offset: 0.6 },
+                { opacity: 1, transform: 'none', filter: 'none' }
+            ], { duration: 1200, delay: vd + 1200 + i * 220, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' }));
+            rays(vd + 300, 8200, 0.6, 160, prism, 52);
+            rays(vd + 500, 8200, 0.4, -120, [c, c2, '#7a5cff', '#3ff0ff'], 24, 160);
+            aurora(vd + 600, 8400, [c, c2, '#7a5cff', '#3ff0ff'], 0.5);
+            for (let i = 0; i < 6; i++) {
+                ring(vd + 400 + i * 220, 2600 + i * 240, 36 + i * 3, i % 2 ? prism[i % 5] : c, 3.5 - i * 0.4, 32);
+            }
+            shake(game, vd + 100, 2200, 26, 1.2);
+            trace(vd + 2400, 5600, c, 5, 5);
+            reelGlow(vd + 2400, 6000, c, 1.1);
+            const ed = edge(vd + 300, 8800, c, 3.6);
+            ed.style.boxShadow = 'inset 0 0 0 2px ' + c + ',inset 0 0 140px 14px ' + c2 + ',inset 0 0 260px 30px #7a5cff,inset 0 0 380px 50px #0a3a5a';
+            particles([
+                { type: 'galaxy', at: vd + 200, n: 320, cols: 'rainbow', speed: 1500, life: 3.8, size: 2.6, trail: 1, drag: 1.1, spin: 1.2 },
+                { type: 'burst', at: vd + 900, n: 140, cols: [c, '#fff', c2], speed: 600, life: 4.6, size: 1.9, drag: 0.8, grav: -6 },
+                { type: 'stars', at: vd + 1400, n: 160, cols: ['#ffffff', '#fff2c4', '#ffd6f2'], life: 6, size: 1.5, pull: -40, rot: 0.06 },
+                { type: 'embers', at: vd + 1200, until: vd + 9200, rate: 34, cols: 'rainbow', life: 3, size: 1.9, wide: 1 }
+            ], vd + 10200);
+        }
     }
     done();
 }

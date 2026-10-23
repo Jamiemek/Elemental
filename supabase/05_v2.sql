@@ -1,3 +1,21 @@
+-- part 5
+
+-- tiers, same as TIER_SCORES in the game
+create or replace function public.tier_for(sc double precision)
+returns int language sql immutable as $$
+  select count(*)::int from unnest(array[10000, 30000, 100000, 250000, 500000, 1000000, 1500000, 3000000, 12000000,
+    30000000, 100000000, 300000000]::double precision[]) t
+  where sc >= t;
+$$;
+
+do $$ begin
+  if exists (select 1 from pg_constraint where conname = 'game_settings_min_tier_check'
+             and pg_get_constraintdef(oid) like '%<= 10)%') then
+    alter table public.game_settings drop constraint game_settings_min_tier_check;
+    update public.game_settings set min_tier = 13 where min_tier = 10;
+    alter table public.game_settings add constraint game_settings_min_tier_check check (min_tier between 1 and 13);
+  end if;
+end $$;
 
 alter table public.global_rolls add column if not exists ion smallint not null default 0;
 alter table public.announcements add column if not exists ion smallint not null default 0;
@@ -39,7 +57,7 @@ create or replace function public.discord_post(a public.announcements, p_rolls b
 returns void language plpgsql security definer set search_path = '' as $$
 declare
   url text;
-  colours int[] := array[10465448, 8177919, 6220500, 11771391, 16224216, 16765286, 16751196, 16735610, 13220095, 16774870];
+  colours int[] := array[10465448, 8177919, 6220500, 11771391, 16224216, 16765286, 16751196, 16735610, 13220095, 16774870, 4190463, 12868863, 16765806];
   game text := 'https://jamiemek.github.io/Elemental/';
   what text := coalesce(nullif(a.label, ''), a.formula) || public.ion_text(a.ion);
   ranks text := '';
@@ -71,7 +89,7 @@ begin
   perform net.http_post(
     url := url,
     body := jsonb_build_object('embeds', jsonb_build_array(jsonb_build_object(
-      'color', colours[least(greatest(a.tier, 0), 9) + 1],
+      'color', colours[least(greatest(a.tier, 0), 12) + 1],
       'author', jsonb_build_object('name', head),
       'title', a.display_name || ' found ' || what,
       'description', descr,

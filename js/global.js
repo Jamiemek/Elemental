@@ -242,7 +242,7 @@ function bannerNext() {
     }
     bannerBusy = true;
     const a = bannerQueue.shift();
-    const fx = RARITY_FX[Math.min(9, a.tier)];
+    const fx = RARITY_FX[Math.min(12, a.tier)];
     el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
     el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + ionText(a.ion || 0)) + '</b><span>' +
         (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
