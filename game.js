@@ -10859,6 +10859,78 @@ CUTSCENES.Ad = {
         drawCard(ctx, scene, time, 7200, '#ff8a7a', '#b3342a');
     }
 };
+// Nu: everything that comes to bond with it gets bounced off
+CUTSCENES.Nu = {
+    z: 0, dur: 8400,
+    snd(audio, start) {
+        [1.5, 2.3, 3.1, 3.8, 4.5].forEach((x, i) => {
+            playTone(audio, 300 + i * 30, start + x, 0.25, 0.025, 'sine', 900 + i * 60, 0.2, 0, 0.005);
+            playNoise(audio, start + x, 0.08, 0.02, 2600, 1200, 'bandpass', 1, 0.1, 0.002);
+        });
+        padChord(audio, start + 5.4, [233.1, 293.7, 349.2], 2.4, 0.016, 'triangle', 2000);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        ctx.fillStyle = '#1e0d0b';
+        ctx.fillRect(0, 0, W, H);
+        const fade = 1 - smoothstep(6100, 6600, time);
+        const hits = [[1500, 3.3, 'O'], [2300, 0.2, 'H'], [3100, 2.1, 'C'], [3800, 4.6, 'N'], [4500, 1.2, 'Na']];
+        hits.forEach(([t, a, sym]) => {
+            const d = time - t;
+            let r;
+            if (d < 0) {
+                r = 12 * u + Math.max(0, -d) * 0.05 * u;
+                if (-d > 700) {
+                    return;
+                }
+            } else {
+                r = 12 * u + easeOutCubic(d / 900) * 50 * u;
+            }
+            const al = d < 0 ? smoothstep(-700, -400, d) : 1 - smoothstep(500, 900, d);
+            const x = cx + Math.cos(a) * r;
+            const y = cy + Math.sin(a) * r;
+            ctx.globalAlpha = al * fade;
+            ctx.fillStyle = '#8fb7ff';
+            ctx.beginPath();
+            ctx.arc(x, y, 3.6 * u, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            drawText(ctx, sym, x, y + 0.1 * u, 2.8 * u, '#0d1630', al * fade, 800);
+            if (d > 0 && d < 700) {
+                const k = d / 700;
+                ctx.strokeStyle = 'rgba(255,123,92,' + (1 - k) * (calmFx ? 0.5 : 1) + ')';
+                ctx.lineWidth = 0.6 * u;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 8.5 * u, a - 0.8, a + 0.8);
+                ctx.stroke();
+                drawText(ctx, 'NOPE', cx - Math.cos(a) * 20 * u, cy - Math.sin(a) * 14 * u - k * 3 * u, 3.4 * u * (1 + 0.3 * (1 - k)), '#ff7b5c', 1 - k, 800, 0.4 * u);
+            }
+        });
+        // the loner
+        const smug = smoothstep(5300, 5800, time);
+        drawGlow(ctx, cx, cy, (12 + 8 * smug) * u, '#ff7b5c', (0.5 + 0.3 * smug) * fade);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#ffb59f';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6 * u, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#3a0f0a';
+        ctx.fillRect(cx - 3.7 * u, cy - 2 * u, 3.1 * u, 0.8 * u + smug * 0.7 * u);
+        ctx.fillRect(cx + 0.6 * u, cy - 2 * u, 3.1 * u, 0.8 * u + smug * 0.7 * u);
+        ctx.strokeStyle = '#3a0f0a';
+        ctx.lineWidth = 0.35 * u;
+        ctx.beginPath();
+        ctx.arc(cx + 0.8 * u, cy + 0.8 * u, 2 * u, 0.3, 0.3 + 1.6 * smug + 0.4);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        drawText(ctx, 'Party of one', cx, cy + 17 * u, 2.6 * u, '#ffb59f', smug * fade, 600);
+        drawCard(ctx, scene, time, 6500, '#ff7b5c', '#c2412a');
+    }
+};
 const STORE_LIMIT = 5 * 1024 * 1024;
 function storageBytes() {
     let n = 0;
