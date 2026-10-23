@@ -86,7 +86,9 @@ async function doRoll(preset, opts) {
             }
             const elements = [first || weightedElement(luckUp)];
             while (elements.length < 30 && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {
-                elements.push(weightedElement(luckUp));
+                if (!chainStep(elements, weightedElement(luckUp))) {
+                    break;
+                }
             }
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
@@ -97,7 +99,7 @@ async function doRoll(preset, opts) {
         const stormFx = !pre && qStormOn();
         const storm = pre ? null : qStormPress(rolls.length);
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
-        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
+        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();
         const cut = pickCutscene(rolls);
         // a cutscene always plays on the roll screen, so a rare roll found elsewhere takes you there
         if (cut && !$('game').classList.contains('active')) {
@@ -167,7 +169,7 @@ async function doRoll(preset, opts) {
                 playResultChime(score, secret && i === bestIdx);
             }
             if (!pre) {
-                addQuarks(quarksFor(score, 1 + (buffs.quark || 0) / 100) + (storm && storm.add ? storm.add[i] : 0));
+                addQuarks(quarksFor(score, 1 + ((buffs.quark || 0) + (elements.length === 1 ? bondBonus().alone : 0)) / 100) + (storm && storm.add ? storm.add[i] : 0));
             }
         });
         if (multi) {
@@ -196,7 +198,7 @@ async function doRoll(preset, opts) {
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
-                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + qStormRange().join(' to ') + ' extra quarks.' });
+                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + qStorm.left + ' rolls, every roll earns ' + qStormRange().join(' to ') + ' extra quarks.' });
             } else if (storm.ended) {
                 showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
             }

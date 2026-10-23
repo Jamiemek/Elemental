@@ -19,7 +19,7 @@ def server(req):
         d,e=run(uid,"select to_jsonb(public.%s(%s));"%(r['fn'],args))
     else:
         t,op,f,body=r['t'],r['op'],r['f'],r.get('body') or {}
-        if t in ('global_top_odds','global_top_score'):
+        if t in ('global_top_odds','global_top_score','global_top_odds_real','global_top_score_real'):
             d,e=run(uid,"select coalesce(json_agg(x),'[]') from (select id, formula, ion, odds_log, score, found_at, display_name from public.%s) x;"%t)
         elif t=='game_settings':
             d,e=run(uid,"select to_jsonb(x) from (select min_tier, announce_top10, discord_enabled, banner_enabled from public.game_settings where id = 1) x;")

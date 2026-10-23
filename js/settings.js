@@ -118,3 +118,54 @@ try {
 } catch (e) { }
 bondSummary();
 renderActiveCats();
+function jokeUiSync() {
+    $('jokeSetting').hidden = !jokesOn();
+    $('jokeMixSet').checked = jokeMix;
+    $('jokeHideSet').checked = jokeHide;
+}
+function jokeSetMix(on) {
+    jokeMix = on;
+    try {
+        localStorage.setItem('elementalJokeMix', on ? '1' : '0');
+    } catch (e) { }
+    weightCache = null;
+}
+$('jokeMixSet').addEventListener('change', () => jokeSetMix($('jokeMixSet').checked));
+$('jokeHideSet').addEventListener('change', () => {
+    jokeHide = $('jokeHideSet').checked;
+    try {
+        localStorage.setItem('elementalJokeHide', jokeHide ? '1' : '');
+    } catch (e) { }
+    if (typeof globalLoad === 'function') {
+        globalLoad();
+    }
+});
+// first unlock popup
+function jokeIntroCheck() {
+    let seen = true;
+    try {
+        seen = localStorage.getItem('elementalJokeIntro') === '1';
+    } catch (e) { }
+    if (seen || !jokesOn()) {
+        return;
+    }
+    if (document.getElementById('dlg') || rolling) {
+        setTimeout(jokeIntroCheck, 1500);
+        return;
+    }
+    try {
+        localStorage.setItem('elementalJokeIntro', '1');
+    } catch (e) { }
+    const w = openDialog('<h2>The joke periodic table</h2><p>' + JOKES.length + ' new elements are now in the pool, every one rarer than Uranium. Find them on the joke table in your Collection.</p>' +
+        '<p>Mixing is on: joke elements can chain with real ones into joke compounds. You can turn it off now, or any time in Settings.</p>' +
+        '<div class="btn-row"><button class="primary" id="jokeKeep">Keep mixing on</button><button class="ghost" id="jokeOff">Turn mixing off</button></div>');
+    w.querySelector('#jokeKeep').onclick = closeDialog;
+    w.querySelector('#jokeOff').onclick = () => {
+        jokeSetMix(false);
+        closeDialog();
+    };
+    if (typeof globalLoad === 'function') {
+        globalLoad();
+    }
+}
+setTimeout(jokeIntroCheck, 2500);

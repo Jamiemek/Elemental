@@ -67,17 +67,18 @@ const FAMILY_NAMES = {
     set('unknown', ['Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv']);
 })();
 function familyOf(sym) {
-    return FAMILY[sym] || 'transition';
+    return isJoke(sym) ? 'joke' : FAMILY[sym] || 'transition';
 }
-function buildTable(root, mode) {
+function buildTable(root, mode, list = ELEMENTS) {
     if (!root) {
         return;
     }
     root.innerHTML = '';
-    const found = discoveredSymbols();
+    const joke = list === JOKES;
+    const found = joke ? jokesFound() : discoveredSymbols();
     // ion marks
-    ELEMENTS.forEach((e, i) => {
-        const pos = tableLayout[e[0]] || [11, 1];
+    list.forEach((e, i) => {
+        const pos = joke ? e[4] : tableLayout[e[0]] || [11, 1];
         const isFound = found.has(e[0]);
         const tile = document.createElement('button');
         tile.type = 'button';
@@ -86,10 +87,10 @@ function buildTable(root, mode) {
         tile.className = 'element-tile' + (isFound ? ' discovered fam-' + familyOf(e[0]) : '') + (im && im[0] ? ' ion-p' + im[0] : '') + (im && im[1] ? ' ion-n' + im[1] : '');
         tile.style.gridRow = pos[0];
         tile.style.gridColumn = pos[1];
-        tile.title = isFound ? `${e[1]}, ${FAMILY_NAMES[familyOf(e[0])]}` : (mode === 'full' ? 'Not found yet. Select to see its bonus.' : 'Not found yet');
+        tile.title = isFound ? `${e[1]}, ${joke ? e[3] : FAMILY_NAMES[familyOf(e[0])]}` : (mode === 'full' ? 'Not found yet. Select to see its bonus.' : 'Not found yet');
         tile.setAttribute('aria-label', `${e[1]}${isFound ? ', found' : ', not found yet'}`);
         tile.innerHTML = mode === 'full'
-            ? `<span class="atomic">${isFound ? i + 1 : ''}</span><span class="sym">${isFound ? e[0] : ''}</span><span class="tiny">${isFound ? e[1] : ''}</span>`
+            ? `<span class="atomic">${isFound && !joke ? i + 1 : ''}</span><span class="sym">${isFound ? e[0] : ''}</span><span class="tiny">${isFound ? e[1] : ''}</span>`
             : `<span class="sym">${isFound ? e[0] : ''}</span>`;
         tile.addEventListener('click', () => {
             if (mode === 'compact' && !found.has(e[0])) {
@@ -180,11 +181,17 @@ function renderPeriodic() {
     $('elementStats').textContent = `${found.size} / 118 elements found`;
     const stats = activeBuffStats();
     $('buffSummary').innerHTML = '<h2 class="side-h">Active bonuses</h2><dl class="stats">' + bonusRows(stats) + '</dl>';
-    const e = ELEMENTS.find(x => x[0] === selectedElementSymbol) || ELEMENTS[0];
-    const b = ELEMENT_BUFFS.get(e[0]);
-    const isFound = found.has(e[0]);
+    // joke table
+    $('jokeWrap').hidden = !jokesOn();
+    if (jokesOn()) {
+        buildTable($('jokeTable'), 'full', JOKES);
+        $('jokeStats').textContent = `Joke periodic table · ${jokesFound().size} / ${JOKES.length} found`;
+    }
+    const joke = isJoke(selectedElementSymbol);
+    const e = joke ? elementBySymbol[selectedElementSymbol] : ELEMENTS.find(x => x[0] === selectedElementSymbol) || ELEMENTS[0];
+    const isFound = joke ? jokesFound().has(e[0]) : found.has(e[0]);
     $('buffElementName').textContent = `${e[1]} (${e[0]})`;
-    $('buffElementDesc').textContent = b.desc;
+    $('buffElementDesc').textContent = joke ? `${e[3]}. ${jokeBonusText(e[0])}.` : ELEMENT_BUFFS.get(e[0]).desc;
     $('buffElementState').textContent = isFound ? 'Active. This bonus always applies.' : 'Locked. Find this element once to activate it.';
     $('buffElementState').classList.toggle('active', isFound);
     renderElemCompounds();

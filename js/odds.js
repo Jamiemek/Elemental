@@ -53,12 +53,13 @@ function computeBuffs() {
 }
 function weightTable(extraLuck, only) {
     const b = activeBuffStats();
-    if (!extraLuck && !only && weightCache && weightCache.b === b) {
+    if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.pool.length === rollPool().length) {
         return weightCache;
     }
     const luck = b.luck + (extraLuck || 0);
     let total = 0;
-    const w = ELEMENTS.map(e => {
+    const pool = rollPool();
+    const w = pool.map(e => {
         if (only && !only(e)) {
             return 0;
         }
@@ -66,7 +67,7 @@ function weightTable(extraLuck, only) {
         total += v;
         return v;
     });
-    const t = { w, total, b };
+    const t = { w, total, b, pool };
     if (!extraLuck && !only) {
         weightCache = t;
     }
@@ -74,16 +75,39 @@ function weightTable(extraLuck, only) {
 }
 // one element, with the active buffs; extraLuck and only come from single-roll catalysts
 function weightedElement(extraLuck, only) {
-    const { w, total } = weightTable(extraLuck, only);
+    const { w, total, pool } = weightTable(extraLuck, only);
     let r = Math.random() * total;
-    for (let i = 0; i < ELEMENTS.length; i++) {
+    for (let i = 0; i < pool.length; i++) {
         r -= w[i];
         if (r <= 0) {
-            return ELEMENTS[i];
+            return pool[i];
         }
     }
-    return ELEMENTS[ELEMENTS.length - 1];
+    return pool[pool.length - 1];
 }
+// joke table
+let jokeMix = true;
+let jokeHide = false;
+try {
+    jokeMix = localStorage.getItem('elementalJokeMix') !== '0';
+    jokeHide = localStorage.getItem('elementalJokeHide') === '1';
+} catch (e) { }
+const jokesOn = () => bondBonus().joke;
+const rollPool = () => jokesOn() ? ELEMENTS.concat(JOKES) : ELEMENTS;
+// false = chain stops (mixing off rule)
+function chainStep(elements, e) {
+    if (jokeMix || !jokesOn() || isJoke(e[0]) === isJoke(elements[0][0])) {
+        elements.push(e);
+        return true;
+    }
+    if (isJoke(e[0])) {
+        elements.length = 0;
+        elements.push(e);
+    }
+    return false;
+}
+// + Redactium
+const secretChance = () => SECRET_CHANCE + bondBonus().secret / 100;
 function hillFormula(elements) {
     const counts = {};
     elements.forEach(e => counts[e[0]] = (counts[e[0]] || 0) + 1);
@@ -111,7 +135,7 @@ const SYM_IDX = Object.fromEntries(ELEMENTS.map((e, i) => [e[0], i]));
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
     let log10 = -(n - 1) * Math.log10(BASE_CHAIN);
-    elements.forEach(e => log10 -= Math.log10(ELEMENTS[SYM_IDX[e[0]]][2]));
+    elements.forEach(e => log10 -= Math.log10(elementBySymbol[e[0]][2]));
     return log10;
 }
 // ions: 1/100 for +, 1/1000 for -, - wins a tie
@@ -194,7 +218,7 @@ function quarksFor(score, mult) {
 }
 // Score = the base odds of every element in the roll added together.
 function rollScore(elements) {
-    return elements.reduce((sum, e) => sum + ELEMENTS[SYM_IDX[e[0]]][2], 0);
+    return elements.reduce((sum, e) => sum + elementBySymbol[e[0]][2], 0);
 }
 function fmtScore(n) {
     return Math.round(n).toLocaleString('en-US');
@@ -240,7 +264,7 @@ const QSTORM_MAX = 30;
 let qStorm = null;
 try {
     const v = JSON.parse(localStorage.getItem('elementalQStorm') || 'null');
-    qStorm = v && v.left > 0 ? { left: Math.min(QSTORM_PRESSES, Math.floor(v.left)), got: +v.got || 0 } : null;
+    qStorm = v && v.left > 0 ? { left: Math.min(QSTORM_PRESSES * 3, Math.floor(v.left)), got: +v.got || 0 } : null;
 } catch (e) { }
 function qStormSave() {
     try {
@@ -274,7 +298,8 @@ function qStormPress(count) {
         return { add, sum, ended };
     }
     if (Math.random() < qStormChance()) {
-        qStorm = { left: QSTORM_PRESSES, got: 0 };
+        // deja-vium
+        qStorm = { left: Math.round(QSTORM_PRESSES * (1 + bondBonus().evlen / 100)), got: 0 };
         qStormSave();
         return { started: true };
     }

@@ -395,6 +395,12 @@ p {
 .fam-unknown {
   background: var(--unknown);
 }
+#jokeWrap {
+  margin-top: 28px;
+}
+.fam-joke {
+  background: linear-gradient(135deg, #ffd36e, #ff9fd8 55%, #b9a6ff);
+}
 .legend {
   display: flex;
   flex-wrap: wrap;

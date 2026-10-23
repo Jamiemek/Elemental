@@ -136,6 +136,26 @@ const ELEMENTS = [
 ];
 ELEMENTS.forEach(e => e[2] = e[0] === 'U' ? 12000000 : Math.max(2, Math.round(e[2] ** 0.82)));
 const elementBySymbol = Object.fromEntries(ELEMENTS.map(e => [e[0], e]));
+const JOKES = [
+    ['Um', 'Ummium', 35000000, 'The element of surprise', [1, 1]],
+    ['Zz', 'Snorium', 45000000, "Only reacts when it's woken up", [1, 18]],
+    ['Mu', 'Mundanium', 55000000, 'The most ordinary element imaginable, somehow this rare', [2, 1]],
+    ['Ln', 'Lostium', 70000000, 'Always in the last place you look', [2, 2]],
+    ['Df', 'Deferrium', 90000000, 'Will react tomorrow', [2, 13]],
+    ['Cz', 'Caffeinium', 120000000, 'Makes every neighbour jittery', [2, 14]],
+    ['Mb', 'Maybium', 150000000, 'Exists until you check', [2, 15]],
+    ['Dj', 'Déjà-vium', 190000000, "You've definitely rolled this before", [2, 16]],
+    ['Ha', 'Halfinium', 230000000, 'Always exactly halfway through decaying', [2, 17]],
+    ['Ad', 'Administratium', 280000000, 'The heaviest element; it slows everything around it down', [2, 18]],
+    ['Nu', 'Nopeium', 350000000, 'Refuses to bond with anything', [3, 1]],
+    ['Xx', 'Redactium', 500000000, '[DATA EXPUNGED]', [3, 2]],
+    ['Uo', 'Unobtainium', 700000000, 'The one every scientist is after', [3, 16]],
+    ['Zo', 'Zoomium', 1000000000, 'Already gone before you see it', [3, 17]],
+    ['Gg', 'Gameoverium', 1500000000, 'The last element there will ever be', [3, 18]]
+];
+JOKES.forEach(j => elementBySymbol[j[0]] = j);
+const JOKE_SYMS = new Set(JOKES.map(j => j[0]));
+const isJoke = sym => JOKE_SYMS.has(sym);
 const tableLayout = {};
 function placeRow(p, a) {
     a.forEach(([s, c]) => tableLayout[s] = [p, c]);
@@ -3105,6 +3125,7 @@ function go(screen) {
         renderCatInv();
     }
     if (screen === 'settings' && typeof renderStorage === 'function') {
+        jokeUiSync();
         renderStorage();
         renderViewer();
     }
@@ -3196,10 +3217,26 @@ function buildBuffs() {
     }));
 }
 const ELEMENT_BUFFS = buildBuffs();
+// jokes don't count
 function discoveredSymbols() {
     const set = new Set();
     collection.forEach(c => (c.elements || []).forEach(e => set.add(e[0])));
+    JOKE_SYMS.forEach(s => set.delete(s));
     return set;
+}
+let jokeFoundCache = null;
+function jokesFound() {
+    if (jokeFoundCache && jokeFoundCache.n === collection.length) {
+        return jokeFoundCache.s;
+    }
+    const s = new Set();
+    collection.forEach(c => (c.elements || []).forEach(e => {
+        if (isJoke(e[0])) {
+            s.add(e[0]);
+        }
+    }));
+    jokeFoundCache = { n: collection.length, s };
+    return s;
 }
 // Bond network
 const NET_SEED = 20261021;
@@ -3574,17 +3611,33 @@ function fillSlot(id) {
     saveNet();
     netVer++;
     buffCache = weightCache = null;
+    setTimeout(jokeIntroCheck, 600);
     return true;
 }
-// totals from every lit line
-let bondCache = null;
-function bondBonus() {
-    if (bondCache && bondCache.v === netVer) {
-        return bondCache.r;
+// joke element bonuses, no luck or speed ones
+const JOKE_BONUS = {
+    Um: ['event', 25], Zz: ['away', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
+    Ha: ['price', 5], Ad: ['refresh', 2], Nu: ['alone', 50], Xx: ['secret', 5], Uo: ['jokerate', 100], Zo: ['cos', 'warp'], Gg: ['cos', 'gameover']
+};
+const jokeBonusText = sym => {
+    const [k, v] = JOKE_BONUS[sym];
+    return {
+        event: `Events are ${v}% more likely`, away: `Away rolls cover ${v} more hours`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
+        cdur: `Catalysts last ${v}% longer`, storm: `Quark Storms pay ${v}% more`, dup: `${v}% chance a bought catalyst arrives as two`, evlen: `Events last ${v}% longer`,
+        price: `Shop prices ${v}% lower`, refresh: `The shop restocks ${v} minutes sooner`, alone: `Rolls with no chain earn ${v}% more quarks`, secret: `Secret effects are ${v}% more likely`,
+        jokerate: 'Joke catalysts appear twice as often in the shop', cos: v === 'warp' ? 'Unlocks the Warp scanner' : 'Unlocks the Game Over page and the Final Element badge'
+    }[k];
+};
+// netBonus is lines only, bondBonus adds the jokes
+let netCache = null;
+function netBonus() {
+    if (netCache && netCache.v === netVer) {
+        return netCache.r;
     }
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
-        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: []
+        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: [],
+        away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0
     };
     net().edges.forEach(e => {
         if (!edgeLit(e)) {
@@ -3604,7 +3657,26 @@ function bondBonus() {
             r[e.kind] += e.val;
         }
     });
-    bondCache = { v: netVer, r };
+    netCache = { v: netVer, r };
+    return r;
+}
+let bondCache = null;
+function bondBonus() {
+    const n = netBonus();
+    const found = jokesFound();
+    if (bondCache && bondCache.n === n && bondCache.j === found) {
+        return bondCache.r;
+    }
+    const r = Object.assign({}, n, { cos: n.cos.slice() });
+    found.forEach(s => {
+        const [k, v] = JOKE_BONUS[s];
+        if (k === 'cos') {
+            r.cos.push(v);
+        } else {
+            r[k] += v;
+        }
+    });
+    bondCache = { n, j: found, r };
     return r;
 }
 function bondSummary() {
@@ -4026,7 +4098,7 @@ function netJump() {
     }
 }
 function netTotalsHtml() {
-    const b = bondBonus();
+    const b = netBonus();
     const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots], ['Bonus rolls', '+' + b.extra], ['Chain steps', '+' + b.chain]];
     [['Quarks per roll', b.quark, '%'], ['Event chance', b.event, '%'], ['Catalyst duration', b.cdur, '%'], ['Duplicate catalysts', b.dup, '% chance'],
         ['Single-roll catalysts kept', b.refund, '% chance'], ['Bigger Quark Storms', b.storm, '%']].forEach(([k, v, u]) => {
@@ -4741,12 +4813,13 @@ function computeBuffs() {
 }
 function weightTable(extraLuck, only) {
     const b = activeBuffStats();
-    if (!extraLuck && !only && weightCache && weightCache.b === b) {
+    if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.pool.length === rollPool().length) {
         return weightCache;
     }
     const luck = b.luck + (extraLuck || 0);
     let total = 0;
-    const w = ELEMENTS.map(e => {
+    const pool = rollPool();
+    const w = pool.map(e => {
         if (only && !only(e)) {
             return 0;
         }
@@ -4754,7 +4827,7 @@ function weightTable(extraLuck, only) {
         total += v;
         return v;
     });
-    const t = { w, total, b };
+    const t = { w, total, b, pool };
     if (!extraLuck && !only) {
         weightCache = t;
     }
@@ -4762,16 +4835,39 @@ function weightTable(extraLuck, only) {
 }
 // one element, with the active buffs; extraLuck and only come from single-roll catalysts
 function weightedElement(extraLuck, only) {
-    const { w, total } = weightTable(extraLuck, only);
+    const { w, total, pool } = weightTable(extraLuck, only);
     let r = Math.random() * total;
-    for (let i = 0; i < ELEMENTS.length; i++) {
+    for (let i = 0; i < pool.length; i++) {
         r -= w[i];
         if (r <= 0) {
-            return ELEMENTS[i];
+            return pool[i];
         }
     }
-    return ELEMENTS[ELEMENTS.length - 1];
+    return pool[pool.length - 1];
 }
+// joke table
+let jokeMix = true;
+let jokeHide = false;
+try {
+    jokeMix = localStorage.getItem('elementalJokeMix') !== '0';
+    jokeHide = localStorage.getItem('elementalJokeHide') === '1';
+} catch (e) { }
+const jokesOn = () => bondBonus().joke;
+const rollPool = () => jokesOn() ? ELEMENTS.concat(JOKES) : ELEMENTS;
+// false = chain stops (mixing off rule)
+function chainStep(elements, e) {
+    if (jokeMix || !jokesOn() || isJoke(e[0]) === isJoke(elements[0][0])) {
+        elements.push(e);
+        return true;
+    }
+    if (isJoke(e[0])) {
+        elements.length = 0;
+        elements.push(e);
+    }
+    return false;
+}
+// + Redactium
+const secretChance = () => SECRET_CHANCE + bondBonus().secret / 100;
 function hillFormula(elements) {
     const counts = {};
     elements.forEach(e => counts[e[0]] = (counts[e[0]] || 0) + 1);
@@ -4799,7 +4895,7 @@ const SYM_IDX = Object.fromEntries(ELEMENTS.map((e, i) => [e[0], i]));
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
     let log10 = -(n - 1) * Math.log10(BASE_CHAIN);
-    elements.forEach(e => log10 -= Math.log10(ELEMENTS[SYM_IDX[e[0]]][2]));
+    elements.forEach(e => log10 -= Math.log10(elementBySymbol[e[0]][2]));
     return log10;
 }
 // ions: 1/100 for +, 1/1000 for -, - wins a tie
@@ -4882,7 +4978,7 @@ function quarksFor(score, mult) {
 }
 // Score = the base odds of every element in the roll added together.
 function rollScore(elements) {
-    return elements.reduce((sum, e) => sum + ELEMENTS[SYM_IDX[e[0]]][2], 0);
+    return elements.reduce((sum, e) => sum + elementBySymbol[e[0]][2], 0);
 }
 function fmtScore(n) {
     return Math.round(n).toLocaleString('en-US');
@@ -4928,7 +5024,7 @@ const QSTORM_MAX = 30;
 let qStorm = null;
 try {
     const v = JSON.parse(localStorage.getItem('elementalQStorm') || 'null');
-    qStorm = v && v.left > 0 ? { left: Math.min(QSTORM_PRESSES, Math.floor(v.left)), got: +v.got || 0 } : null;
+    qStorm = v && v.left > 0 ? { left: Math.min(QSTORM_PRESSES * 3, Math.floor(v.left)), got: +v.got || 0 } : null;
 } catch (e) { }
 function qStormSave() {
     try {
@@ -4962,7 +5058,8 @@ function qStormPress(count) {
         return { add, sum, ended };
     }
     if (Math.random() < qStormChance()) {
-        qStorm = { left: QSTORM_PRESSES, got: 0 };
+        // deja-vium
+        qStorm = { left: Math.round(QSTORM_PRESSES * (1 + bondBonus().evlen / 100)), got: 0 };
         qStormSave();
         return { started: true };
     }
@@ -5048,17 +5145,18 @@ const FAMILY_NAMES = {
     set('unknown', ['Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv']);
 })();
 function familyOf(sym) {
-    return FAMILY[sym] || 'transition';
+    return isJoke(sym) ? 'joke' : FAMILY[sym] || 'transition';
 }
-function buildTable(root, mode) {
+function buildTable(root, mode, list = ELEMENTS) {
     if (!root) {
         return;
     }
     root.innerHTML = '';
-    const found = discoveredSymbols();
+    const joke = list === JOKES;
+    const found = joke ? jokesFound() : discoveredSymbols();
     // ion marks
-    ELEMENTS.forEach((e, i) => {
-        const pos = tableLayout[e[0]] || [11, 1];
+    list.forEach((e, i) => {
+        const pos = joke ? e[4] : tableLayout[e[0]] || [11, 1];
         const isFound = found.has(e[0]);
         const tile = document.createElement('button');
         tile.type = 'button';
@@ -5067,10 +5165,10 @@ function buildTable(root, mode) {
         tile.className = 'element-tile' + (isFound ? ' discovered fam-' + familyOf(e[0]) : '') + (im && im[0] ? ' ion-p' + im[0] : '') + (im && im[1] ? ' ion-n' + im[1] : '');
         tile.style.gridRow = pos[0];
         tile.style.gridColumn = pos[1];
-        tile.title = isFound ? `${e[1]}, ${FAMILY_NAMES[familyOf(e[0])]}` : (mode === 'full' ? 'Not found yet. Select to see its bonus.' : 'Not found yet');
+        tile.title = isFound ? `${e[1]}, ${joke ? e[3] : FAMILY_NAMES[familyOf(e[0])]}` : (mode === 'full' ? 'Not found yet. Select to see its bonus.' : 'Not found yet');
         tile.setAttribute('aria-label', `${e[1]}${isFound ? ', found' : ', not found yet'}`);
         tile.innerHTML = mode === 'full'
-            ? `<span class="atomic">${isFound ? i + 1 : ''}</span><span class="sym">${isFound ? e[0] : ''}</span><span class="tiny">${isFound ? e[1] : ''}</span>`
+            ? `<span class="atomic">${isFound && !joke ? i + 1 : ''}</span><span class="sym">${isFound ? e[0] : ''}</span><span class="tiny">${isFound ? e[1] : ''}</span>`
             : `<span class="sym">${isFound ? e[0] : ''}</span>`;
         tile.addEventListener('click', () => {
             if (mode === 'compact' && !found.has(e[0])) {
@@ -5161,11 +5259,17 @@ function renderPeriodic() {
     $('elementStats').textContent = `${found.size} / 118 elements found`;
     const stats = activeBuffStats();
     $('buffSummary').innerHTML = '<h2 class="side-h">Active bonuses</h2><dl class="stats">' + bonusRows(stats) + '</dl>';
-    const e = ELEMENTS.find(x => x[0] === selectedElementSymbol) || ELEMENTS[0];
-    const b = ELEMENT_BUFFS.get(e[0]);
-    const isFound = found.has(e[0]);
+    // joke table
+    $('jokeWrap').hidden = !jokesOn();
+    if (jokesOn()) {
+        buildTable($('jokeTable'), 'full', JOKES);
+        $('jokeStats').textContent = `Joke periodic table · ${jokesFound().size} / ${JOKES.length} found`;
+    }
+    const joke = isJoke(selectedElementSymbol);
+    const e = joke ? elementBySymbol[selectedElementSymbol] : ELEMENTS.find(x => x[0] === selectedElementSymbol) || ELEMENTS[0];
+    const isFound = joke ? jokesFound().has(e[0]) : found.has(e[0]);
     $('buffElementName').textContent = `${e[1]} (${e[0]})`;
-    $('buffElementDesc').textContent = b.desc;
+    $('buffElementDesc').textContent = joke ? `${e[3]}. ${jokeBonusText(e[0])}.` : ELEMENT_BUFFS.get(e[0]).desc;
     $('buffElementState').textContent = isFound ? 'Active. This bonus always applies.' : 'Locked. Find this element once to activate it.';
     $('buffElementState').classList.toggle('active', isFound);
     renderElemCompounds();
@@ -5329,7 +5433,9 @@ async function doRoll(preset, opts) {
             }
             const elements = [first || weightedElement(luckUp)];
             while (elements.length < 30 && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {
-                elements.push(weightedElement(luckUp));
+                if (!chainStep(elements, weightedElement(luckUp))) {
+                    break;
+                }
             }
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
@@ -5340,7 +5446,7 @@ async function doRoll(preset, opts) {
         const stormFx = !pre && qStormOn();
         const storm = pre ? null : qStormPress(rolls.length);
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
-        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;
+        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();
         const cut = pickCutscene(rolls);
         // a cutscene always plays on the roll screen, so a rare roll found elsewhere takes you there
         if (cut && !$('game').classList.contains('active')) {
@@ -5410,7 +5516,7 @@ async function doRoll(preset, opts) {
                 playResultChime(score, secret && i === bestIdx);
             }
             if (!pre) {
-                addQuarks(quarksFor(score, 1 + (buffs.quark || 0) / 100) + (storm && storm.add ? storm.add[i] : 0));
+                addQuarks(quarksFor(score, 1 + ((buffs.quark || 0) + (elements.length === 1 ? bondBonus().alone : 0)) / 100) + (storm && storm.add ? storm.add[i] : 0));
             }
         });
         if (multi) {
@@ -5439,7 +5545,7 @@ async function doRoll(preset, opts) {
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
-                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + QSTORM_PRESSES + ' rolls, every roll earns ' + qStormRange().join(' to ') + ' extra quarks.' });
+                showAchievementToast({ kicker: 'Event', name: 'Quark Storm', flavor: 'For the next ' + qStorm.left + ' rolls, every roll earns ' + qStormRange().join(' to ') + ' extra quarks.' });
             } else if (storm.ended) {
                 showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
             }
@@ -5768,6 +5874,57 @@ try {
 } catch (e) { }
 bondSummary();
 renderActiveCats();
+function jokeUiSync() {
+    $('jokeSetting').hidden = !jokesOn();
+    $('jokeMixSet').checked = jokeMix;
+    $('jokeHideSet').checked = jokeHide;
+}
+function jokeSetMix(on) {
+    jokeMix = on;
+    try {
+        localStorage.setItem('elementalJokeMix', on ? '1' : '0');
+    } catch (e) { }
+    weightCache = null;
+}
+$('jokeMixSet').addEventListener('change', () => jokeSetMix($('jokeMixSet').checked));
+$('jokeHideSet').addEventListener('change', () => {
+    jokeHide = $('jokeHideSet').checked;
+    try {
+        localStorage.setItem('elementalJokeHide', jokeHide ? '1' : '');
+    } catch (e) { }
+    if (typeof globalLoad === 'function') {
+        globalLoad();
+    }
+});
+// first unlock popup
+function jokeIntroCheck() {
+    let seen = true;
+    try {
+        seen = localStorage.getItem('elementalJokeIntro') === '1';
+    } catch (e) { }
+    if (seen || !jokesOn()) {
+        return;
+    }
+    if (document.getElementById('dlg') || rolling) {
+        setTimeout(jokeIntroCheck, 1500);
+        return;
+    }
+    try {
+        localStorage.setItem('elementalJokeIntro', '1');
+    } catch (e) { }
+    const w = openDialog('<h2>The joke periodic table</h2><p>' + JOKES.length + ' new elements are now in the pool, every one rarer than Uranium. Find them on the joke table in your Collection.</p>' +
+        '<p>Mixing is on: joke elements can chain with real ones into joke compounds. You can turn it off now, or any time in Settings.</p>' +
+        '<div class="btn-row"><button class="primary" id="jokeKeep">Keep mixing on</button><button class="ghost" id="jokeOff">Turn mixing off</button></div>');
+    w.querySelector('#jokeKeep').onclick = closeDialog;
+    w.querySelector('#jokeOff').onclick = () => {
+        jokeSetMix(false);
+        closeDialog();
+    };
+    if (typeof globalLoad === 'function') {
+        globalLoad();
+    }
+}
+setTimeout(jokeIntroCheck, 2500);
 const TAU = Math.PI * 2;
 const CUTSCENES = {};
 const clamp = (x, min = 0, max = 1) => Math.min(max, Math.max(min, x));
@@ -8332,9 +8489,10 @@ async function globalLoad() {
         return;
     }
     globalLoading = true;
+    const real = jokesOn() && !jokeHide ? '' : '_real';
     const [a, b, s] = await Promise.all([
-        sb.from('global_top_odds').select('id, formula, ion, odds_log, score, found_at, display_name'),
-        sb.from('global_top_score').select('id, formula, ion, odds_log, score, found_at, display_name'),
+        sb.from('global_top_odds' + real).select('id, formula, ion, odds_log, score, found_at, display_name'),
+        sb.from('global_top_score' + real).select('id, formula, ion, odds_log, score, found_at, display_name'),
         sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled').maybeSingle()
     ]);
     globalLoading = false;
@@ -8536,8 +8694,9 @@ function rtStop() {
     }
     rtChannel = null;
 }
+const jokeHidden = formula => (!jokesOn() || jokeHide) && Object.keys(parseFormula(formula || '')).some(isJoke);
 function bannerAdd(a) {
-    if (!a || !globalSettings.banner_enabled || (cloudName && a.display_name === cloudName)) {
+    if (!a || !globalSettings.banner_enabled || (cloudName && a.display_name === cloudName) || jokeHidden(a.formula)) {
         return;
     }
     if (bannerQueue.length < 5) {
@@ -8799,6 +8958,7 @@ async function admGifts() {
     });
 }
 const AWAY_MAX = 24 * 3600;
+const awayMax = () => AWAY_MAX + bondBonus().away * 3600;
 const AWAY_SLOWER = 10;
 const trustedNow = () => clockBase ? clockBase.server + (performance.now() - clockBase.perf) : null;
 async function clockSync() {
@@ -8858,7 +9018,9 @@ function awayRollsFor(seconds) {
 function awayMakeRoll(b) {
     const elements = [weightedElement(0)];
     while (elements.length < 30 && Math.random() < 1 / b.chainDenom) {
-        elements.push(weightedElement(0));
+        if (!chainStep(elements, weightedElement(0))) {
+            break;
+        }
     }
     const formula = hillFormula(elements);
     const log = exactRarity(elements, 0);
@@ -8900,7 +9062,7 @@ async function awayProcess() {
     if (since == null) {
         return;
     }
-    const seconds = Math.min(AWAY_MAX, Math.max(0, (trustedNow() - since) / 1000));
+    const seconds = Math.min(awayMax(), Math.max(0, (trustedNow() - since) / 1000));
     const n = awayRollsFor(seconds);
     if (n < 1) {
         return;
@@ -8949,7 +9111,7 @@ async function awayProcess() {
         }
         ionCredit(r.elements[0][0], r.ion);
         total++;
-        earned += quarksFor(r.score, mult);
+        earned += quarksFor(r.score, mult + (r.elements.length === 1 ? bondBonus().alone / 100 : 0));
         if (n - i <= HISTORY_MAX) {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
@@ -8978,7 +9140,7 @@ async function awayProcess() {
     await doRoll([best]);
     const w = openDialog('<h2>While you were away</h2>' +
         '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
-        '<p class="away-clock">' + fmtClock(seconds) + ' / 24:00:00</p>' +
+        '<p class="away-clock">' + fmtClock(seconds) + ' / ' + fmtClock(awayMax()) + '</p>' +
         '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +

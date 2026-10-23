@@ -22,9 +22,10 @@ async function globalLoad() {
         return;
     }
     globalLoading = true;
+    const real = jokesOn() && !jokeHide ? '' : '_real';
     const [a, b, s] = await Promise.all([
-        sb.from('global_top_odds').select('id, formula, ion, odds_log, score, found_at, display_name'),
-        sb.from('global_top_score').select('id, formula, ion, odds_log, score, found_at, display_name'),
+        sb.from('global_top_odds' + real).select('id, formula, ion, odds_log, score, found_at, display_name'),
+        sb.from('global_top_score' + real).select('id, formula, ion, odds_log, score, found_at, display_name'),
         sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled').maybeSingle()
     ]);
     globalLoading = false;
@@ -226,8 +227,9 @@ function rtStop() {
     }
     rtChannel = null;
 }
+const jokeHidden = formula => (!jokesOn() || jokeHide) && Object.keys(parseFormula(formula || '')).some(isJoke);
 function bannerAdd(a) {
-    if (!a || !globalSettings.banner_enabled || (cloudName && a.display_name === cloudName)) {
+    if (!a || !globalSettings.banner_enabled || (cloudName && a.display_name === cloudName) || jokeHidden(a.formula)) {
         return;
     }
     if (bannerQueue.length < 5) {

@@ -1,4 +1,5 @@
 const AWAY_MAX = 24 * 3600;
+const awayMax = () => AWAY_MAX + bondBonus().away * 3600;
 const AWAY_SLOWER = 10;
 const trustedNow = () => clockBase ? clockBase.server + (performance.now() - clockBase.perf) : null;
 async function clockSync() {
@@ -58,7 +59,9 @@ function awayRollsFor(seconds) {
 function awayMakeRoll(b) {
     const elements = [weightedElement(0)];
     while (elements.length < 30 && Math.random() < 1 / b.chainDenom) {
-        elements.push(weightedElement(0));
+        if (!chainStep(elements, weightedElement(0))) {
+            break;
+        }
     }
     const formula = hillFormula(elements);
     const log = exactRarity(elements, 0);
@@ -100,7 +103,7 @@ async function awayProcess() {
     if (since == null) {
         return;
     }
-    const seconds = Math.min(AWAY_MAX, Math.max(0, (trustedNow() - since) / 1000));
+    const seconds = Math.min(awayMax(), Math.max(0, (trustedNow() - since) / 1000));
     const n = awayRollsFor(seconds);
     if (n < 1) {
         return;
@@ -149,7 +152,7 @@ async function awayProcess() {
         }
         ionCredit(r.elements[0][0], r.ion);
         total++;
-        earned += quarksFor(r.score, mult);
+        earned += quarksFor(r.score, mult + (r.elements.length === 1 ? bondBonus().alone / 100 : 0));
         if (n - i <= HISTORY_MAX) {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
@@ -178,7 +181,7 @@ async function awayProcess() {
     await doRoll([best]);
     const w = openDialog('<h2>While you were away</h2>' +
         '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
-        '<p class="away-clock">' + fmtClock(seconds) + ' / 24:00:00</p>' +
+        '<p class="away-clock">' + fmtClock(seconds) + ' / ' + fmtClock(awayMax()) + '</p>' +
         '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +

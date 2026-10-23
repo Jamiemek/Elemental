@@ -136,6 +136,26 @@ const ELEMENTS = [
 ];
 ELEMENTS.forEach(e => e[2] = e[0] === 'U' ? 12000000 : Math.max(2, Math.round(e[2] ** 0.82)));
 const elementBySymbol = Object.fromEntries(ELEMENTS.map(e => [e[0], e]));
+const JOKES = [
+    ['Um', 'Ummium', 35000000, 'The element of surprise', [1, 1]],
+    ['Zz', 'Snorium', 45000000, "Only reacts when it's woken up", [1, 18]],
+    ['Mu', 'Mundanium', 55000000, 'The most ordinary element imaginable, somehow this rare', [2, 1]],
+    ['Ln', 'Lostium', 70000000, 'Always in the last place you look', [2, 2]],
+    ['Df', 'Deferrium', 90000000, 'Will react tomorrow', [2, 13]],
+    ['Cz', 'Caffeinium', 120000000, 'Makes every neighbour jittery', [2, 14]],
+    ['Mb', 'Maybium', 150000000, 'Exists until you check', [2, 15]],
+    ['Dj', 'Déjà-vium', 190000000, "You've definitely rolled this before", [2, 16]],
+    ['Ha', 'Halfinium', 230000000, 'Always exactly halfway through decaying', [2, 17]],
+    ['Ad', 'Administratium', 280000000, 'The heaviest element; it slows everything around it down', [2, 18]],
+    ['Nu', 'Nopeium', 350000000, 'Refuses to bond with anything', [3, 1]],
+    ['Xx', 'Redactium', 500000000, '[DATA EXPUNGED]', [3, 2]],
+    ['Uo', 'Unobtainium', 700000000, 'The one every scientist is after', [3, 16]],
+    ['Zo', 'Zoomium', 1000000000, 'Already gone before you see it', [3, 17]],
+    ['Gg', 'Gameoverium', 1500000000, 'The last element there will ever be', [3, 18]]
+];
+JOKES.forEach(j => elementBySymbol[j[0]] = j);
+const JOKE_SYMS = new Set(JOKES.map(j => j[0]));
+const isJoke = sym => JOKE_SYMS.has(sym);
 const tableLayout = {};
 function placeRow(p, a) {
     a.forEach(([s, c]) => tableLayout[s] = [p, c]);

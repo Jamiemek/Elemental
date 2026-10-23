@@ -5,11 +5,11 @@
  ],
  [
   "            const elements = [first || weightedElement(luckUp)];\n            while (elements.length < 30 && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {",
-  "            const forcedList = window.__forceList;\n            window.__forceList = null;\n            const forcedEl = window.__forceEl ? ELEMENTS.find(x => x[0] === window.__forceEl) : null;\n            window.__forceEl = null;\n            const forced = forcedList || (forcedEl ? [forcedEl] : null);\n            const elements = forced ? forced.slice() : [first || weightedElement(luckUp)];\n            while (elements.length < 30 && !forced && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {"
+  "            const forcedList = window.__forceList;\n            window.__forceList = null;\n            const forcedEl = window.__forceEl ? elementBySymbol[window.__forceEl] : null;\n            window.__forceEl = null;\n            const forced = forcedList || (forcedEl ? [forcedEl] : null);\n            const elements = forced ? forced.slice() : [first || weightedElement(luckUp)];\n            while (elements.length < 30 && !forced && ((ch.linked && elements.length === 1) || Math.random() < 1 / buffs.chainDenom)) {"
  ],
  [
-  "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < SECRET_CHANCE;",
-  "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && (window.__secretMode === 'always' || (window.__secretMode !== 'never' && Math.random() < SECRET_CHANCE));"
+  "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();",
+  "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && (window.__secretMode === 'always' || (window.__secretMode !== 'never' && Math.random() < secretChance()));"
  ],
  [
   "    enabled: true,",

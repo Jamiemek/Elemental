@@ -371,17 +371,33 @@ function fillSlot(id) {
     saveNet();
     netVer++;
     buffCache = weightCache = null;
+    setTimeout(jokeIntroCheck, 600);
     return true;
 }
-// totals from every lit line
-let bondCache = null;
-function bondBonus() {
-    if (bondCache && bondCache.v === netVer) {
-        return bondCache.r;
+// joke element bonuses, no luck or speed ones
+const JOKE_BONUS = {
+    Um: ['event', 25], Zz: ['away', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
+    Ha: ['price', 5], Ad: ['refresh', 2], Nu: ['alone', 50], Xx: ['secret', 5], Uo: ['jokerate', 100], Zo: ['cos', 'warp'], Gg: ['cos', 'gameover']
+};
+const jokeBonusText = sym => {
+    const [k, v] = JOKE_BONUS[sym];
+    return {
+        event: `Events are ${v}% more likely`, away: `Away rolls cover ${v} more hours`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
+        cdur: `Catalysts last ${v}% longer`, storm: `Quark Storms pay ${v}% more`, dup: `${v}% chance a bought catalyst arrives as two`, evlen: `Events last ${v}% longer`,
+        price: `Shop prices ${v}% lower`, refresh: `The shop restocks ${v} minutes sooner`, alone: `Rolls with no chain earn ${v}% more quarks`, secret: `Secret effects are ${v}% more likely`,
+        jokerate: 'Joke catalysts appear twice as often in the shop', cos: v === 'warp' ? 'Unlocks the Warp scanner' : 'Unlocks the Game Over page and the Final Element badge'
+    }[k];
+};
+// netBonus is lines only, bondBonus adds the jokes
+let netCache = null;
+function netBonus() {
+    if (netCache && netCache.v === netVer) {
+        return netCache.r;
     }
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
-        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: []
+        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: [],
+        away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0
     };
     net().edges.forEach(e => {
         if (!edgeLit(e)) {
@@ -401,7 +417,26 @@ function bondBonus() {
             r[e.kind] += e.val;
         }
     });
-    bondCache = { v: netVer, r };
+    netCache = { v: netVer, r };
+    return r;
+}
+let bondCache = null;
+function bondBonus() {
+    const n = netBonus();
+    const found = jokesFound();
+    if (bondCache && bondCache.n === n && bondCache.j === found) {
+        return bondCache.r;
+    }
+    const r = Object.assign({}, n, { cos: n.cos.slice() });
+    found.forEach(s => {
+        const [k, v] = JOKE_BONUS[s];
+        if (k === 'cos') {
+            r.cos.push(v);
+        } else {
+            r[k] += v;
+        }
+    });
+    bondCache = { n, j: found, r };
     return r;
 }
 function bondSummary() {
@@ -823,7 +858,7 @@ function netJump() {
     }
 }
 function netTotalsHtml() {
-    const b = bondBonus();
+    const b = netBonus();
     const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots], ['Bonus rolls', '+' + b.extra], ['Chain steps', '+' + b.chain]];
     [['Quarks per roll', b.quark, '%'], ['Event chance', b.event, '%'], ['Catalyst duration', b.cdur, '%'], ['Duplicate catalysts', b.dup, '% chance'],
         ['Single-roll catalysts kept', b.refund, '% chance'], ['Bigger Quark Storms', b.storm, '%']].forEach(([k, v, u]) => {

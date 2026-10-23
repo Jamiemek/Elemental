@@ -198,6 +198,7 @@ function go(screen) {
         renderCatInv();
     }
     if (screen === 'settings' && typeof renderStorage === 'function') {
+        jokeUiSync();
         renderStorage();
         renderViewer();
     }
@@ -289,8 +290,24 @@ function buildBuffs() {
     }));
 }
 const ELEMENT_BUFFS = buildBuffs();
+// jokes don't count
 function discoveredSymbols() {
     const set = new Set();
     collection.forEach(c => (c.elements || []).forEach(e => set.add(e[0])));
+    JOKE_SYMS.forEach(s => set.delete(s));
     return set;
+}
+let jokeFoundCache = null;
+function jokesFound() {
+    if (jokeFoundCache && jokeFoundCache.n === collection.length) {
+        return jokeFoundCache.s;
+    }
+    const s = new Set();
+    collection.forEach(c => (c.elements || []).forEach(e => {
+        if (isJoke(e[0])) {
+            s.add(e[0]);
+        }
+    }));
+    jokeFoundCache = { n: collection.length, s };
+    return s;
 }

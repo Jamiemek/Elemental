@@ -16,7 +16,7 @@
     document.documentElement.setAttribute('data-theme', t);
 })();
 </script>
-<link rel="stylesheet" href="css/style.css?v=7292dafbb1">
+<link rel="stylesheet" href="css/style.css?v=a8e76aca2c">
 </head>
 <body>
 <div class="topband"><div class="topband-in">
@@ -86,6 +86,7 @@
 <div class="toolbar"><strong id="elementStats">0 / 118 elements found</strong></div>
 <div class="periodic-wrap"><div class="periodic full" id="periodic"></div></div>
 <div class="legend" id="legend"></div>
+<div id="jokeWrap" hidden><div class="toolbar"><strong id="jokeStats"></strong></div><div class="periodic-wrap"><div class="periodic full joke-table" id="jokeTable"></div></div></div>
 <p class="footnote">Select any found element to open its page. Its bonus applies permanently from the first time you find it.</p>
 <div id="buffSummary"></div>
 </div>
@@ -113,6 +114,9 @@
 <div id="vwDarkWrap" hidden><h4 class="vw-h">Secret effects</h4><div class="vw-grid" id="vwDark"></div></div></div></div>
 <div class="setting"><h3>Active catalysts</h3><div class="body"><p><b>Clearing a catalyst stops it immediately and it is gone for good.</b> There is no refund and this cannot be undone.</p><div id="catClear"></div></div></div>
 <div class="setting"><h3>Rarity display</h3><div class="body"><p>Show each roll's rarity as its odds, or as its score. Score is the base odds of every element in the roll added together.</p><select id="displaySetting"><option value="odds" selected>Odds</option><option value="score">Score</option></select></div></div>
+<div class="setting" id="jokeSetting" hidden><h3>Joke periodic table</h3><div class="body"><p>Joke elements roll alongside the real ones. With mixing on they can chain with real elements into joke compounds. With it off, a chain is all joke or all real: a joke element that turns up in a chain takes the roll on its own. Your chances of finding them are the same either way.</p>
+<label class="check"><input type="checkbox" id="jokeMixSet">Mix joke elements into chains</label>
+<label class="check"><input type="checkbox" id="jokeHideSet">Hide joke finds on the global top 10</label></div></div>
 <div class="setting"><h3>Sound</h3><div class="body"><p>A soft tick while the reel spins and a chime on the result. Rarer results get a fuller chime. Sound starts after you press Roll.</p>
 <label class="check"><input type="checkbox" id="audioEnabled" checked>Play roll sounds</label>
 <p>Choose which rarity tiers get a sound and a full-screen effect. Tiers are set by the roll's score.</p>
@@ -281,5 +285,5 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="fxWarp" x="0" y="0" width="100%" height="100%"><feTurbulence id="fxTurb" type="fractalNoise" baseFrequency="0.005 0.008" numOctaves="2" seed="7"/><feDisplacementMap id="fxDisp" in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=e8f65bc466"></script>
+<script src="game.js?v=e3e582a735"></script>
 </body></html>

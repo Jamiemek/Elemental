@@ -36,7 +36,16 @@ returns text language sql immutable as $$
     else (case abs(i) when 1 then '' when 2 then '²' else '³' end) || (case when i > 0 then '⁺' else '⁻' end) end;
 $$;
 
--- boards with ions
+-- joke elements (exact odds, not adjusted)
+alter table public.elements add column if not exists joke boolean not null default false;
+insert into public.elements (symbol, odds, joke) values
+  ('Um', 35000000, true), ('Zz', 45000000, true), ('Mu', 55000000, true), ('Ln', 70000000, true), ('Df', 90000000, true),
+  ('Cz', 120000000, true), ('Mb', 150000000, true), ('Dj', 190000000, true), ('Ha', 230000000, true), ('Ad', 280000000, true),
+  ('Nu', 350000000, true), ('Xx', 500000000, true), ('Uo', 700000000, true), ('Zo', 1000000000, true), ('Gg', 1500000000, true)
+on conflict (symbol) do update set odds = excluded.odds, joke = true;
+alter table public.global_rolls add column if not exists joke boolean not null default false;
+
+-- boards, plus _real versions without jokes
 drop view if exists public.global_top_odds;
 drop view if exists public.global_top_score;
 create view public.global_top_odds with (security_invoker = on) as
@@ -51,7 +60,21 @@ create view public.global_top_score with (security_invoker = on) as
   where not g.removed and not public.is_banned(g.user_id)
   order by g.score desc, g.found_at
   limit 10;
-grant select on public.global_top_odds, public.global_top_score to anon, authenticated;
+drop view if exists public.global_top_odds_real;
+drop view if exists public.global_top_score_real;
+create view public.global_top_odds_real with (security_invoker = on) as
+  select g.id, g.formula, g.odds_log, g.score, g.found_at, p.display_name, g.ion
+  from public.global_rolls g join public.profiles p on p.id = g.user_id
+  where not g.removed and not g.joke and not public.is_banned(g.user_id)
+  order by g.odds_log desc, g.found_at
+  limit 10;
+create view public.global_top_score_real with (security_invoker = on) as
+  select g.id, g.formula, g.odds_log, g.score, g.found_at, p.display_name, g.ion
+  from public.global_rolls g join public.profiles p on p.id = g.user_id
+  where not g.removed and not g.joke and not public.is_banned(g.user_id)
+  order by g.score desc, g.found_at
+  limit 10;
+grant select on public.global_top_odds, public.global_top_score, public.global_top_odds_real, public.global_top_score_real to anon, authenticated;
 
 create or replace function public.discord_post(a public.announcements, p_rolls bigint, p_luck double precision, p_catalysts text)
 returns void language plpgsql security definer set search_path = '' as $$
@@ -116,12 +139,16 @@ declare
   n int := 0;
   c int;
   o numeric;
+  jk boolean;
+  has_joke boolean := false;
   lg double precision := 0;
   sc double precision := 0;
   recent int;
   added boolean := false;
   r_odds int;
   r_score int;
+  r_odds_real int;
+  r_score_real int;
   t int;
   s public.game_settings;
   ann public.announcements;
@@ -143,7 +170,8 @@ begin
   end if;
   for part in select regexp_matches(p_formula, '([A-Z][a-z]?)([0-9]*)', 'g') loop
     c := coalesce(nullif(part[2], '')::int, 1);
-    select e.odds into o from public.elements e where e.symbol = part[1];
+    select e.odds, e.joke into o, jk from public.elements e where e.symbol = part[1];
+    has_joke := has_joke or coalesce(jk, false);
     if o is null or c < 1 then
       return jsonb_build_object('ok', false, 'why', 'invalid');
     end if;
@@ -178,9 +206,14 @@ begin
     where not g.removed and not public.is_banned(g.user_id) and g.odds_log > lg and not (g.user_id = uid and g.formula = p_formula and g.ion = p_ion));
   r_score := 1 + (select count(*) from public.global_rolls g
     where not g.removed and not public.is_banned(g.user_id) and g.score > sc and not (g.user_id = uid and g.formula = p_formula and g.ion = p_ion));
-  if r_odds <= 10 or r_score <= 10 then
-    insert into public.global_rolls (user_id, formula, ion, odds_log, score)
-      values (uid, p_formula, p_ion, lg, sc)
+  -- joke-free finds can also make the _real board
+  r_odds_real := 1 + (select count(*) from public.global_rolls g
+    where not g.removed and not g.joke and not public.is_banned(g.user_id) and g.odds_log > lg and not (g.user_id = uid and g.formula = p_formula and g.ion = p_ion));
+  r_score_real := 1 + (select count(*) from public.global_rolls g
+    where not g.removed and not g.joke and not public.is_banned(g.user_id) and g.score > sc and not (g.user_id = uid and g.formula = p_formula and g.ion = p_ion));
+  if r_odds <= 10 or r_score <= 10 or (not has_joke and (r_odds_real <= 10 or r_score_real <= 10)) then
+    insert into public.global_rolls (user_id, formula, ion, odds_log, score, joke)
+      values (uid, p_formula, p_ion, lg, sc, has_joke)
       on conflict (user_id, formula, ion) do nothing;
     added := found;
   end if;

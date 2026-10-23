@@ -19,6 +19,8 @@ function loadGame(file, over) {
     const code = [
         grab('const ELEMENTS = [', 'ELEMENTS.forEach(e => e[2] =', true),
         grab('const ACHIEVEMENTS = [', '\n];', false) + '\n];',
+        // the joke elements: familyOf() needs to know them
+        s.includes('const JOKES = [') ? 'var elementBySymbol = {};\n' + grab('const JOKES = [', 'const isJoke = sym => JOKE_SYMS.has(sym);', true) : 'const isJoke = () => false;',
         grab('const FAMILY = {};', 'function buildTable('),
         grab('function hillFormula(elements) {', 'const BASE_CHAIN'),
         grab('function parseFormula(s) {', 'ACHIEVEMENTS.forEach(a => a.hill = normalizeFormula(a.formula));', true),
