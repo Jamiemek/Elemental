@@ -36,6 +36,7 @@ JS_FILES = [
     'global.js',     # global top 10, banner, gifts
     'admin.js',      # admin tab
     'away.js',       # while you were away
+    'tutorial.js',   # first time tutorial
     'main.js',       # starts the game
 ]
 CSS = 'css/style.css'

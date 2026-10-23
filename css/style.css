@@ -2895,3 +2895,49 @@ body.fx-warping .screen.active {
     }
   }
 }
+/* tutorial */
+.tut {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  z-index: 50;
+  width: min(440px,calc(100% - 32px));
+  transform: translateX(-50%);
+  padding: 14px 16px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 2px solid var(--hazard);
+  box-shadow: 0 6px 24px rgba(0,0,0,.3);
+}
+.tut.top {
+  top: 16px;
+  bottom: auto;
+}
+.tut p {
+  margin: 0 0 12px;
+}
+.tut .btn-row {
+  justify-content: flex-end;
+}
+.tut .primary {
+  font-size: 16px;
+  padding: 8px 18px;
+}
+.tut [hidden] {
+  display: none;
+}
+.tut-spot {
+  outline: 3px solid var(--hazard);
+  outline-offset: 3px;
+  animation: tutPulse 1.4s ease-in-out infinite;
+}
+@keyframes tutPulse {
+  50% {
+    outline-color: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tut-spot {
+    animation: none;
+  }
+}

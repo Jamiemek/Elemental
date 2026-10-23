@@ -71,8 +71,9 @@ async function doRoll(preset, opts) {
         if (onRoll) {
             startRollTicks();
         }
+        const scripted = !pre && tutTake();
         // before it counts down
-        const evNow = pre ? null : eventNow();
+        const evNow = pre || scripted ? null : eventNow();
         const rolls = pre || Array.from({ length: rollCount }, () => {
             // the catalysts behind this roll, noted before single-roll ones are used up
             const timed = activeList().filter(x => x.a.rolls == null && x.c).map(x => x.c.name);
@@ -96,7 +97,7 @@ async function doRoll(preset, opts) {
             }
             const denom = evNow === 'collider' ? 2 : ch.chain3 ? Math.min(3, buffs.chainDenom) : buffs.chainDenom;
             const make = () => rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
-            const elements = evNow === 'hole' || ch.twice ? rollTwice(make) : make();
+            const elements = scripted ? [elementBySymbol[scripted]] : evNow === 'hole' || ch.twice ? rollTwice(make) : make();
             if (elements.some(e => isJoke(e[0]))) {
                 gagHit();
             }
@@ -106,7 +107,7 @@ async function doRoll(preset, opts) {
                 elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
             }, rollIon());
         });
-        const ev = pre ? null : eventsPress(rolls.length);
+        const ev = pre || scripted ? null : eventsPress(rolls.length);
         const storm = ev && !ev.ev ? ev : null;
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();

@@ -12,8 +12,12 @@ import build  # noqa: E402
 
 CLOUD_OFF = '    enabled: false, // the preview copy never touches real accounts or saves'
 
-def page(kind):
+def page(kind, tutorial=False):
     p = build.preview(build.single(build.joined_js()))
+    # the other tests start from a cleared save, which would start the tutorial
+    if not tutorial:
+        assert p.count('\ntutInit();\n') == 1
+        p = p.replace('\ntutInit();\n', '\n')
     if kind == 'test':
         assert p.count(CLOUD_OFF) == 1
         p = p.replace(CLOUD_OFF, '    enabled: true,')
