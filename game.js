@@ -5350,16 +5350,19 @@ function pityAsk(n) {
         netDraw();
     };
 }
-// the open slot you're nearest to paying for (bonding agent)
-function closestSlot() {
+// the open slot that would take the fewest rolls to finish (bonding agent)
+function cheapestSlot() {
+    const b = activeBuffStats();
+    const luck = Math.round(b.luck - catBonus().luck);
     let best = null;
     shownNet().nodes.forEach(n => {
         if (netFilled(n.id) || !netReachable(n.id)) {
             return;
         }
-        const have = Math.min(1, eligible(n.req).reduce((s, x) => s + x.n, 0) / n.req.n);
-        if (!best || have > best.have || (have === best.have && n.req.n < best.n.req.n)) {
-            best = { n, have };
+        const left = n.req.n - eligible(n.req).reduce((s, x) => s + x.n, 0);
+        const cost = rollsFor(n.req, luck, b.chainDenom) * left / n.req.n;
+        if (!best || cost < best.cost) {
+            best = { n, cost };
         }
     });
     return best && best.n;
@@ -6289,19 +6292,25 @@ function useInstant(c, n) {
         shopState.stock = held ? [held] : [];
         shopCheck();
     } else if (f.bond) {
+        // anything you can already pay for gets filled first, so no agent is wasted on it
+        let paid = 0;
+        let ids;
+        while ((ids = fillableIds()).length) {
+            ids.forEach(id => paid += fillSlot(id) ? 1 : 0);
+        }
         let done = 0;
         for (; done < n; done++) {
-            const s = closestSlot();
+            const s = cheapestSlot();
             if (!s) {
                 break;
             }
             fillFree(s.id);
         }
         if (!done) {
-            return 'There are no open bond slots to fill.';
+            return paid ? `You could already pay for every open slot, so ${paid} ${paid > 1 ? 'were' : 'was'} filled and no Bonding Agents were used.` : 'There are no open bond slots to fill.';
         }
         n = done;
-        showAchievementToast({ kicker: 'Bonding Agent', name: done > 1 ? done + ' bond slots filled' : 'Bond slot filled', flavor: 'Paid for in full. Check the bonds tree.' });
+        showAchievementToast({ kicker: 'Bonding Agent', name: done > 1 ? done + ' bond slots filled' : 'Bond slot filled', flavor: (paid ? `${paid} more you could already pay for ${paid > 1 ? 'were' : 'was'} filled first. ` : '') + 'Check the bonds tree.' });
         if ($('bonds').classList.contains('active')) {
             bondSummary();
             netDrawSoon();

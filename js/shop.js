@@ -263,19 +263,25 @@ function useInstant(c, n) {
         shopState.stock = held ? [held] : [];
         shopCheck();
     } else if (f.bond) {
+        // anything you can already pay for gets filled first, so no agent is wasted on it
+        let paid = 0;
+        let ids;
+        while ((ids = fillableIds()).length) {
+            ids.forEach(id => paid += fillSlot(id) ? 1 : 0);
+        }
         let done = 0;
         for (; done < n; done++) {
-            const s = closestSlot();
+            const s = cheapestSlot();
             if (!s) {
                 break;
             }
             fillFree(s.id);
         }
         if (!done) {
-            return 'There are no open bond slots to fill.';
+            return paid ? `You could already pay for every open slot, so ${paid} ${paid > 1 ? 'were' : 'was'} filled and no Bonding Agents were used.` : 'There are no open bond slots to fill.';
         }
         n = done;
-        showAchievementToast({ kicker: 'Bonding Agent', name: done > 1 ? done + ' bond slots filled' : 'Bond slot filled', flavor: 'Paid for in full. Check the bonds tree.' });
+        showAchievementToast({ kicker: 'Bonding Agent', name: done > 1 ? done + ' bond slots filled' : 'Bond slot filled', flavor: (paid ? `${paid} more you could already pay for ${paid > 1 ? 'were' : 'was'} filled first. ` : '') + 'Check the bonds tree.' });
         if ($('bonds').classList.contains('active')) {
             bondSummary();
             netDrawSoon();

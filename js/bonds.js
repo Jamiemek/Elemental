@@ -497,16 +497,19 @@ function pityAsk(n) {
         netDraw();
     };
 }
-// the open slot you're nearest to paying for (bonding agent)
-function closestSlot() {
+// the open slot that would take the fewest rolls to finish (bonding agent)
+function cheapestSlot() {
+    const b = activeBuffStats();
+    const luck = Math.round(b.luck - catBonus().luck);
     let best = null;
     shownNet().nodes.forEach(n => {
         if (netFilled(n.id) || !netReachable(n.id)) {
             return;
         }
-        const have = Math.min(1, eligible(n.req).reduce((s, x) => s + x.n, 0) / n.req.n);
-        if (!best || have > best.have || (have === best.have && n.req.n < best.n.req.n)) {
-            best = { n, have };
+        const left = n.req.n - eligible(n.req).reduce((s, x) => s + x.n, 0);
+        const cost = rollsFor(n.req, luck, b.chainDenom) * left / n.req.n;
+        if (!best || cost < best.cost) {
+            best = { n, cost };
         }
     });
     return best && best.n;
