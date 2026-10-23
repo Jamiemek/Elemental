@@ -372,7 +372,7 @@ $('resetBtn').addEventListener('click', () => {
             evRun = null;
             evSave();
             localStorage.removeItem('elementalCosmetics');
-            cosState = { owned: [], scanner: '', page: '', badge: true };
+            cosState = { owned: [], scanner: '', page: '', effects: '', badge: true };
             applyCosmetics();
             buffCache = weightCache = null;
         } catch (e) { }

@@ -6,12 +6,12 @@ const COSMETICS = [
     { id: 'blueprint', kind: 'page', name: 'Blueprint', desc: 'White on drafting blue, on a fine grid.', price: 40000 },
     { id: 'notebook', kind: 'page', name: 'Lab notebook', desc: 'Ruled paper, a margin line and ink.', price: 90000 },
     { id: 'gameover', kind: 'page', name: 'Game Over', desc: 'Black, red and a CRT glow.', free: 'Gg' },
-    { id: 'retro', kind: 'effects', name: 'Retro spawn effects', soon: true },
+    { id: 'retro', kind: 'effects', name: 'Retro spawn effects', desc: 'All 12 rarity effects redone in 8-bit: pixels, coins, fireworks and a CRT.', price: 120000 },
     { id: 'astral', kind: 'effects', name: 'Astral spawn effects', soon: true }
 ];
 const COS = Object.fromEntries(COSMETICS.map(c => [c.id, c]));
 const COS_KINDS = { scanner: 'Scanner', page: 'Page', effects: 'Spawn effects' };
-let cosState = { owned: [], scanner: '', page: '', badge: true };
+let cosState = { owned: [], scanner: '', page: '', effects: '', badge: true };
 try {
     cosState = Object.assign(cosState, JSON.parse(localStorage.getItem('elementalCosmetics') || '{}'));
 } catch (e) { }
@@ -23,6 +23,7 @@ function cosSave() {
 const cosUnlocked = id => bondBonus().cos.includes(id);
 const cosOwned = id => cosUnlocked(id) && (!!COS[id].free || cosState.owned.includes(id));
 const hasFinalBadge = () => cosUnlocked('gameover');
+const effectSkin = () => cosState.effects && cosOwned(cosState.effects) ? cosState.effects : '';
 const scannerSkin = () => cosState.scanner && cosOwned(cosState.scanner) ? cosState.scanner : '';
 function applyCosmetics() {
     // toast new unlocks
@@ -35,7 +36,7 @@ function applyCosmetics() {
     if (fresh.length) {
         cosState.seen = cosState.seen.concat(fresh);
         cosSave();
-        setTimeout(() => showAchievementToast({ kicker: 'Cosmetic unlocked', name: fresh.length > 2 ? fresh.length + ' new cosmetics' : fresh.map(id => COS[id].name + (COS[id].kind === 'page' ? ' page' : ' scanner')).join(' and '), flavor: 'Find it on the Cosmetics tab of the shop.' }), 1500);
+        setTimeout(() => showAchievementToast({ kicker: 'Cosmetic unlocked', name: fresh.length > 2 ? fresh.length + ' new cosmetics' : fresh.map(id => COS[id].name + ({ page: ' page', scanner: ' scanner' }[COS[id].kind] || '')).join(' and '), flavor: 'Find it on the Cosmetics tab of the shop.' }), 1500);
     }
     const root = document.documentElement;
     const page = cosState.page && cosOwned(cosState.page) ? cosState.page : '';

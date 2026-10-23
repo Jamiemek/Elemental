@@ -201,6 +201,17 @@
         buffCache = weightCache = null;
         applyCosmetics();
     });
+    add('Spawn effects: normal / Retro', () => {
+        if (!cosState.owned.includes('retro')) {
+            cosState.owned.push('retro');
+        }
+        net().nodes.forEach(n => netState[n.id] = 1);
+        saveNet();
+        netVer++;
+        cosState.effects = cosState.effects === 'retro' ? '' : 'retro';
+        cosSave();
+        applyCosmetics();
+    });
     add('Start Quark Storm', () => {
         evClear();
         qStormStart();

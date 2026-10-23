@@ -550,6 +550,13 @@ function playRarityFx(tier, dark) {
         ov.appendChild(cv);
         fxParticles(cv, { cx, cy, tok, plan, end: end || total });
     };
+    // retro/astral skins (secrets stay normal)
+    const skin = !dark && effectSkin();
+    if (skin && FX_SKINS[skin]) {
+        FX_SKINS[skin](tier, { T, vd, total, cx, cy, tok, ov, E, A, P, app, game, parts, reels, shake, rumble, shockPage, dof, veil, bars, edge, reelGlow, flash, sweep, trace, ring, bloom });
+        done();
+        return;
+    }
     // secret (dark) variants for tiers 5 to 9
     if (dark) {
         // jagged crack lines spreading out from a point, drawn on over dur

@@ -19,6 +19,7 @@ JS_FILES = [
     'data.js',       # save-version check, elements, table layout, achievements
     'sound.js',      # settings toggles, the $ helper, audio, rarity tiers, sounds
     'effects.js',    # rarity effects, secret variants, reduce flashing, particles
+    'fxskins.js',    # Retro and Astral spawn effects (cosmetics)
     'scan.js',       # the field scan animation, Quark Storm particles
     'core.js',       # achievement toasts, the compact collection, saving, navigation, element buffs
     'bonds.js',      # the bond network
