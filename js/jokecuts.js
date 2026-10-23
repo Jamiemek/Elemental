@@ -197,3 +197,53 @@ CUTSCENES.Zz = {
         drawCard(ctx, scene, time, 6600, '#9fd3ff', '#3b6bff');
     }
 };
+// Mu: nothing happens, slowly, then a very small ding
+CUTSCENES.Mu = {
+    z: 0, dur: 8200,
+    snd(audio, start) {
+        for (let i = 0; i < 12; i++) {
+            playTone(audio, 220, start + 1 + i * 0.38, 0.03, 0.008, 'sine', null, 0.05);
+        }
+        playTone(audio, 1568, start + 5.7, 0.5, 0.012, 'sine', null, 0.4);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const dim = smoothstep(5900, 6400, time);
+        const g = Math.round(232 - 160 * dim);
+        ctx.fillStyle = 'rgb(' + g + ',' + (g - 6) + ',' + (g - 20) + ')';
+        ctx.fillRect(0, 0, W, H);
+        const a = smoothstep(200, 900, time) * (1 - dim);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#9b978d';
+        ctx.fillRect(cx - 7 * u, cy - 14 * u, 14 * u, 14 * u);
+        ctx.globalAlpha = 1;
+        drawText(ctx, 'A grey square', cx, cy + 5 * u, 2.4 * u, '#6f6b62', a, 500);
+        // a loading bar that takes its time
+        const p = Math.floor(smoothstep(1000, 5500, time) * 12) / 12;
+        ctx.globalAlpha = a;
+        ctx.strokeStyle = '#8c887e';
+        ctx.lineWidth = 0.3 * u;
+        ctx.strokeRect(cx - 20 * u, cy + 11 * u, 40 * u, 2.4 * u);
+        ctx.fillStyle = '#a9a59a';
+        ctx.fillRect(cx - 20 * u, cy + 11 * u, 40 * u * p, 2.4 * u);
+        ctx.globalAlpha = 1;
+        const blip = time > 3900 && time < 4100;
+        drawText(ctx, 'Excitement: ' + (blip ? '1' : '0') + '%', cx, cy + 18 * u, 2 * u, '#6f6b62', a, 500);
+        // the ding
+        const ding = time - 5700;
+        if (ding > 0 && ding < 700) {
+            const k = 1 - ding / 700;
+            ctx.strokeStyle = 'rgba(120,116,106,' + k + ')';
+            ctx.lineWidth = 0.25 * u;
+            ctx.beginPath();
+            ctx.arc(cx + 7 * u, cy - 14 * u, (1 + ding / 120) * u, 0, TAU);
+            ctx.stroke();
+            drawText(ctx, 'ding', cx + 12 * u, cy - 18 * u, 1.8 * u, '#6f6b62', k, 500);
+        }
+        drawCard(ctx, scene, time, 6500, '#d8d2c4', '#8f8a7e');
+    }
+};
