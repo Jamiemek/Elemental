@@ -19,6 +19,86 @@ function qsSprite(i) {
     }
     return qsSprites[i];
 }
+const SCAN_SKIN = {
+    '': { fg: '#cfe3da', st: '#9fe0c8', hi: '#eef3ef' },
+    oscilloscope: { fg: '#7dff9a', st: '#3dff6e', hi: '#d8ffe0' },
+    holographic: { fg: '#d9fbff', st: '#ff7ce6', hi: '#ffffff' },
+    warp: { fg: '#dfe8ff', st: '#9fb8ff', hi: '#ffffff' }
+};
+function skinLayer(g, sk, t, W, H, q) {
+    g.save();
+    if (sk === 'oscilloscope') {
+        g.strokeStyle = '#7dff9a';
+        g.lineWidth = 1;
+        g.globalAlpha = 0.12;
+        g.beginPath();
+        for (let i = 1; i < 10; i++) {
+            g.moveTo(W * i / 10, 0);
+            g.lineTo(W * i / 10, H);
+        }
+        for (let i = 1; i < 8; i++) {
+            g.moveTo(0, H * i / 8);
+            g.lineTo(W, H * i / 8);
+        }
+        g.stroke();
+        g.globalAlpha = 0.25;
+        g.beginPath();
+        for (let i = 0; i <= 50; i++) {
+            g.moveTo(W * i / 50, H / 2 - 3);
+            g.lineTo(W * i / 50, H / 2 + 3);
+        }
+        g.stroke();
+        const A = H * 0.24 * (1 - q);
+        g.globalAlpha = 0.85;
+        g.strokeStyle = '#3dff6e';
+        g.lineWidth = 2;
+        g.shadowColor = '#3dff6e';
+        g.shadowBlur = 10;
+        g.beginPath();
+        for (let x = 0; x <= W; x += 3) {
+            const y = H / 2 + A * (0.6 * Math.sin(x / W * 18.85 + t / 180) + 0.3 * Math.sin(x * 0.071 - t / 90) + 0.1 * Math.sin(x * 0.53 + t / 40));
+            if (x) {
+                g.lineTo(x, y);
+            } else {
+                g.moveTo(x, y);
+            }
+        }
+        g.stroke();
+    } else if (sk === 'holographic') {
+        const x0 = ((t / 1700) % 1.6 - 0.3) * W;
+        const gr = g.createLinearGradient(x0 - W * 0.25, 0, x0 + W * 0.25, H * 0.4);
+        gr.addColorStop(0, 'rgba(63,240,255,0)');
+        gr.addColorStop(0.35, 'rgba(63,240,255,.10)');
+        gr.addColorStop(0.5, 'rgba(255,255,255,.16)');
+        gr.addColorStop(0.65, 'rgba(255,79,216,.10)');
+        gr.addColorStop(1, 'rgba(255,79,216,0)');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, W, H);
+        g.globalAlpha = 0.06;
+        for (let y = (t / 30) % 6; y < H; y += 6) {
+            g.fillStyle = (y | 0) % 12 < 6 ? '#3ff0ff' : '#ff4fd8';
+            g.fillRect(0, y, W, 1);
+        }
+    } else if (sk === 'warp') {
+        const M = Math.max(W, H) * 0.75;
+        g.strokeStyle = '#9fb8ff';
+        g.lineWidth = 1.5;
+        for (let k = 0; k < 6; k++) {
+            const f = (t / 900 + k / 6) % 1;
+            g.globalAlpha = (1 - f) * 0.35 * (1 - q);
+            g.beginPath();
+            g.ellipse(W / 2, H / 2, f * f * M, f * f * M * 0.62, 0, 0, 6.2832);
+            g.stroke();
+        }
+        const gr = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.4);
+        gr.addColorStop(0, 'rgba(220,230,255,' + 0.35 * (1 - q) + ')');
+        gr.addColorStop(1, 'rgba(220,230,255,0)');
+        g.globalAlpha = 1;
+        g.fillStyle = gr;
+        g.fillRect(0, 0, W, H);
+    }
+    g.restore();
+}
 const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'] };
 function evLayer(g, ev, t, W, H, f) {
     const cx = W / 2;
@@ -114,6 +194,8 @@ function evLayer(g, ev, t, W, H, f) {
 }
 function scanField(reel, syms, labels, scores, dur, targets, ev) {
     const storm = ev === 'storm';
+    const sk = scannerSkin();
+    const SK = SCAN_SKIN[sk];
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -207,6 +289,9 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             g.textAlign = 'center';
             g.textBaseline = 'middle';
             g.lineCap = 'round';
+            if (sk) {
+                skinLayer(g, sk, t, W, H, q);
+            }
             const pr = (x, y, d) => [W / 2 + (x - cxw) * Pp / d, H / 2 + (y - cyw) * Pp / d];
             P.forEach(p => {
                 let d = p.z - cz;
@@ -230,10 +315,10 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 if (a <= 0) {
                     return;
                 }
-                if (q > 0) {
-                    const [ex, ey] = pr(px, py, d + q * q * 3.5);
+                if (q > 0 || sk === 'warp') {
+                    const [ex, ey] = pr(px, py, d + q * q * 3.5 + (sk === 'warp' ? 0.9 : 0));
                     g.globalAlpha = a * 0.7;
-                    g.strokeStyle = tier ? acc : '#9fe0c8';
+                    g.strokeStyle = tier ? acc : SK.st;
                     g.lineWidth = 1.5;
                     g.beginPath();
                     g.moveTo(sx, sy);
@@ -241,8 +326,16 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     g.stroke();
                 }
                 g.globalAlpha = a;
-                g.fillStyle = '#cfe3da';
                 g.font = '700 ' + Math.max(5, base * p.s / d) + 'px ' + fam;
+                if (sk === 'holographic') {
+                    g.globalAlpha = a * 0.6;
+                    g.fillStyle = '#ff4fd8';
+                    g.fillText(p.t, sx - 1.5, sy);
+                    g.fillStyle = '#3ff0ff';
+                    g.fillText(p.t, sx + 1.5, sy);
+                    g.globalAlpha = a;
+                }
+                g.fillStyle = SK.fg;
                 g.fillText(p.t, sx, sy);
             });
             if (ev === 'collider' || ev === 'hole') {
@@ -342,7 +435,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     }
                 }
                 g.globalAlpha = hl ? 1 : 0.8 * Math.min(1, (dt - 0.35) / 0.9);
-                g.fillStyle = hl ? (u > 0.65 ? '#eef3ef' : ac) : '#cfe3da';
+                g.fillStyle = hl ? (u > 0.65 ? SK.hi : ac) : SK.fg;
                 g.font = '700 ' + sz + 'px ' + fam;
                 g.fillText(labels[i], sx, sy);
             });
@@ -366,7 +459,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             g.textAlign = 'center';
             if (u < 0.65) {
                 g.globalAlpha = 0.25;
-                g.strokeStyle = '#cfe3da';
+                g.strokeStyle = SK.fg;
                 g.lineWidth = 1;
                 g.beginPath();
                 g.moveTo(W / 2 - 10, H / 2);

@@ -27,6 +27,7 @@ JS_FILES = [
     'screens.js',    # roll history, periodic table, home, collection and rankings
     'roll.js',       # the roll itself, multirolls, autoroll, formula parsing
     'settings.js',   # achievement rarities, settings, theme, start-up renders
+    'cosmetics.js',  # scanner and page skins, the Final Element badge, the shop's Cosmetics tab
     'cutscenes.js',  # the 15 element cutscenes
     'storage.js',    # storage use and "Clear redundant finds"
     'viewer.js',     # cutscene and effect viewer, donation links

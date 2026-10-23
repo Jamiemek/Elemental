@@ -2666,6 +2666,86 @@ function qsSprite(i) {
     }
     return qsSprites[i];
 }
+const SCAN_SKIN = {
+    '': { fg: '#cfe3da', st: '#9fe0c8', hi: '#eef3ef' },
+    oscilloscope: { fg: '#7dff9a', st: '#3dff6e', hi: '#d8ffe0' },
+    holographic: { fg: '#d9fbff', st: '#ff7ce6', hi: '#ffffff' },
+    warp: { fg: '#dfe8ff', st: '#9fb8ff', hi: '#ffffff' }
+};
+function skinLayer(g, sk, t, W, H, q) {
+    g.save();
+    if (sk === 'oscilloscope') {
+        g.strokeStyle = '#7dff9a';
+        g.lineWidth = 1;
+        g.globalAlpha = 0.12;
+        g.beginPath();
+        for (let i = 1; i < 10; i++) {
+            g.moveTo(W * i / 10, 0);
+            g.lineTo(W * i / 10, H);
+        }
+        for (let i = 1; i < 8; i++) {
+            g.moveTo(0, H * i / 8);
+            g.lineTo(W, H * i / 8);
+        }
+        g.stroke();
+        g.globalAlpha = 0.25;
+        g.beginPath();
+        for (let i = 0; i <= 50; i++) {
+            g.moveTo(W * i / 50, H / 2 - 3);
+            g.lineTo(W * i / 50, H / 2 + 3);
+        }
+        g.stroke();
+        const A = H * 0.24 * (1 - q);
+        g.globalAlpha = 0.85;
+        g.strokeStyle = '#3dff6e';
+        g.lineWidth = 2;
+        g.shadowColor = '#3dff6e';
+        g.shadowBlur = 10;
+        g.beginPath();
+        for (let x = 0; x <= W; x += 3) {
+            const y = H / 2 + A * (0.6 * Math.sin(x / W * 18.85 + t / 180) + 0.3 * Math.sin(x * 0.071 - t / 90) + 0.1 * Math.sin(x * 0.53 + t / 40));
+            if (x) {
+                g.lineTo(x, y);
+            } else {
+                g.moveTo(x, y);
+            }
+        }
+        g.stroke();
+    } else if (sk === 'holographic') {
+        const x0 = ((t / 1700) % 1.6 - 0.3) * W;
+        const gr = g.createLinearGradient(x0 - W * 0.25, 0, x0 + W * 0.25, H * 0.4);
+        gr.addColorStop(0, 'rgba(63,240,255,0)');
+        gr.addColorStop(0.35, 'rgba(63,240,255,.10)');
+        gr.addColorStop(0.5, 'rgba(255,255,255,.16)');
+        gr.addColorStop(0.65, 'rgba(255,79,216,.10)');
+        gr.addColorStop(1, 'rgba(255,79,216,0)');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, W, H);
+        g.globalAlpha = 0.06;
+        for (let y = (t / 30) % 6; y < H; y += 6) {
+            g.fillStyle = (y | 0) % 12 < 6 ? '#3ff0ff' : '#ff4fd8';
+            g.fillRect(0, y, W, 1);
+        }
+    } else if (sk === 'warp') {
+        const M = Math.max(W, H) * 0.75;
+        g.strokeStyle = '#9fb8ff';
+        g.lineWidth = 1.5;
+        for (let k = 0; k < 6; k++) {
+            const f = (t / 900 + k / 6) % 1;
+            g.globalAlpha = (1 - f) * 0.35 * (1 - q);
+            g.beginPath();
+            g.ellipse(W / 2, H / 2, f * f * M, f * f * M * 0.62, 0, 0, 6.2832);
+            g.stroke();
+        }
+        const gr = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, H * 0.4);
+        gr.addColorStop(0, 'rgba(220,230,255,' + 0.35 * (1 - q) + ')');
+        gr.addColorStop(1, 'rgba(220,230,255,0)');
+        g.globalAlpha = 1;
+        g.fillStyle = gr;
+        g.fillRect(0, 0, W, H);
+    }
+    g.restore();
+}
 const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'] };
 function evLayer(g, ev, t, W, H, f) {
     const cx = W / 2;
@@ -2761,6 +2841,8 @@ function evLayer(g, ev, t, W, H, f) {
 }
 function scanField(reel, syms, labels, scores, dur, targets, ev) {
     const storm = ev === 'storm';
+    const sk = scannerSkin();
+    const SK = SCAN_SKIN[sk];
     const N = labels.length;
     const W = reel.clientWidth;
     const H = reel.clientHeight;
@@ -2854,6 +2936,9 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             g.textAlign = 'center';
             g.textBaseline = 'middle';
             g.lineCap = 'round';
+            if (sk) {
+                skinLayer(g, sk, t, W, H, q);
+            }
             const pr = (x, y, d) => [W / 2 + (x - cxw) * Pp / d, H / 2 + (y - cyw) * Pp / d];
             P.forEach(p => {
                 let d = p.z - cz;
@@ -2877,10 +2962,10 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 if (a <= 0) {
                     return;
                 }
-                if (q > 0) {
-                    const [ex, ey] = pr(px, py, d + q * q * 3.5);
+                if (q > 0 || sk === 'warp') {
+                    const [ex, ey] = pr(px, py, d + q * q * 3.5 + (sk === 'warp' ? 0.9 : 0));
                     g.globalAlpha = a * 0.7;
-                    g.strokeStyle = tier ? acc : '#9fe0c8';
+                    g.strokeStyle = tier ? acc : SK.st;
                     g.lineWidth = 1.5;
                     g.beginPath();
                     g.moveTo(sx, sy);
@@ -2888,8 +2973,16 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     g.stroke();
                 }
                 g.globalAlpha = a;
-                g.fillStyle = '#cfe3da';
                 g.font = '700 ' + Math.max(5, base * p.s / d) + 'px ' + fam;
+                if (sk === 'holographic') {
+                    g.globalAlpha = a * 0.6;
+                    g.fillStyle = '#ff4fd8';
+                    g.fillText(p.t, sx - 1.5, sy);
+                    g.fillStyle = '#3ff0ff';
+                    g.fillText(p.t, sx + 1.5, sy);
+                    g.globalAlpha = a;
+                }
+                g.fillStyle = SK.fg;
                 g.fillText(p.t, sx, sy);
             });
             if (ev === 'collider' || ev === 'hole') {
@@ -2989,7 +3082,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     }
                 }
                 g.globalAlpha = hl ? 1 : 0.8 * Math.min(1, (dt - 0.35) / 0.9);
-                g.fillStyle = hl ? (u > 0.65 ? '#eef3ef' : ac) : '#cfe3da';
+                g.fillStyle = hl ? (u > 0.65 ? SK.hi : ac) : SK.fg;
                 g.font = '700 ' + sz + 'px ' + fam;
                 g.fillText(labels[i], sx, sy);
             });
@@ -3013,7 +3106,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             g.textAlign = 'center';
             if (u < 0.65) {
                 g.globalAlpha = 0.25;
-                g.strokeStyle = '#cfe3da';
+                g.strokeStyle = SK.fg;
                 g.lineWidth = 1;
                 g.beginPath();
                 g.moveTo(W / 2 - 10, H / 2);
@@ -3717,6 +3810,7 @@ function fillSlot(id) {
     netVer++;
     buffCache = weightCache = null;
     setTimeout(jokeIntroCheck, 600);
+    applyCosmetics();
     return true;
 }
 // joke element bonuses, no luck or speed ones
@@ -5873,6 +5967,7 @@ async function doRoll(preset, opts) {
         }
         renderInventory();
         renderPeriodic();
+        applyCosmetics();
         if (!buffs.autoUnlocked && activeBuffStats().autoUnlocked) {
             setTimeout(() => showAchievementToast({
                 kicker: 'New feature', name: 'Autoroll unlocked', flavor: elementBySymbol[AUTO_UNLOCK_SYMBOL][1] + ' discovered: autoroll is now available on the roll screen, and stays on until you switch it off.'
@@ -6020,6 +6115,9 @@ $('resetBtn').addEventListener('click', () => {
             qStormSave();
             evRun = null;
             evSave();
+            localStorage.removeItem('elementalCosmetics');
+            cosState = { owned: [], scanner: '', page: '', badge: true };
+            applyCosmetics();
             buffCache = weightCache = null;
         } catch (e) { }
         collection = [];
@@ -6256,6 +6354,137 @@ function jokeIntroCheck() {
     }
 }
 setTimeout(jokeIntroCheck, 2500);
+// cosmetics
+const COSMETICS = [
+    { id: 'oscilloscope', kind: 'scanner', name: 'Oscilloscope', desc: 'Green phosphor, a graticule and a live trace.', price: 25000 },
+    { id: 'holographic', kind: 'scanner', name: 'Holographic', desc: 'Iridescent, with colour fringes and a sweeping shimmer.', price: 60000 },
+    { id: 'warp', kind: 'scanner', name: 'Warp', desc: 'The field streams past at warp speed.', free: 'Zo' },
+    { id: 'blueprint', kind: 'page', name: 'Blueprint', desc: 'White on drafting blue, on a fine grid.', price: 40000 },
+    { id: 'notebook', kind: 'page', name: 'Lab notebook', desc: 'Ruled paper, a margin line and ink.', price: 90000 },
+    { id: 'gameover', kind: 'page', name: 'Game Over', desc: 'Black, red and a CRT glow.', free: 'Gg' },
+    { id: 'retro', kind: 'effects', name: 'Retro spawn effects', soon: true },
+    { id: 'astral', kind: 'effects', name: 'Astral spawn effects', soon: true }
+];
+const COS = Object.fromEntries(COSMETICS.map(c => [c.id, c]));
+const COS_KINDS = { scanner: 'Scanner', page: 'Page', effects: 'Spawn effects' };
+let cosState = { owned: [], scanner: '', page: '', badge: true };
+try {
+    cosState = Object.assign(cosState, JSON.parse(localStorage.getItem('elementalCosmetics') || '{}'));
+} catch (e) { }
+function cosSave() {
+    try {
+        localStorage.setItem('elementalCosmetics', JSON.stringify(cosState));
+    } catch (e) { }
+}
+const cosUnlocked = id => bondBonus().cos.includes(id);
+const cosOwned = id => cosUnlocked(id) && (!!COS[id].free || cosState.owned.includes(id));
+const hasFinalBadge = () => cosUnlocked('gameover');
+const scannerSkin = () => cosState.scanner && cosOwned(cosState.scanner) ? cosState.scanner : '';
+function applyCosmetics() {
+    // toast new unlocks
+    const un = bondBonus().cos.filter(id => COS[id] && !COS[id].soon);
+    if (!cosState.seen) {
+        cosState.seen = un.slice();
+        cosSave();
+    }
+    const fresh = un.filter(id => !cosState.seen.includes(id));
+    if (fresh.length) {
+        cosState.seen = cosState.seen.concat(fresh);
+        cosSave();
+        setTimeout(() => showAchievementToast({ kicker: 'Cosmetic unlocked', name: fresh.length > 2 ? fresh.length + ' new cosmetics' : fresh.map(id => COS[id].name + (COS[id].kind === 'page' ? ' page' : ' scanner')).join(' and '), flavor: 'Find it on the Cosmetics tab of the shop.' }), 1500);
+    }
+    const root = document.documentElement;
+    const page = cosState.page && cosOwned(cosState.page) ? cosState.page : '';
+    const scan = scannerSkin();
+    if (page) {
+        root.setAttribute('data-skin', page);
+    } else {
+        root.removeAttribute('data-skin');
+    }
+    if (scan) {
+        root.setAttribute('data-scanner', scan);
+    } else {
+        root.removeAttribute('data-scanner');
+    }
+    const badge = $('finalBadge');
+    if (badge) {
+        badge.hidden = !(hasFinalBadge() && cosState.badge);
+    }
+    const tabs = $('shopTabs');
+    if (tabs) {
+        tabs.hidden = !bondBonus().cos.length;
+        if (tabs.hidden) {
+            shopTab('cats');
+        }
+    }
+}
+function shopTab(t) {
+    document.querySelectorAll('[data-stab]').forEach(b => b.classList.toggle('active', b.dataset.stab === t));
+    $('shopCats').hidden = t !== 'cats';
+    $('cosPanel').hidden = t !== 'cos';
+    if (t === 'cos') {
+        renderCosmetics();
+    }
+}
+function renderCosmetics() {
+    const grid = $('cosGrid');
+    if (!grid) {
+        return;
+    }
+    const un = bondBonus().cos;
+    const list = COSMETICS.filter(c => un.includes(c.id));
+    const card = c => {
+        let btn;
+        if (c.soon) {
+            btn = '<button class="ghost" disabled>Coming in 2.1</button>';
+        } else if (!cosOwned(c.id)) {
+            btn = `<button class="primary cos-buy" data-id="${c.id}"${quarks < c.price ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
+        } else if (cosState[c.kind] === c.id) {
+            btn = `<button class="ghost cos-use on" data-id="${c.id}">In use · take off</button>`;
+        } else {
+            btn = `<button class="primary cos-use" data-id="${c.id}">Use</button>`;
+        }
+        const how = c.free ? `<p class="cat-len">Free: unlocked by ${elementBySymbol[c.free][1]}</p>` : '';
+        return `<article class="cat-card cos-card${cosState[c.kind] === c.id ? ' held' : ''}" style="--tc:var(--hazard)"><div class="cos-swatch sw-${c.id}" aria-hidden="true"></div><span class="cos-kind">${COS_KINDS[c.kind]}</span><h3>${c.name}</h3><p>${c.soon ? 'Unlocked by Outer Ring 1. Arrives with update 2.1.' : c.desc}</p>${how}${btn}</article>`;
+    };
+    let html = list.map(card).join('');
+    if (hasFinalBadge()) {
+        html += `<article class="cat-card cos-card${cosState.badge ? ' held' : ''}" style="--tc:var(--hazard)"><div class="cos-swatch sw-badge" aria-hidden="true"><span class="final-badge">Final Element</span></div><span class="cos-kind">Badge</span><h3>Final Element</h3><p>Shown by your quarks. For finding ${elementBySymbol.Gg[1]}.</p><button class="${cosState.badge ? 'ghost on' : 'primary'} cos-badge">${cosState.badge ? 'Shown · hide' : 'Show'}</button></article>`;
+    }
+    grid.innerHTML = html || '<p class="muted">No cosmetics unlocked yet.</p>';
+}
+$('cosGrid').addEventListener('click', e => {
+    const buy = e.target.closest('.cos-buy');
+    const use = e.target.closest('.cos-use');
+    const msg = $('cosMsg');
+    msg.textContent = '';
+    if (buy) {
+        const c = COS[buy.dataset.id];
+        if (!cosUnlocked(c.id) || cosOwned(c.id)) {
+            return;
+        }
+        if (quarks < c.price) {
+            msg.textContent = 'Not enough quarks.';
+            return;
+        }
+        addQuarks(-c.price);
+        cosState.owned.push(c.id);
+        cosState[c.kind] = c.id;
+        msg.textContent = c.name + ' bought and in use.';
+    } else if (use) {
+        const c = COS[use.dataset.id];
+        cosState[c.kind] = cosState[c.kind] === c.id ? '' : c.id;
+    } else if (e.target.closest('.cos-badge')) {
+        cosState.badge = !cosState.badge;
+    } else {
+        return;
+    }
+    cosSave();
+    applyCosmetics();
+    renderCosmetics();
+});
+document.querySelectorAll('[data-stab]').forEach(b => b.addEventListener('click', () => shopTab(b.dataset.stab)));
+applyCosmetics();
 const TAU = Math.PI * 2;
 const CUTSCENES = {};
 const clamp = (x, min = 0, max = 1) => Math.min(max, Math.max(min, x));
@@ -8380,7 +8609,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalIons'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalIons', 'elementalCosmetics'];
 const CLOUD_EVERY = 45000;
 let sb = null;
 let cloudUser = null;

@@ -14,13 +14,20 @@
         t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     document.documentElement.setAttribute('data-theme', t);
+    // the page skin (a cosmetic), set early so the page doesn't flash; the game checks it's owned
+    try {
+        var p = JSON.parse(localStorage.getItem('elementalCosmetics') || '{}').page;
+        if (p) {
+            document.documentElement.setAttribute('data-skin', p);
+        }
+    } catch (e) { }
 })();
 </script>
-<link rel="stylesheet" href="css/style.css?v=3d9c300600">
+<link rel="stylesheet" href="css/style.css?v=5c1a10c1e1">
 </head>
 <body>
 <div class="topband"><div class="topband-in">
-<div class="top-left"><button class="brand" data-go="menu" aria-label="Elemental home"><span class="mark">El</span><span class="wordmark">Elemental</span></button><div class="quark-chip" title="Quarks" aria-label="Quarks"><span class="q-sym" aria-hidden="true">q</span><span id="quarkCount">0</span></div></div>
+<div class="top-left"><button class="brand" data-go="menu" aria-label="Elemental home"><span class="mark">El</span><span class="wordmark">Elemental</span></button><div class="quark-chip" title="Quarks" aria-label="Quarks"><span class="q-sym" aria-hidden="true">q</span><span id="quarkCount">0</span></div><span class="final-badge" id="finalBadge" title="Final Element" hidden>Final Element</span></div>
 <button class="link-btn" data-go="achievements">Achievements <span id="achievementHeaderCount">0/100</span></button>
 </div></div>
 <div class="app">
@@ -208,11 +215,17 @@
 
 <main id="shop" class="screen">
 <div class="page-head"><div><h1>Catalyst shop</h1><p class="sub">Restocks in <b id="shopTimer">0:00</b>. Buy with quarks, use whenever you like.</p></div><div class="head-btns"><button class="ghost" data-go="catinv">Inventory</button><button class="ghost" data-go="menu">Back</button></div></div>
-<section class="inventory-panel">
+<div class="tabs shop-tabs" id="shopTabs" hidden><button class="tab active" data-stab="cats">Catalysts</button><button class="tab" data-stab="cos">Cosmetics</button></div>
+<section class="inventory-panel" id="shopCats">
 <div class="toolbar"><strong>In stock</strong><span class="stat" id="shopSlotsNote"></span></div>
 <div class="cat-grid" id="shopStock"></div>
 <p class="shop-msg ok" id="shopMsg" aria-live="polite"></p>
 <p class="footnote">Bought catalysts go to your inventory. One catalyst of each rarity can be active at a time, and using more of the one that is running adds to it.</p>
+</section>
+<section class="inventory-panel" id="cosPanel" hidden>
+<div class="toolbar"><strong>Cosmetics</strong><span class="stat">Bought once, yours to keep. Switch them on and off any time.</span></div>
+<div class="cat-grid cos-grid" id="cosGrid"></div>
+<p class="shop-msg ok" id="cosMsg" aria-live="polite"></p>
 </section>
 </main>
 
@@ -285,5 +298,5 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="fxWarp" x="0" y="0" width="100%" height="100%"><feTurbulence id="fxTurb" type="fractalNoise" baseFrequency="0.005 0.008" numOctaves="2" seed="7"/><feDisplacementMap id="fxDisp" in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=b7ce4a1328"></script>
+<script src="game.js?v=cf8f7f8733"></script>
 </body></html>

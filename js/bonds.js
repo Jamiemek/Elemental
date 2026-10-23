@@ -372,6 +372,7 @@ function fillSlot(id) {
     netVer++;
     buffCache = weightCache = null;
     setTimeout(jokeIntroCheck, 600);
+    applyCosmetics();
     return true;
 }
 // joke element bonuses, no luck or speed ones

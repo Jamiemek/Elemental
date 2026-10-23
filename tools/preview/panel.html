@@ -189,6 +189,18 @@
         evRun = null;
         evSave();
     };
+    add('Unlock all cosmetics', () => {
+        net().nodes.forEach(n => netState[n.id] = 1);
+        saveNet();
+        ['Zo', 'Gg'].forEach(s => {
+            const e = elementBySymbol[s];
+            addRecord({ formula: s, name: e[1], elements: [e], rarity: '', log: exactRarity([e], 0), score: rollScore([e]) });
+        });
+        save();
+        netVer++;
+        buffCache = weightCache = null;
+        applyCosmetics();
+    });
     add('Start Quark Storm', () => {
         evClear();
         qStormStart();

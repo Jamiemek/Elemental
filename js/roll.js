@@ -223,6 +223,7 @@ async function doRoll(preset, opts) {
         }
         renderInventory();
         renderPeriodic();
+        applyCosmetics();
         if (!buffs.autoUnlocked && activeBuffStats().autoUnlocked) {
             setTimeout(() => showAchievementToast({
                 kicker: 'New feature', name: 'Autoroll unlocked', flavor: elementBySymbol[AUTO_UNLOCK_SYMBOL][1] + ' discovered: autoroll is now available on the roll screen, and stays on until you switch it off.'
@@ -370,6 +371,9 @@ $('resetBtn').addEventListener('click', () => {
             qStormSave();
             evRun = null;
             evSave();
+            localStorage.removeItem('elementalCosmetics');
+            cosState = { owned: [], scanner: '', page: '', badge: true };
+            applyCosmetics();
             buffCache = weightCache = null;
         } catch (e) { }
         collection = [];

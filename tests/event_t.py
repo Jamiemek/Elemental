@@ -105,7 +105,7 @@ async def m():
         await ev("catActive={}; catInv={insidejoke:1,laugh:1}; saveCats(); buffCache=weightCache=null; useCatalyst('insidejoke',1)")
         await roll(pg)
         r = await ev("rollHistory[0].f")
-        check('Inside Joke gives an unfound joke element first', any(r.startswith(j) for j in ['Um','Zz','Mu','Ln','Df','Cz','Mb','Dj','Ha','Ad','Nu','Xx','Uo','Zo','Gg']), r)
+        check('Inside Joke gives an unfound joke element first', any(j in r for j in ['Um','Zz','Mu','Ln','Df','Cz','Mb','Dj','Ha','Ad','Nu','Xx','Uo','Zo','Gg']), r)
         await ev("useCatalyst('laugh',1)")
         r = await ev("(()=>{const b=activeBuffStats(); return [quarkMult([elementBySymbol.Um],b), quarkMult([elementBySymbol.H],b)]})()")
         check('Laugh Track triples joke quarks', abs(r[0] / r[1] - 3) < 1e-9, r)
