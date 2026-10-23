@@ -884,3 +884,83 @@ CUTSCENES.Nu = {
         drawCard(ctx, scene, time, 6500, '#ff7b5c', '#c2412a');
     }
 };
+// Xx: a file types itself out and gets blacked out line by line
+CUTSCENES.Xx = {
+    z: 0, dur: 8600,
+    snd(audio, start) {
+        for (let x = 0.6; x < 4.6; x += 0.06 + Math.random() * 0.05) {
+            playNoise(audio, start + x, 0.02, 0.018, 4000, 2500, 'bandpass', 2, 0.05, 0.001);
+        }
+        [1.3, 2, 2.7, 3.4, 4.1].forEach(x => playTone(audio, 90, start + x, 0.12, 0.04, 'square', 60, 0.1, 0, 0.003));
+        boom(audio, start + 5, 0.1, 0.7);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const fade = 1 - smoothstep(6200, 6700, time);
+        ctx.fillStyle = '#121212';
+        ctx.fillRect(0, 0, W, H);
+        // the page
+        const pw = Math.min(W * 0.7, 70 * u);
+        const px = cx - pw / 2;
+        const py = 6 * u;
+        const ph = H - 12 * u;
+        ctx.globalAlpha = fade * smoothstep(0, 400, time);
+        ctx.fillStyle = '#ece6d6';
+        ctx.fillRect(px, py, pw, ph);
+        ctx.globalAlpha = 1;
+        const a = fade * smoothstep(0, 400, time);
+        drawText(ctx, 'CLASSIFIED', cx, py + 5 * u, 3 * u, '#b0261c', a, 800, 0.8 * u);
+        // the photo, blacked out first
+        const ix = px + pw - 18 * u;
+        const iy = py + 10 * u;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#c9c1ad';
+        ctx.fillRect(ix, iy, 14 * u, 14 * u);
+        ctx.fillStyle = '#111';
+        const pk = smoothstep(800, 1000, time);
+        ctx.fillRect(ix, iy, 14 * u * pk, 14 * u);
+        ctx.globalAlpha = 1;
+        const lines = ['NAME: REDACTIUM', 'FOUND BY: AGENT ████', 'ODDS: 1 IN 500,000,000', 'LOCATION: THE BASEMENT', 'NOTES: DO NOT ROLL'];
+        lines.forEach((l, i) => {
+            const t0 = 600 + i * 700;
+            const typed = Math.floor(clamp((time - t0) / 450) * l.length);
+            const y = py + 13 * u + i * 6 * u;
+            if (typed > 0) {
+                ctx.save();
+                ctx.globalAlpha = a;
+                ctx.fillStyle = '#2a2620';
+                ctx.font = '600 ' + 2.4 * u + 'px ' + CUTSCENE_FONT;
+                ctx.textBaseline = 'middle';
+                ctx.fillText(l.slice(0, typed), px + 5 * u, y);
+                const w = ctx.measureText(l.slice(l.indexOf(':') + 2)).width;
+                const bar = smoothstep(t0 + 700, t0 + 820, time);
+                ctx.fillStyle = '#111';
+                const bx = px + 5 * u + ctx.measureText(l.slice(0, l.indexOf(':') + 2)).width;
+                ctx.fillRect(bx, y - 1.6 * u, (w + u) * bar, 3.2 * u);
+                ctx.restore();
+            }
+        });
+        // stamped
+        const d = time - 5000;
+        if (d > 0) {
+            const k = 1 + 1.4 * (1 - easeOutCubic(d / 160));
+            ctx.save();
+            ctx.translate(cx, H / 2 + 8 * u);
+            ctx.rotate(-0.12);
+            ctx.globalAlpha = fade;
+            ctx.strokeStyle = '#b0261c';
+            ctx.lineWidth = 0.7 * u;
+            ctx.strokeRect(-26 * u * k, -4.5 * u * k, 52 * u * k, 9 * u * k);
+            ctx.restore();
+            ctx.save();
+            ctx.translate(cx, H / 2 + 8 * u);
+            ctx.rotate(-0.12);
+            drawText(ctx, '[DATA EXPUNGED]', 0, 0.3 * u, 4.4 * u * k, '#b0261c', fade, 800, 0.4 * u);
+            ctx.restore();
+        }
+        drawCard(ctx, scene, time, 6700, '#ff4a4a', '#7a1010');
+    }
+};
