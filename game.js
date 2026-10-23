@@ -11011,6 +11011,116 @@ CUTSCENES.Xx = {
         drawCard(ctx, scene, time, 6700, '#ff4a4a', '#7a1010');
     }
 };
+// Uo: grabber claws keep missing the ore at the bottom of the mine, until one doesn't
+CUTSCENES.Uo = {
+    z: 0, dur: 9200,
+    snd(audio, start) {
+        [0.6, 2.2, 3.8].forEach((x, i) => {
+            playTone(audio, 180, start + x, 1, 0.012, 'sawtooth', 120, 0.1, 0, 0.1);
+            playNoise(audio, start + x + 1.1, 0.08, 0.04, 3000, 1500, 'bandpass', 2, 0.1, 0.002);
+            if (i < 2) {
+                playTone(audio, 330, start + x + 1.3, 0.3, 0.02, 'triangle', 220, 0.2);
+            }
+        });
+        riser(audio, start + 5, 1.2, 0.025, 200, 1600);
+        sparkle(audio, start + 6.1, 14, 1.4, 0.022);
+        padChord(audio, start + 6.2, [261.6, 329.6, 392, 523.3], 2.4, 0.016, 'triangle', 2600);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const ground = H * 0.18;
+        const floor = H * 0.86;
+        const fade = 1 - smoothstep(6600, 7100, time);
+        ctx.fillStyle = '#0c1418';
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = fade;
+        // rock layers either side of the shaft
+        ['#2b2420', '#33291f', '#2a2a26', '#3a2c22'].forEach((c, i) => {
+            ctx.fillStyle = c;
+            const y = ground + i * (floor - ground) / 4;
+            ctx.fillRect(0, y, cx - 14 * u, (floor - ground) / 4);
+            ctx.fillRect(cx + 14 * u, y, W, (floor - ground) / 4);
+        });
+        ctx.fillStyle = '#4a3a2a';
+        ctx.fillRect(0, ground - u, W, u);
+        ctx.fillRect(0, floor, W, H - floor);
+        ctx.globalAlpha = 1;
+        // the ore dodges
+        const tries = [[600, -7], [2200, 10], [3800, 0]];
+        let ox = cx;
+        tries.forEach(([t, dx], i) => {
+            if (i < 2) {
+                ox += dx * u * smoothstep(t + 900, t + 1100, time);
+            } else {
+                ox += 0;
+            }
+        });
+        const grab = 4900;
+        const lift = smoothstep(grab + 200, grab + 1400, time);
+        let oy = floor - 2.5 * u - lift * (floor - ground + 8 * u);
+        // the claws
+        tries.forEach(([t], i) => {
+            const down = smoothstep(t, t + 1000, time);
+            const back = i < 2 ? smoothstep(t + 1300, t + 1900, time) : 0;
+            const target = i < 2 ? cx + tries.slice(0, i).reduce((s, x) => s + x[1] * u, 0) : ox;
+            const reach = (floor - 4 * u - ground) * (down - back);
+            let y = ground + reach;
+            if (i === 2 && time > grab) {
+                y = oy - 1.5 * u;
+            }
+            if (down - back <= 0 && !(i === 2 && time > t)) {
+                return;
+            }
+            const shut = i < 2 ? smoothstep(t + 1000, t + 1150, time) : smoothstep(grab - 100, grab, time);
+            ctx.globalAlpha = fade;
+            ctx.strokeStyle = '#a9b4bd';
+            ctx.lineWidth = 0.3 * u;
+            ctx.beginPath();
+            ctx.moveTo(target, 0);
+            ctx.lineTo(target, y);
+            ctx.stroke();
+            ctx.lineWidth = 0.6 * u;
+            [-1, 1].forEach(s => {
+                ctx.beginPath();
+                ctx.moveTo(target, y);
+                ctx.lineTo(target + s * (3 - 1.6 * shut) * u, y + 2 * u);
+                ctx.lineTo(target + s * (1.6 - 1 * shut) * u, y + 4 * u);
+                ctx.stroke();
+            });
+            ctx.globalAlpha = 1;
+            if (i < 2) {
+                drawText(ctx, 'MISSED', target, ground - 4 * u, 2.6 * u, '#ff8a7a', smoothstep(t + 1100, t + 1300, time) * (1 - smoothstep(t + 1700, t + 2000, time)), 800, 0.4 * u);
+            }
+        });
+        drawGlow(ctx, ox, oy, (9 + 6 * lift) * u, '#5ef0ff', (0.7 + 0.2 * Math.sin(time / 180)) * fade);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#b9faff';
+        ctx.beginPath();
+        ctx.moveTo(ox, oy - 2.5 * u);
+        ctx.lineTo(ox + 2.2 * u, oy);
+        ctx.lineTo(ox + 0.8 * u, oy + 2.4 * u);
+        ctx.lineTo(ox - 1.8 * u, oy + 1.6 * u);
+        ctx.lineTo(ox - 2.2 * u, oy - 0.8 * u);
+        ctx.fill();
+        // scientists up top, cheering at the end
+        for (let i = 0; i < 6; i++) {
+            const sx = W * 0.12 + i * W * 0.03 + (i > 2 ? W * 0.62 : 0);
+            const hop = time > grab + 1200 ? Math.abs(Math.sin(time / 120 + i)) * 1.5 * u : 0;
+            ctx.fillStyle = '#f2f2f2';
+            ctx.fillRect(sx - 0.8 * u, ground - 4.5 * u - hop, 1.6 * u, 3 * u);
+            ctx.fillStyle = '#f2c7a5';
+            ctx.beginPath();
+            ctx.arc(sx, ground - 5.4 * u - hop, 0.9 * u, 0, TAU);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        drawText(ctx, 'GOT IT', cx, H * 0.55, 4.4 * u, '#5ef0ff', smoothstep(grab + 1200, grab + 1500, time) * fade, 800, 0.5 * u);
+        drawCard(ctx, scene, time, 7100, '#5ef0ff', '#1f8fbf');
+    }
+};
 const STORE_LIMIT = 5 * 1024 * 1024;
 function storageBytes() {
     let n = 0;
