@@ -43,13 +43,14 @@ function renderViewer() {
     cuts.innerHTML = VIEW_ORDER().map(sym => s.cut.includes(sym) ?
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
-    $('vwFx').innerHTML = TIER_SCORES.map((_, i) => i + 1).map(t => s.fx.includes(t) ?
+    const tiers = Math.max(9, tierTop());
+    $('vwFx').innerHTML = TIER_SCORES.slice(0, tiers).map((_, i) => i + 1).map(t => s.fx.includes(t) ?
         '<button class="vw-tile" data-fx="' + t + '" style="--tc:' + RARITY_FX[t].c + '"><b>' + t + '</b><span>Tier ' + t + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Tier ' + t + '</span></button>').join('');
     const dark = s.dark.filter(t => RARITY_DARK[t]).sort((a, b) => a - b);
     $('vwDarkWrap').hidden = !dark.length;
     $('vwDark').innerHTML = dark.map(t => '<button class="vw-tile dark" data-dark="' + t + '" style="--tc:' + RARITY_DARK[t].c + '"><b>' + t + '</b><span>Secret tier ' + t + '</span></button>').join('');
-    $('vwCount').textContent = s.cut.length + ' of ' + Object.keys(CUTSCENES).length + ' cutscenes and ' + s.fx.length + ' of ' + TIER_SCORES.length + ' effects seen.';
+    $('vwCount').textContent = s.cut.length + ' of ' + Object.keys(CUTSCENES).length + ' cutscenes and ' + s.fx.length + ' of ' + tiers + ' effects seen.';
 }
 async function viewerPlay(btn) {
     if (rolling) {

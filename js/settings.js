@@ -119,8 +119,9 @@ try {
 bondSummary();
 renderActiveCats();
 // tiers 10-12 only show once you've reached them
+const tierTop = () => collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
 function tierRowsSync() {
-    const top = collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
+    const top = tierTop();
     document.querySelectorAll('.tier-table tbody tr').forEach((tr, i) => tr.hidden = i >= 9 && i + 1 > top);
     $('tier9Top').textContent = top >= 10 ? 'to 30,000,000' : 'and above';
 }

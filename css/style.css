@@ -799,6 +799,9 @@ select {
 }
 
 /* settings */
+.setting[hidden] {
+  display: none;
+}
 .setting {
   display: grid;
   grid-template-columns: 210px minmax(0,1fr);
