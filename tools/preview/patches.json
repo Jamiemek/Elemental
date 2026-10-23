@@ -18,5 +18,9 @@
  [
   "function rollIon() {\n    if (!bondBonus().ion) {",
   "function rollIon() {\n    if (window.__forceIon) {\n        const v = window.__forceIon;\n        window.__forceIon = 0;\n        return v;\n    }\n    if (!bondBonus().ion) {"
+ ],
+ [
+  "const SAVE_VERSION = '2';\ntry {\n",
+  "const SAVE_VERSION = '2';\n// preview: Replay tutorial wipes the save before anything loads it\ntry {\n    if (sessionStorage.getItem('previewWipe')) {\n        sessionStorage.removeItem('previewWipe');\n        localStorage.clear();\n        localStorage.setItem('elementalSaveVersion', SAVE_VERSION);\n    }\n} catch (e) { }\ntry {\n"
  ]
 ]

@@ -233,6 +233,11 @@
         evClear();
         renderQStorm();
     });
+    // the tutorial only shows on a fresh save, so this wipes the preview's save
+    add('Replay tutorial (wipes save)', () => {
+        sessionStorage.setItem('previewWipe', '1');
+        location.reload();
+    });
 })();
 </script>
 <script>
