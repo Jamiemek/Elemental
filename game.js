@@ -10758,6 +10758,107 @@ CUTSCENES.Ha = {
         drawCard(ctx, scene, time, 6900, '#7dffb0', '#2fae6a');
     }
 };
+// Ad: take a ticket, fill in the forms, wait, and everything slows down until it's stamped
+CUTSCENES.Ad = {
+    z: 0, dur: 9400,
+    snd(audio, start) {
+        playTone(audio, 784, start + 0.3, 0.4, 0.025, 'sine', null, 0.4);
+        playTone(audio, 622.3, start + 0.7, 0.6, 0.025, 'sine', null, 0.4);
+        let x = 1.6;
+        for (let i = 0; i < 8; i++) {
+            playNoise(audio, start + x, 0.12, 0.02, 2200, 900, 'bandpass', 1, 0.15);
+            playTone(audio, 1500, start + x, 0.02, 0.012, 'sine', null, 0.05, 0, 0.001);
+            x += 0.25 + i * 0.09;
+        }
+        boom(audio, start + 5.6, 0.12, 0.7);
+        playNoise(audio, start + 5.6, 0.1, 0.05, 1800, 300, 'lowpass', 1, 0.2, 0.002);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const stamp = 5600;
+        ctx.fillStyle = '#efe8d8';
+        ctx.fillRect(0, 0, W, H);
+        const fade = 1 - smoothstep(6600, 7200, time);
+        // the board
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#1d1d1d';
+        ctx.fillRect(cx - 24 * u, 5 * u, 48 * u, 9 * u);
+        ctx.globalAlpha = 1;
+        drawText(ctx, 'NOW SERVING  1', cx, 9.5 * u, 3.4 * u, '#ff4a3a', fade * (0.75 + 0.25 * Math.sin(time / 400)), 700, 0.5 * u);
+        drawText(ctx, 'YOUR NUMBER: 4,108', W * 0.18, cy + 26 * u, 2.4 * u, '#5a5246', fade * smoothstep(600, 1000, time), 600);
+        // forms land on the pile, each one slower than the last
+        let t = 1600;
+        let piled = 0;
+        for (let i = 0; i < 8; i++) {
+            const d = time - t;
+            if (d > 0) {
+                const k = Math.min(1, d / 350);
+                const y = -15 * u + (cy + 10 * u - i * 1.2 * u + 15 * u) * easeOutCubic(k);
+                ctx.save();
+                ctx.globalAlpha = fade;
+                ctx.translate(cx + (i % 2 ? 1 : -1) * 1.5 * u, y);
+                ctx.rotate((i % 3 - 1) * 0.05);
+                ctx.fillStyle = '#fbfaf5';
+                ctx.strokeStyle = '#b9b0a0';
+                ctx.lineWidth = 0.2 * u;
+                ctx.fillRect(-12 * u, -8 * u, 24 * u, 16 * u);
+                ctx.strokeRect(-12 * u, -8 * u, 24 * u, 16 * u);
+                ctx.fillStyle = '#cfc6b4';
+                for (let l = 0; l < 4; l++) {
+                    ctx.fillRect(-9 * u, (-5 + l * 3) * u, (l === 3 ? 9 : 18) * u, 0.5 * u);
+                }
+                ctx.restore();
+                piled++;
+            }
+            t += 250 + i * 90;
+        }
+        // a clock that gives up
+        const kx = W * 0.82;
+        const ky = cy + 2 * u;
+        const slow = time < 1600 ? time : 1600 + (time - 1600) * Math.max(0.05, 1 - (time - 1600) / 4500);
+        ctx.globalAlpha = fade;
+        ctx.strokeStyle = '#5a5246';
+        ctx.lineWidth = 0.4 * u;
+        ctx.beginPath();
+        ctx.arc(kx, ky, 6 * u, 0, TAU);
+        ctx.stroke();
+        const ang = slow / 1000 * TAU / 6 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(kx, ky);
+        ctx.lineTo(kx + Math.cos(ang) * 5 * u, ky + Math.sin(ang) * 5 * u);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        drawText(ctx, piled < 8 ? 'Processing…' : 'Still processing…', cx, H - 5 * u, 2.4 * u, '#5a5246', fade * smoothstep(1600, 2000, time) * (1 - smoothstep(stamp, stamp + 200, time)), 600);
+        // stamped
+        const d = time - stamp;
+        if (d > 0) {
+            const k = 1 + 1.6 * (1 - easeOutCubic(d / 160));
+            ctx.save();
+            ctx.globalAlpha = fade;
+            ctx.translate(cx, cy + 4 * u);
+            ctx.rotate(-0.18);
+            ctx.scale(k, k);
+            ctx.strokeStyle = '#c4271c';
+            ctx.lineWidth = 0.8 * u;
+            ctx.strokeRect(-22 * u, -5 * u, 44 * u, 10 * u);
+            ctx.restore();
+            ctx.save();
+            ctx.translate(cx, cy + 4 * u);
+            ctx.rotate(-0.18);
+            drawText(ctx, 'APPROVED', 0, 0.3 * u, 5.4 * u * k, '#c4271c', fade, 800, 0.6 * u);
+            ctx.restore();
+        }
+        if (time > 6600) {
+            ctx.fillStyle = 'rgba(30,22,18,' + smoothstep(6600, 7200, time) + ')';
+            ctx.fillRect(0, 0, W, H);
+        }
+        drawCard(ctx, scene, time, 7200, '#ff8a7a', '#b3342a');
+    }
+};
 const STORE_LIMIT = 5 * 1024 * 1024;
 function storageBytes() {
     let n = 0;
