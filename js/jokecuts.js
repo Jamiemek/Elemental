@@ -1074,3 +1074,73 @@ CUTSCENES.Uo = {
         drawCard(ctx, scene, time, 7100, '#5ef0ff', '#1f8fbf');
     }
 };
+// Zo: it shoots past a few times and all that's left is a dust cloud
+CUTSCENES.Zo = {
+    z: 0, dur: 7800,
+    snd(audio, start) {
+        [0.8, 2.2, 3.4].forEach(x => {
+            playNoise(audio, start + x - 0.15, 0.35, 0.05, 300, 4500, 'bandpass', 2, 0.1, 0.1);
+            playTone(audio, 1400, start + x - 0.1, 0.3, 0.015, 'sawtooth', 300, 0.1, 0, 0.02);
+        });
+        playNoise(audio, start + 4.2, 0.8, 0.04, 800, 150, 'lowpass', 1, 0.3, 0.02);
+        playTone(audio, 1760, start + 5.3, 0.25, 0.02, 'sine', null, 0.3);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        if (!st.l) {
+            const r = seededRandom(31);
+            st.l = Array.from({ length: 40 }, () => [r() * W, r() * H, (0.3 + r()) * 10 * u, r()]);
+        }
+        ctx.fillStyle = '#1a1206';
+        ctx.fillRect(0, 0, W, H);
+        const fade = 1 - smoothstep(5000, 5500, time);
+        // passes: [time, from x, from y, to x, to y]
+        const passes = [[800, -0.1, 0.45, 1.1, 0.55], [2200, 1.1, 0.2, -0.1, 0.8], [3400, 0.2, -0.1, 0.8, 1.1]];
+        let whip = 0;
+        passes.forEach(([t]) => whip = Math.max(whip, 1 - Math.min(1, Math.abs(time - t) / 250)));
+        // speed lines pick up whenever it goes by
+        const sp = whip * (calmFx ? 0.4 : 1);
+        st.l.forEach(([x, y, len, k]) => {
+            const xx = ((x - time * 0.8 * u * (0.2 + sp * 2)) % W + W) % W;
+            ctx.fillStyle = 'rgba(255,225,74,' + (0.05 + 0.25 * sp) * k * fade + ')';
+            ctx.fillRect(xx, y, len * (0.3 + sp * 2), 0.25 * u);
+        });
+        passes.forEach(([t, x0, y0, x1, y1]) => {
+            const d = (time - t) / 220;
+            if (d < -1 || d > 1) {
+                return;
+            }
+            const p = (d + 1) / 2;
+            const x = (x0 + (x1 - x0) * p) * W;
+            const y = (y0 + (y1 - y0) * p) * H;
+            const ang = Math.atan2((y1 - y0) * H, (x1 - x0) * W);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(ang);
+            const g = ctx.createLinearGradient(-30 * u, 0, 2 * u, 0);
+            g.addColorStop(0, 'rgba(255,225,74,0)');
+            g.addColorStop(1, 'rgba(255,245,200,0.95)');
+            ctx.fillStyle = g;
+            ctx.fillRect(-30 * u, -1.2 * u, 32 * u, 2.4 * u);
+            ctx.restore();
+            drawGlow(ctx, x, y, 8 * u, '#ffe14a', 0.8);
+        });
+        // the dust cloud where it was a moment ago
+        const dd = time - 3800;
+        if (dd > 0) {
+            for (let i = 0; i < 9; i++) {
+                const a = i * 0.7;
+                const r = (3 + easeOutCubic(dd / 1200) * 6) * u;
+                drawGlow(ctx, cx + Math.cos(a) * r, cy + 4 * u + Math.sin(a) * r * 0.5, (5 + i % 3) * u, '#b89a6a', 0.45 * (1 - smoothstep(600, 1600, dd)) * fade);
+            }
+        }
+        drawText(ctx, 'Was that it?', cx, H * 0.15, 3 * u, '#ffe14a', smoothstep(2500, 2800, time) * (1 - smoothstep(3300, 3500, time)), 700);
+        drawText(ctx, 'You just missed it', cx, H * 0.8, 3.2 * u, '#ffe14a', smoothstep(4300, 4600, time) * fade, 700, 0.3 * u);
+        drawCard(ctx, scene, time, 5400, '#ffe14a', '#ff8a00');
+    }
+};
