@@ -4738,6 +4738,7 @@ function go(screen) {
     }
     if (screen === 'settings' && typeof renderStorage === 'function') {
         jokeUiSync();
+        tierRowsSync();
         renderStorage();
         renderViewer();
     }
@@ -5051,13 +5052,14 @@ function genNetwork() {
         const dp = kind === 'auto' ? 10 : 100;
         list.forEach(e => e.val = Math.max(1 / dp, Math.round(NET_TOTALS[kind] * Math.pow(e.ring, NET_WEIGHT[kind]) / wsum * dp) / dp));
     });
+    const base = nodes.length;
     genOuter(nodes, edges, reqFor, grind);
     const adj = nodes.map(() => []);
     edges.forEach((e, i) => {
         adj[e.a].push(i);
         adj[e.b].push(i);
     });
-    return { nodes, edges, adj };
+    return { nodes, edges, adj, base };
 }
 function genOuter(nodes, edges, reqFor, grind) {
     const R = seededRnd(OUTER_SEED);
@@ -5133,10 +5135,29 @@ function net() {
     return NET || (NET = genNetwork());
 }
 const netFilled = id => !!netState[id];
+// outer ring stays off the map until one of its slots can be reached
+let outerMemo = null;
+function outerShown() {
+    if (!outerMemo || outerMemo.v !== netVer) {
+        const N = net();
+        outerMemo = { v: netVer, on: N.nodes.slice(N.base).some(n => netFilled(n.id) || netReachable(n.id)) };
+    }
+    return outerMemo.on;
+}
+function shownNet() {
+    const N = net();
+    if (outerShown()) {
+        return N;
+    }
+    return N.inner || (N.inner = { nodes: N.nodes.slice(0, N.base), edges: N.edges.filter(e => e.orbit == null), adj: N.adj });
+}
 const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos']);
 const edgeLit = e => netFilled(e.a) && netFilled(e.b);
 function edgeDesc(e) {
     const v = e.val;
+    if (e.orbit != null && NET_BIG.has(e.kind) && !edgeLit(e)) {
+        return '???';
+    }
     const outer = {
         quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
         refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold',
@@ -5293,7 +5314,7 @@ function bondBonus() {
     return r;
 }
 function bondSummary() {
-    const N = net().nodes.length;
+    const N = shownNet().nodes.length;
     const f = Object.keys(netState).length;
     $('homeBonds').textContent = f + ' / ' + N + ' slots';
 }
@@ -5338,7 +5359,7 @@ function netDraw() {
     const dpr = cv.width / Math.max(1, cv.getBoundingClientRect().width);
     const W = cv.width / dpr;
     const H = cv.height / dpr;
-    const { nodes, edges } = net();
+    const { nodes, edges } = shownNet();
     const z = netView.z;
     const t = performance.now();
     const head = netDraw.font || (netDraw.font = getComputedStyle(document.body).getPropertyValue('--head'));
@@ -5585,11 +5606,11 @@ function netDraw() {
 }
 let netFarPic = null;
 function netFarPicture(ringCol) {
-    const key = netVer + ':' + Object.keys(netState).length;
+    const key = netVer + ':' + Object.keys(netState).length + ':' + outerShown();
     if (netFarPic && netFarPic.key === key) {
         return netFarPic;
     }
-    const { nodes, edges } = net();
+    const { nodes, edges } = shownNet();
     const s = 0.24;
     const r = Math.min(2, devicePixelRatio || 1);
     let x0 = Infinity;
@@ -5698,7 +5719,7 @@ function netGlideTo(x, y, z) {
     })(t0);
 }
 function netJump() {
-    const { nodes } = net();
+    const { nodes } = shownNet();
     let best = null;
     fillableIds().map(id => nodes[id]).forEach(n => {
         const d = Math.hypot(n.x - netView.x, n.y - netView.y);
@@ -5852,7 +5873,7 @@ function renderBonds() {
         if (!moved && e.type === 'pointerup') {
             const [wx, wy] = netToWorld(p[0], p[1]);
             let hit = null;
-            net().nodes.forEach(n => {
+            shownNet().nodes.forEach(n => {
                 const d = Math.hypot(n.x - wx, n.y - wy);
                 if (d < 30 / Math.min(1, netView.z) && (!hit || d < hit.d)) {
                     hit = { n, d };
@@ -7715,6 +7736,12 @@ try {
 } catch (e) { }
 bondSummary();
 renderActiveCats();
+// tiers 10-12 only show once you've reached them
+function tierRowsSync() {
+    const top = collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
+    document.querySelectorAll('.tier-table tbody tr').forEach((tr, i) => tr.hidden = i >= 9 && i + 1 > top);
+    $('tier9Top').textContent = top >= 10 ? 'to 30,000,000' : 'and above';
+}
 function jokeUiSync() {
     $('jokeSetting').hidden = !jokesOn();
     $('jokeMixSet').checked = jokeMix;
@@ -10588,7 +10615,7 @@ function globalRow(r, rank) {
     const mine = cloudName && r.display_name === cloudName;
     el.className = 'rank-row' + (mine ? ' mine' : '');
     const when = new Date(r.found_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
-    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(withIon(r.formula, r.ion)) + '</div>' +
+    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(withIon(r.formula, bondBonus().ion ? r.ion : 0)) + '</div>' +
         '<div class="rank-name">' + esc(globalName(r.formula)) + '</div></div><div class="rank-odds"><b>' +
         (globalMode === 'score' ? 'Score ' + fmtScore(r.score) : rarityText(-r.odds_log)) + '</b><span title="Found ' + esc(when) + '">' +
         esc(r.display_name || 'Unknown') + (mine ? ' (you)' : '') + '</span></div>';
@@ -10684,7 +10711,7 @@ function bannerNext() {
     const a = bannerQueue.shift();
     const fx = RARITY_FX[Math.min(12, a.tier)];
     el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
-    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + ionText(a.ion || 0)) + '</b><span>' +
+    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + (bondBonus().ion ? ionText(a.ion || 0) : '')) + '</b><span>' +
         (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
     el.classList.add('show');
     setTimeout(() => {

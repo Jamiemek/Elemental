@@ -199,6 +199,7 @@ function go(screen) {
     }
     if (screen === 'settings' && typeof renderStorage === 'function') {
         jokeUiSync();
+        tierRowsSync();
         renderStorage();
         renderViewer();
     }

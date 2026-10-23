@@ -150,7 +150,7 @@ function globalRow(r, rank) {
     const mine = cloudName && r.display_name === cloudName;
     el.className = 'rank-row' + (mine ? ' mine' : '');
     const when = new Date(r.found_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
-    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(withIon(r.formula, r.ion)) + '</div>' +
+    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(withIon(r.formula, bondBonus().ion ? r.ion : 0)) + '</div>' +
         '<div class="rank-name">' + esc(globalName(r.formula)) + '</div></div><div class="rank-odds"><b>' +
         (globalMode === 'score' ? 'Score ' + fmtScore(r.score) : rarityText(-r.odds_log)) + '</b><span title="Found ' + esc(when) + '">' +
         esc(r.display_name || 'Unknown') + (mine ? ' (you)' : '') + '</span></div>';
@@ -246,7 +246,7 @@ function bannerNext() {
     const a = bannerQueue.shift();
     const fx = RARITY_FX[Math.min(12, a.tier)];
     el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
-    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + ionText(a.ion || 0)) + '</b><span>' +
+    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + (bondBonus().ion ? ionText(a.ion || 0) : '')) + '</b><span>' +
         (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
     el.classList.add('show');
     setTimeout(() => {
