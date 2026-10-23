@@ -4878,9 +4878,13 @@ const OUTER_STEP = 180;
 const OUTER_BRIDGES = 6;
 const OUTER_TOTALS = { quark: 100, event: 100, cdur: 50, dup: 25, refund: 25, storm: 100 };
 const OUTER_SHARE = [['quark', 0.25], ['event', 0.2], ['cdur', 0.2], ['dup', 0.12], ['refund', 0.12], ['storm', 0.11]];
-// [kind, orbit, cosmetic]
-const OUTER_UNLOCKS = [['ion', 0], ['cos', 0, 'oscilloscope'], ['hold', 0], ['cos', 1, 'blueprint'], ['slot', 1], ['cos', 1, 'holographic'],
-    ['jokecat', 2], ['cos', 2, 'notebook'], ['cos', 2, 'retro'], ['cos', 2, 'astral'], ['joke', 2]];
+// each bridge unlocks a feature: [kind, cosmetic, what its outer slot asks for]
+const BRIDGE_UNLOCKS = [['ion', 0, ['Co', 240]], ['hold', 0, ['Sb', 360]], ['cos', 'oscilloscope', ['Sc', 370]],
+    ['slot', 0, ['Dy', 430]], ['joke', 0, ['Ho', 420]], ['jokecat', 0, ['Ac', 190]]];
+// bridges in the order players reach their inner ends
+const BRIDGE_ORDER = [3, 1, 5, 0, 2, 4];
+// the rest of the cosmetics are out in the orbits: [orbit, cosmetic]
+const OUTER_UNLOCKS = [[1, 'blueprint'], [1, 'holographic'], [2, 'notebook'], [2, 'retro'], [2, 'astral']];
 const COSMETIC_NAMES = {
     oscilloscope: 'Oscilloscope scanner', holographic: 'Holographic scanner', blueprint: 'Blueprint page', notebook: 'Lab notebook page',
     retro: 'Retro spawn effects', astral: 'Astral spawn effects', warp: 'Warp scanner', gameover: 'Game Over page'
@@ -5126,11 +5130,14 @@ function genOuter(nodes, edges, reqFor) {
     }
     // bridges
     const edge = nodes.slice(0, base).filter(n => n.ring >= NET_RINGS - 2);
+    const bridges = [];
     for (let k = 0; k < OUTER_BRIDGES; k++) {
         const at = (k + 0.5) / OUTER_BRIDGES * Math.PI * 2;
         const near = edge.filter(n => Math.abs(Math.atan2(Math.sin(Math.atan2(n.y, n.x) - at), Math.cos(Math.atan2(n.y, n.x) - at))) < 0.35);
         const from = (near.length ? near : edge).reduce((b, n) => Math.hypot(n.x, n.y) > Math.hypot(b.x, b.y) ? n : b);
-        edges.push({ a: from.id, b: nearest(orbits[0], from).id, ring: NET_RINGS + 2, orbit: 0, bridge: true });
+        const e = { a: from.id, b: nearest(orbits[0], from).id, ring: NET_RINGS + 2, orbit: 0, bridge: true };
+        edges.push(e);
+        bridges.push(e);
     }
     for (let i = base; i < nodes.length; i++) {
         nodes[i].req = reqFor(nodes[i].ring, R);
@@ -5141,11 +5148,19 @@ function genOuter(nodes, edges, reqFor) {
             nodes[i].req = { t: 'has', k: els.reduce((a, b) => b[2] > a[2] ? b : a)[0], n: 10 };
         }
     }
-    const hard = n => rollsFor(n.req, 700, 3);
-    // unlocks go on the hardest line in each orbit
-    const outerEdges = edges.filter(e => e.orbit != null);
     const taken = new Set();
-    OUTER_UNLOCKS.forEach(([kind, o, cos]) => {
+    BRIDGE_ORDER.forEach((k, i) => {
+        const e = bridges[k];
+        const [kind, cos, [sym, n]] = BRIDGE_UNLOCKS[i];
+        e.kind = kind;
+        e.val = cos || 1;
+        nodes[e.b].req = { t: 'el', k: sym, n };
+        taken.add(e);
+    });
+    const hard = n => rollsFor(n.req, 700, 3);
+    // cosmetics go on the hardest line in their orbit
+    const outerEdges = edges.filter(e => e.orbit != null);
+    OUTER_UNLOCKS.forEach(([o, cos]) => {
         let best = null;
         let bc = -1;
         outerEdges.forEach(e => {
@@ -5159,8 +5174,8 @@ function genOuter(nodes, edges, reqFor) {
             }
         });
         taken.add(best);
-        best.kind = kind;
-        best.val = cos || 1;
+        best.kind = 'cos';
+        best.val = cos;
     });
     const free = outerEdges.filter(e => !taken.has(e));
     free.forEach(e => {
