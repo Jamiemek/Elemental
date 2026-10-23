@@ -288,7 +288,7 @@ function edgeDesc(e) {
     const outer = {
         quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
         refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold',
-        ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: 'Joke catalysts in the shop', cos: 'Unlocks ' + COSMETIC_NAMES[v]
+        ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: jokesOn() ? 'Joke catalysts in the shop' : 'You have unlocked something…', cos: 'Unlocks ' + COSMETIC_NAMES[v]
     };
     return outer[e.kind] || (e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot');
 }
@@ -867,7 +867,7 @@ function netTotalsHtml() {
             rows.push([k, '+' + v.toFixed(2) + u]);
         }
     });
-    [['Shop hold', b.hold], ['Ionisation', b.ion], ['Joke periodic table', b.joke], ['Joke catalysts', b.jokecat]].forEach(([k, on]) => {
+    [['Shop hold', b.hold], ['Ionisation', b.ion], ['Joke periodic table', b.joke], ['Joke catalysts', b.jokecat && b.joke]].forEach(([k, on]) => {
         if (on) {
             rows.push([k, 'Unlocked']);
         }

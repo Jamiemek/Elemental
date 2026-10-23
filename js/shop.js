@@ -394,7 +394,8 @@ function shopRoll() {
         }
     }
     const jokes = bondBonus().jokecat && jokesOn();
-    const pool = CATALYSTS.filter(c => c.tier === tier && (!c.joke || jokes));
+    const allJokes = jokesFound().size === JOKES.length;
+    const pool = CATALYSTS.filter(c => c.tier === tier && (!c.joke || jokes) && !(c.id === 'insidejoke' && allJokes));
     const wt = c => c.joke ? 1 + bondBonus().jokerate / 100 : 1;
     let x = Math.random() * pool.reduce((s, c) => s + wt(c), 0);
     return (pool.find(c => (x -= wt(c)) < 0) || pool[pool.length - 1]).id;
