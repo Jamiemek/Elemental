@@ -5054,6 +5054,11 @@ function genNetwork() {
     });
     const base = nodes.length;
     genOuter(nodes, edges, reqFor, grind);
+    // the easy bridge: cheapest rim slot to the nearest outer slot, which only asks for oxygen
+    const from = nodes.slice(0, base).filter(n => n.ring === NET_RINGS && n.req.t === 'el').reduce((b, n) => grind(n) < grind(b) ? n : b);
+    const to = nodes.slice(base).filter(n => n.orbit === 0).reduce((b, n) => Math.hypot(n.x - from.x, n.y - from.y) < Math.hypot(b.x - from.x, b.y - from.y) ? n : b);
+    to.req = { t: 'el', k: 'O', n: 1000 };
+    edges.push({ a: from.id, b: to.id, ring: NET_RINGS + 2, orbit: 0, kind: 'drop', val: 0.5 });
     const adj = nodes.map(() => []);
     edges.forEach((e, i) => {
         adj[e.a].push(i);
@@ -5151,7 +5156,7 @@ function shownNet() {
     }
     return N.inner || (N.inner = { nodes: N.nodes.slice(0, N.base), edges: N.edges.filter(e => e.orbit == null), adj: N.adj });
 }
-const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos']);
+const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos', 'drop']);
 const edgeLit = e => netFilled(e.a) && netFilled(e.b);
 function edgeDesc(e) {
     const v = e.val;
@@ -5160,7 +5165,7 @@ function edgeDesc(e) {
     }
     const outer = {
         quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
-        refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold',
+        refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold', drop: 'Catalyst drops (1 in 200 rolls)',
         ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: jokesOn() ? 'Joke catalysts in the shop' : 'You have unlocked something…', cos: 'Unlocks ' + COSMETIC_NAMES[v]
     };
     return outer[e.kind] || (e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot');
@@ -5353,7 +5358,7 @@ function netBonus() {
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
         quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: [],
-        away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0
+        away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
     };
     net().edges.forEach(e => {
         if (!edgeLit(e)) {
@@ -5834,6 +5839,9 @@ function netTotalsHtml() {
     });
     if (b.cos.length) {
         rows.push(['Cosmetics unlocked', b.cos.length]);
+    }
+    if (b.drop) {
+        rows.push(['Catalyst drops', '1 in ' + Math.round(100 / b.drop) + ' rolls']);
     }
     return rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
 }
@@ -6336,6 +6344,27 @@ function takeRollCharge() {
     pruneActive();
     saveCats();
     return out;
+}
+// catalyst drops from the easy bridge, picked like shop stock
+function rollDrop() {
+    const p = bondBonus().drop / 100;
+    if (!p || Math.random() >= p) {
+        return null;
+    }
+    const id = shopRoll();
+    catInv[id] = (catInv[id] || 0) + 1;
+    saveCats();
+    return id;
+}
+function showDrop(id, k) {
+    const c = CAT[id];
+    const el = document.createElement('div');
+    el.className = 'cat-drop';
+    el.style.setProperty('--tc', CAT_TIERS[c.tier].col);
+    el.style.animationDelay = (k * 0.45) + 's';
+    el.innerHTML = '<span>Catalyst found</span><b>' + c.name + '</b>' + tierChip(c.tier);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3200 + k * 450);
 }
 // running gag goes to x10
 function gagHit() {
@@ -7370,6 +7399,7 @@ async function doRoll(preset, opts) {
     const chips = [...col.querySelectorAll('.mr-chip')];
     const cards = [...col.querySelectorAll('.result-card')];
     let records = [];
+    const drops = [];
     try {
         const onRoll = $('game').classList.contains('active');
         if (onRoll) {
@@ -7484,8 +7514,13 @@ async function doRoll(preset, opts) {
             }
             if (!pre) {
                 addQuarks(quarksFor(score, quarkMult(elements, buffs)) + (storm && storm.add ? storm.add[i] : 0));
+                const d = rollDrop();
+                if (d) {
+                    drops.push(d);
+                }
             }
         });
+        drops.forEach((id, k) => showDrop(id, k));
         if (multi) {
             showMultiRoll(col, records, feat, bestIdx, false);
         }
@@ -11203,6 +11238,7 @@ async function awayProcess() {
     let stormQ = 0;
     let stormStarted = false;
     const evSeen = {};
+    const drops = {};
     let ev = null;
     for (let i = 0; i < n; i++) {
         if (i % per === 0) {
@@ -11239,6 +11275,10 @@ async function awayProcess() {
         ionCredit(r.elements[0][0], r.ion);
         total++;
         earned += quarksFor(r.score, quarkMult(r.elements, b));
+        const d = rollDrop();
+        if (d) {
+            drops[d] = (drops[d] || 0) + 1;
+        }
         if (n - i <= HISTORY_MAX) {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
@@ -11272,6 +11312,7 @@ async function awayProcess() {
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
             (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +
+        (Object.keys(drops).length ? '<p class="away-storm"><b>Catalysts found</b> ' + Object.keys(drops).map(id => drops[id] + ' × ' + CAT[id].name).join(', ') + '.</p>' : '') +
         Object.keys(evSeen).map(id => '<p class="away-storm ev-' + id + '"><b>' + EVENTS[id].name + '</b> covered ' + formatNumber(evSeen[id]) + ' of your rolls while you were away.' + (evOn(id) ? ' It is still going, with ' + evRun.left + ' rolls left.' : '') + '</p>').join('') +
         '<div class="btn-row"><button class="primary" id="awayOk">Nice</button></div>');
     w.querySelector('#awayOk').onclick = closeDialog;

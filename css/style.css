@@ -2830,3 +2830,68 @@ body.fx-warping .screen.active {
     letter-spacing: -.04em;
   }
 }
+
+.cat-drop {
+  position: fixed;
+  left: 50%;
+  bottom: 18%;
+  z-index: 60;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 18px;
+  background: var(--night);
+  color: #eef3ef;
+  border: 2px solid var(--tc);
+  box-shadow: 0 0 24px var(--tc);
+  pointer-events: none;
+  opacity: 0;
+  animation: catDrop 2.8s ease-out both;
+}
+.cat-drop span {
+  font-family: var(--head);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tc);
+}
+.cat-drop b {
+  font-family: var(--head);
+  font-size: 18px;
+}
+@keyframes catDrop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%,20px) scale(.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%,0) scale(1.06);
+  }
+  20% {
+    transform: translate(-50%,0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%,-30px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%,-50px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cat-drop {
+    animation-name: catDropFade;
+  }
+  @keyframes catDropFade {
+    0%, 100% {
+      opacity: 0;
+      transform: translateX(-50%);
+    }
+    15%, 80% {
+      opacity: 1;
+      transform: translateX(-50%);
+    }
+  }
+}

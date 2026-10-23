@@ -118,6 +118,7 @@ async function awayProcess() {
     let stormQ = 0;
     let stormStarted = false;
     const evSeen = {};
+    const drops = {};
     let ev = null;
     for (let i = 0; i < n; i++) {
         if (i % per === 0) {
@@ -154,6 +155,10 @@ async function awayProcess() {
         ionCredit(r.elements[0][0], r.ion);
         total++;
         earned += quarksFor(r.score, quarkMult(r.elements, b));
+        const d = rollDrop();
+        if (d) {
+            drops[d] = (drops[d] || 0) + 1;
+        }
         if (n - i <= HISTORY_MAX) {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
@@ -187,6 +192,7 @@ async function awayProcess() {
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
             (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +
+        (Object.keys(drops).length ? '<p class="away-storm"><b>Catalysts found</b> ' + Object.keys(drops).map(id => drops[id] + ' × ' + CAT[id].name).join(', ') + '.</p>' : '') +
         Object.keys(evSeen).map(id => '<p class="away-storm ev-' + id + '"><b>' + EVENTS[id].name + '</b> covered ' + formatNumber(evSeen[id]) + ' of your rolls while you were away.' + (evOn(id) ? ' It is still going, with ' + evRun.left + ' rolls left.' : '') + '</p>').join('') +
         '<div class="btn-row"><button class="primary" id="awayOk">Nice</button></div>');
     w.querySelector('#awayOk').onclick = closeDialog;

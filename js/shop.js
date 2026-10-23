@@ -348,6 +348,27 @@ function takeRollCharge() {
     saveCats();
     return out;
 }
+// catalyst drops from the easy bridge, picked like shop stock
+function rollDrop() {
+    const p = bondBonus().drop / 100;
+    if (!p || Math.random() >= p) {
+        return null;
+    }
+    const id = shopRoll();
+    catInv[id] = (catInv[id] || 0) + 1;
+    saveCats();
+    return id;
+}
+function showDrop(id, k) {
+    const c = CAT[id];
+    const el = document.createElement('div');
+    el.className = 'cat-drop';
+    el.style.setProperty('--tc', CAT_TIERS[c.tier].col);
+    el.style.animationDelay = (k * 0.45) + 's';
+    el.innerHTML = '<span>Catalyst found</span><b>' + c.name + '</b>' + tierChip(c.tier);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3200 + k * 450);
+}
 // running gag goes to x10
 function gagHit() {
     const a = Object.values(catActive).find(x => x.id === 'gag' && !x.hit);

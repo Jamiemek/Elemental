@@ -65,6 +65,7 @@ async function doRoll(preset, opts) {
     const chips = [...col.querySelectorAll('.mr-chip')];
     const cards = [...col.querySelectorAll('.result-card')];
     let records = [];
+    const drops = [];
     try {
         const onRoll = $('game').classList.contains('active');
         if (onRoll) {
@@ -179,8 +180,13 @@ async function doRoll(preset, opts) {
             }
             if (!pre) {
                 addQuarks(quarksFor(score, quarkMult(elements, buffs)) + (storm && storm.add ? storm.add[i] : 0));
+                const d = rollDrop();
+                if (d) {
+                    drops.push(d);
+                }
             }
         });
+        drops.forEach((id, k) => showDrop(id, k));
         if (multi) {
             showMultiRoll(col, records, feat, bestIdx, false);
         }
