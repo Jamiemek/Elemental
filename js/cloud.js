@@ -207,6 +207,17 @@ async function cloudSync() {
         return;
     }
     cloudBusy = false;
+    if (cloudGet('elementalAutoPick') === '1') {
+        // keep whichever has more rolls without asking
+        const mine = cloudSummary(local);
+        const theirs = cloudSummary(row.data || {});
+        if (mine.rolls > theirs.rolls || (mine.rolls === theirs.rolls && mine.quarks >= theirs.quarks)) {
+            await cloudUpload(true);
+        } else {
+            cloudApply(row);
+        }
+        return;
+    }
     cloudState = 'choose';
     renderAccount();
     cloudChoose(local, row);
@@ -410,7 +421,8 @@ function renderAccount() {
         html = '<p>Signed in as <b>' + esc(cloudName || 'no name yet') + '</b> · ' + esc(maskEmail(cloudUser.email || '')) + '</p>' +
             '<p class="acct-status' + (cloudState === 'error' ? ' bad' : '') + '">' + status + '</p>' +
             '<div class="btn-row"><button class="ghost" id="acctSync">Sync now</button><button class="ghost" id="acctName">' +
-            (cloudName ? 'Change name' : 'Choose a name') + '</button><button class="ghost" id="acctOut">Sign out</button></div>';
+            (cloudName ? 'Change name' : 'Choose a name') + '</button><button class="ghost" id="acctOut">Sign out</button></div>' +
+            '<label class="check"><input type="checkbox" id="acctAuto"' + (cloudGet('elementalAutoPick') === '1' ? ' checked' : '') + '>If this device and your account have different saves, keep the one with more rolls without asking</label>';
     }
     box.innerHTML = html;
     const on = (id, f) => {
@@ -424,6 +436,10 @@ function renderAccount() {
     on('acctSync', () => cloudSync());
     on('acctName', () => openNameDialog(!cloudName));
     on('acctOut', cloudSignOut);
+    const auto = $('acctAuto');
+    if (auto) {
+        auto.onchange = () => cloudSet('elementalAutoPick', auto.checked ? '1' : null);
+    }
 }
 setInterval(() => {
     if (cloudState === 'synced' && $('settings').classList.contains('active')) {
