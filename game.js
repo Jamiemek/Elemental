@@ -10366,10 +10366,96 @@ CUTSCENES.Ln = {
         });
         drawText(ctx, 'FOUND IT', W / 2, H * 0.18, 5 * u * easeOutCubic((time - found) / 400), '#7cf2c7', lit * out, 800, 0.5 * u);
         if (time > 6900) {
-            ctx.fillStyle = 'rgba(8,14,12,' + smoothstep(6900, 7500, time) * 0.85 + ')';
+            ctx.fillStyle = 'rgba(8,14,12,' + smoothstep(6900, 7500, time) * 0.95 + ')';
             ctx.fillRect(0, 0, W, H);
         }
+        // and up it comes
+        if (time > found) {
+            const k = easeOutCubic((time - found - 200) / 1100);
+            const ox = path[8][1] + (W / 2 - path[8][1]) * k;
+            const oy = top + 6 * u + (H / 2 - top - 6 * u) * k;
+            const fa = 1 - smoothstep(7300, 7900, time);
+            drawGlow(ctx, ox, oy, 16 * u, '#7cf2c7', 0.9 * fa);
+            ctx.globalAlpha = fa;
+            ctx.fillStyle = '#d9fff1';
+            ctx.beginPath();
+            ctx.arc(ox, oy, 2.2 * u, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
         drawCard(ctx, scene, time, 7300, '#7cf2c7', '#2bb58a');
+    }
+};
+// Df: the reaction gets to 99%, then gets moved to tomorrow
+CUTSCENES.Df = {
+    z: 0, dur: 8800,
+    snd(audio, start) {
+        for (let i = 0; i < 14; i++) {
+            playTone(audio, 400 + i * 40, start + 0.3 + i * 0.13, 0.05, 0.014, 'square', null, 0.1, 0, 0.003);
+        }
+        for (let x = 2.4; x < 4.4; x += 0.5) {
+            playTone(audio, 1800, start + x, 0.02, 0.015, 'sine', null, 0.1, 0, 0.001);
+        }
+        playNoise(audio, start + 4.9, 0.25, 0.04, 4000, 1500, 'highpass', 1, 0.2);
+        playTone(audio, 392, start + 5.4, 0.45, 0.03, 'triangle', 370, 0.2);
+        playTone(audio, 349, start + 5.9, 0.9, 0.03, 'triangle', 311, 0.25);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        ctx.fillStyle = '#16191f';
+        ctx.fillRect(0, 0, W, H);
+        const ui = smoothstep(0, 500, time) * (1 - smoothstep(4000, 4400, time));
+        const p = Math.min(0.99, smoothstep(300, 2200, time) * 0.99);
+        drawText(ctx, p >= 0.99 ? 'REACTING… ALMOST' : 'REACTING…', cx, cy - 8 * u, 3 * u, '#ffb547', ui, 700, 0.5 * u);
+        ctx.globalAlpha = ui;
+        ctx.strokeStyle = '#ffb547';
+        ctx.lineWidth = 0.4 * u;
+        ctx.strokeRect(cx - 25 * u, cy - 2 * u, 50 * u, 4 * u);
+        ctx.fillStyle = '#ffb547';
+        ctx.fillRect(cx - 25 * u, cy - 2 * u, 50 * u * p, 4 * u);
+        ctx.globalAlpha = 1;
+        drawText(ctx, Math.floor(p * 100) + '%', cx, cy + 7 * u, 2.6 * u, '#ffd9a0', ui, 600);
+        if (p >= 0.99 && ui > 0) {
+            const a = time / 120;
+            for (let i = 0; i < 8; i++) {
+                ctx.fillStyle = 'rgba(255,181,71,' + ((i / 8) * ui) + ')';
+                ctx.beginPath();
+                ctx.arc(cx + 30 * u + Math.cos(a + i * 0.785) * 2 * u, cy + Math.sin(a + i * 0.785) * 2 * u, 0.5 * u, 0, TAU);
+                ctx.fill();
+            }
+        }
+        // the calendar
+        const ca = smoothstep(4200, 4600, time) * (1 - smoothstep(6400, 6900, time));
+        if (ca > 0) {
+            const flip = smoothstep(4900, 5300, time);
+            const day = (sheet, label, n) => {
+                ctx.fillStyle = '#f4efe6';
+                ctx.fillRect(sheet[0], sheet[1], 22 * u, 24 * u);
+                ctx.fillStyle = '#d14d4d';
+                ctx.fillRect(sheet[0], sheet[1], 22 * u, 6 * u);
+                drawText(ctx, label, sheet[0] + 11 * u, sheet[1] + 3 * u, 2.4 * u, '#fff', ca, 700, 0.3 * u);
+                drawText(ctx, n, sheet[0] + 11 * u, sheet[1] + 15 * u, 10 * u, '#2a2a2a', ca, 800);
+            };
+            ctx.globalAlpha = ca;
+            day([cx - 11 * u, cy - 14 * u], 'TOMORROW', '13');
+            // today's page tears away
+            if (flip < 1) {
+                ctx.save();
+                ctx.translate(cx, cy - 14 * u);
+                ctx.rotate(-flip * 0.5);
+                ctx.translate(-flip * 30 * u, -flip * 20 * u);
+                ctx.globalAlpha = ca * (1 - flip);
+                day([-11 * u, 0], 'TODAY', '12');
+                ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+            drawText(ctx, 'Reaction rescheduled', cx, cy + 16 * u, 3 * u, '#ffb547', ca * smoothstep(5300, 5600, time), 700, 0.3 * u);
+        }
+        drawCard(ctx, scene, time, 7000, '#ffb547', '#c46a1a');
     }
 };
 const STORE_LIMIT = 5 * 1024 * 1024;
