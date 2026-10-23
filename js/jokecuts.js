@@ -411,3 +411,86 @@ CUTSCENES.Df = {
         drawCard(ctx, scene, time, 7000, '#ffb547', '#c46a1a');
     }
 };
+// Cz: a coffee lands on the periodic table and the neighbours get the jitters
+CUTSCENES.Cz = {
+    z: 0, dur: 8600,
+    snd(audio, start) {
+        playTone(audio, 2100, start + 1.6, 0.15, 0.03, 'sine', null, 0.3, 0, 0.002);
+        playNoise(audio, start + 1.6, 0.3, 0.04, 2500, 800, 'bandpass', 1, 0.2);
+        riser(audio, start + 1.8, 3.6, 0.02, 60, 240);
+        for (let x = 2; x < 5.4; x += 0.3 - (x - 2) * 0.06) {
+            playNoise(audio, start + x, 0.06, 0.01 + (x - 2) * 0.008, 3000, 1500, 'bandpass', 3, 0.05, 0.002);
+        }
+        playTone(audio, 1318.5, start + 5.6, 0.6, 0.02, 'sine', null, 0.4);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        if (!st.r) {
+            st.r = seededRandom(48);
+        }
+        ctx.fillStyle = '#1c130e';
+        ctx.fillRect(0, 0, W, H);
+        const land = 1600;
+        const stop = 5600;
+        const fade = 1 - smoothstep(6200, 6700, time);
+        // the table
+        const s = Math.min(W / 21, H / 11);
+        const ox = cx - 9 * s;
+        const oy = cy - 3.5 * s;
+        const spread = smoothstep(land, 5200, time) * 14 * s;
+        const buzz = time > land && time < stop ? 1 : 0;
+        const calm = calmFx ? 0.35 : 1;
+        Object.keys(tableLayout).forEach(sym => {
+            const [r, c] = tableLayout[sym];
+            if (r > 7) {
+                return;
+            }
+            const x = ox + (c - 1) * s;
+            const y = oy + (r - 1) * s;
+            const dist = Math.hypot(x - cx, y - cy);
+            const j = buzz * clamp(1 - dist / (spread + 0.01)) * 0.18 * s * calm;
+            const jx = (st.r() - 0.5) * 2 * j;
+            const jy = (st.r() - 0.5) * 2 * j;
+            ctx.globalAlpha = fade;
+            ctx.fillStyle = j > 0.02 * s ? '#a8683a' : '#4a3326';
+            ctx.fillRect(x + jx + 0.06 * s, y + jy + 0.06 * s, 0.88 * s, 0.88 * s);
+            ctx.globalAlpha = 1;
+            drawText(ctx, sym, x + jx + 0.5 * s, y + jy + 0.52 * s, 0.38 * s, '#f1d9bf', fade * 0.8, 600);
+        });
+        // the cup drops in
+        const fall = smoothstep(800, land, time);
+        const cupY = -10 * u + (cy - 2 * u + 10 * u) * fall * fall;
+        const shake = buzz * 0.5 * u * calm * smoothstep(land, 5200, time);
+        const kx = cx + (st.r() - 0.5) * shake;
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#f4efe6';
+        ctx.beginPath();
+        ctx.moveTo(kx - 4 * u, cupY - 4 * u);
+        ctx.lineTo(kx + 4 * u, cupY - 4 * u);
+        ctx.lineTo(kx + 3 * u, cupY + 3 * u);
+        ctx.lineTo(kx - 3 * u, cupY + 3 * u);
+        ctx.fill();
+        ctx.strokeStyle = '#f4efe6';
+        ctx.lineWidth = 0.7 * u;
+        ctx.beginPath();
+        ctx.arc(kx + 4.4 * u, cupY - 0.5 * u, 1.6 * u, -1.3, 1.3);
+        ctx.stroke();
+        ctx.fillStyle = '#5b3418';
+        ctx.fillRect(kx - 3.6 * u, cupY - 4 * u, 7.2 * u, 0.9 * u);
+        ctx.globalAlpha = 1;
+        // steam
+        if (time > land) {
+            for (let i = 0; i < 3; i++) {
+                const p = (time / 1400 + i / 3) % 1;
+                drawGlow(ctx, kx + (i - 1) * 2 * u + Math.sin(p * 6 + i) * u, cupY - 6 * u - p * 10 * u, 2.4 * u, '#ffffff', 0.25 * Math.sin(p * Math.PI) * fade);
+            }
+        }
+        drawText(ctx, 'JITTERY', cx, H - 6 * u, 3.2 * u, '#e0a56a', smoothstep(3500, 4000, time) * (1 - smoothstep(stop, stop + 300, time)), 800, 0.8 * u);
+        drawCard(ctx, scene, time, 6700, '#e0a56a', '#7a4a24');
+    }
+};
