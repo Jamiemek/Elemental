@@ -114,6 +114,70 @@ function exactRarity(elements, guaranteedExtras = 0) {
     elements.forEach(e => log10 -= Math.log10(ELEMENTS[SYM_IDX[e[0]]][2]));
     return log10;
 }
+// ions: 1/100 for +, 1/1000 for -, - wins a tie
+const ION_PLUS = 0.01;
+const ION_MINUS = 0.001;
+const ION_MAX = 3;
+function rollIon() {
+    if (!bondBonus().ion) {
+        return 0;
+    }
+    const plus = Math.random() < ION_PLUS;
+    const minus = Math.random() < ION_MINUS;
+    if (!plus && !minus) {
+        return 0;
+    }
+    const p = minus ? ION_MINUS : ION_PLUS;
+    let n = 1;
+    while (n < ION_MAX && Math.random() < p) {
+        n++;
+    }
+    return minus ? -n : n;
+}
+const ionScoreMult = ion => ion > 0 ? 1.5 * ion : ion < 0 ? -3 * ion : 1;
+const ionLog = ion => ion > 0 ? -2 * ion : ion < 0 ? 3 * ion : 0;
+const ION_SUP = ['', '', '²', '³'];
+const ionText = ion => ion ? ION_SUP[Math.abs(ion)] + (ion > 0 ? '⁺' : '⁻') : '';
+const withIon = (formula, ion) => formula + ionText(ion || 0);
+const entryIons = c => ionText(c.ionP || 0) + ionText(-(c.ionN || 0));
+function ionise(rec, ion) {
+    rec.ion = ion;
+    if (ion) {
+        rec.baseLog = rec.log;
+        rec.baseScore = rec.score;
+        rec.log += ionLog(ion);
+        rec.score *= ionScoreMult(ion);
+        rec.rarity = rarityText(rec.log);
+    }
+    return rec;
+}
+let ionMarks = {};
+let ionNew = [];
+try {
+    const v = JSON.parse(localStorage.getItem('elementalIons') || '{}');
+    ionMarks = v.m || {};
+    ionNew = v.n || [];
+} catch (e) { }
+function ionSave() {
+    try {
+        localStorage.setItem('elementalIons', JSON.stringify({ m: ionMarks, n: ionNew }));
+    } catch (e) { }
+}
+function ionCredit(sym, ion) {
+    if (!ion || !sym) {
+        return;
+    }
+    const m = ionMarks[sym] || [0, 0];
+    const k = ion > 0 ? 0 : 1;
+    if (Math.abs(ion) > m[k]) {
+        m[k] = Math.abs(ion);
+        ionMarks[sym] = m;
+        if (!ionNew.includes(sym)) {
+            ionNew.push(sym);
+        }
+        ionSave();
+    }
+}
 function rarityText(log) {
     const value = 10 ** (-log);
     if (Number.isFinite(value) && value < 1e21) {

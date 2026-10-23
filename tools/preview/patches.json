@@ -14,5 +14,9 @@
  [
   "    enabled: true,",
   "    enabled: false, // the preview copy never touches real accounts or saves"
+ ],
+ [
+  "function rollIon() {\n    if (!bondBonus().ion) {",
+  "function rollIon() {\n    if (window.__forceIon) {\n        const v = window.__forceIon;\n        window.__forceIon = 0;\n        return v;\n    }\n    if (!bondBonus().ion) {"
  ]
 ]

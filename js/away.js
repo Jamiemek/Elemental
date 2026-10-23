@@ -64,7 +64,7 @@ function awayMakeRoll(b) {
     const log = exactRarity(elements, 0);
     const known = ACHIEVEMENTS.find(a => a.hill === formula);
     const name = elements.length === 1 ? elements[0][1] : (known ? known.name : elements.map(e => e[1]).join(' + '));
-    return { elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) };
+    return ionise({ elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) }, rollIon());
 }
 function fmtClock(s) {
     s = Math.max(0, Math.floor(s));
@@ -135,16 +135,23 @@ async function awayProcess() {
         }
         let x = index.get(r.formula);
         if (!x) {
-            x = { formula: r.formula, name: r.name, elements: r.elements, rarity: r.rarity, log: r.log, score: r.score, count: 0 };
+            const lg = r.ion ? r.baseLog : r.log;
+            x = { formula: r.formula, name: r.name, elements: r.elements, rarity: rarityText(lg), log: lg, score: r.ion ? r.baseScore : r.score, count: 0 };
             collection.push(x);
             index.set(r.formula, x);
             firstFinds.push(x);
         }
         x.count++;
+        if (r.ion > 0) {
+            x.ionP = Math.max(x.ionP || 0, r.ion);
+        } else if (r.ion < 0) {
+            x.ionN = Math.max(x.ionN || 0, -r.ion);
+        }
+        ionCredit(r.elements[0][0], r.ion);
         total++;
         earned += quarksFor(r.score, mult);
         if (n - i <= HISTORY_MAX) {
-            hist.push({ n: total, f: r.formula, l: r.log, s: r.score });
+            hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
     }
     renderQStorm();
@@ -172,7 +179,7 @@ async function awayProcess() {
     const w = openDialog('<h2>While you were away</h2>' +
         '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
         '<p class="away-clock">' + fmtClock(seconds) + ' / 24:00:00</p>' +
-        '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(best.formula) + '</span></dd>' +
+        '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
             (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +

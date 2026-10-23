@@ -2497,6 +2497,52 @@ body.fx-warping .screen.active {
     font-size: 13px;
   }
 }
+/* ion marks */
+.element-tile.ion-p1 {
+  box-shadow: inset 0 0 0 3px #b8692b, inset 0 0 0 4px rgba(0, 0, 0, .3);
+}
+.element-tile.ion-p2 {
+  box-shadow: inset 0 0 0 3px #9aa5ab, inset 0 0 0 4px rgba(0, 0, 0, .3);
+}
+.element-tile.ion-p3 {
+  box-shadow: inset 0 0 0 3px #e0ac00, inset 0 0 0 4px rgba(0, 0, 0, .3), 0 0 8px rgba(242, 194, 48, .6);
+}
+.element-tile.ion-n1 .sym {
+  color: #8a4a14;
+  font-weight: 800;
+}
+.element-tile.ion-n2 .sym {
+  color: #56636a;
+  font-weight: 800;
+}
+.element-tile.ion-n3 .sym {
+  color: #a87400;
+  font-weight: 800;
+  text-shadow: 0 0 6px rgba(255, 214, 90, .8);
+}
+.element-tile.ion-new {
+  animation: ionNew 1.1s ease-out 3;
+  position: relative;
+  z-index: 1;
+}
+@keyframes ionNew {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  35% {
+    transform: scale(1.35);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+.ion-sup {
+  font-size: .7em;
+  margin-left: 1px;
+}
 .cat-card .cat-hold {
   margin-top: 6px;
   font-size: 13px;

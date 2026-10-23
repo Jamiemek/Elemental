@@ -5,7 +5,7 @@ try {
     rollHistory = JSON.parse(localStorage.getItem('elementalHistory') || '[]');
 } catch (e) { }
 function addHistory(rec, n) {
-    rollHistory.unshift({ n, f: rec.formula, l: rec.log, s: rec.score });
+    rollHistory.unshift(rec.ion ? { n, f: rec.formula, l: rec.log, s: rec.score, i: rec.ion } : { n, f: rec.formula, l: rec.log, s: rec.score });
     if (rollHistory.length > HISTORY_MAX) {
         rollHistory.length = HISTORY_MAX;
     }
@@ -22,7 +22,7 @@ function renderHistory() {
         el.innerHTML = '<div class="empty-line">Your rolls will be listed here.</div>';
         return;
     }
-    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula" title="${h.f}">${h.f}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
+    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula" title="${withIon(h.f, h.i)}">${withIon(h.f, h.i)}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
 }
 // Older saves stored buffed odds, so convert them back to base odds.
 (function () {
@@ -75,12 +75,15 @@ function buildTable(root, mode) {
     }
     root.innerHTML = '';
     const found = discoveredSymbols();
+    // ion marks
     ELEMENTS.forEach((e, i) => {
         const pos = tableLayout[e[0]] || [11, 1];
         const isFound = found.has(e[0]);
         const tile = document.createElement('button');
         tile.type = 'button';
-        tile.className = 'element-tile' + (isFound ? ' discovered fam-' + familyOf(e[0]) : '') + '';
+        const im = ionMarks[e[0]];
+        tile.dataset.sym = e[0];
+        tile.className = 'element-tile' + (isFound ? ' discovered fam-' + familyOf(e[0]) : '') + (im && im[0] ? ' ion-p' + im[0] : '') + (im && im[1] ? ' ion-n' + im[1] : '');
         tile.style.gridRow = pos[0];
         tile.style.gridColumn = pos[1];
         tile.title = isFound ? `${e[1]}, ${FAMILY_NAMES[familyOf(e[0])]}` : (mode === 'full' ? 'Not found yet. Select to see its bonus.' : 'Not found yet');
@@ -100,6 +103,24 @@ function buildTable(root, mode) {
         });
         root.appendChild(tile);
     });
+    ionShowNew();
+}
+function ionShowNew() {
+    if (!ionNew.length) {
+        return;
+    }
+    const scr = document.querySelector('.screen.active');
+    const tiles = scr ? [...scr.querySelectorAll('.element-tile')].filter(t => ionNew.includes(t.dataset.sym) && t.offsetParent) : [];
+    if (!tiles.length) {
+        return;
+    }
+    tiles.forEach(t => {
+        t.classList.remove('ion-new');
+        void t.offsetWidth;
+        t.classList.add('ion-new');
+    });
+    ionNew = ionNew.filter(s => !tiles.some(t => t.dataset.sym === s));
+    ionSave();
 }
 function bonusRows(s) {
     const row = (k, v, cls) => `<div><dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${v}</dd></div>`;
@@ -193,7 +214,7 @@ function rankRow(c, rank, mode = displayMode) {
     const el = document.createElement('div');
     const joined = c.elements.map(e => e[1]).join(' + ');
     el.className = 'rank-row';
-    el.innerHTML = `<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}</div><div class="rank-name">${c.name}${c.elements.length > 1 && c.name !== joined ? ': ' + joined : ''}</div></div><div class="rank-odds"><b>${mode === 'score' ? 'Score ' + rarityShown(r, 'score') : rarityShown(r, 'odds')}</b><span>× ${c.count.toLocaleString()}</span></div>`;
+    el.innerHTML = `<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}${entryIons(c) ? `<sup class="ion-sup">${entryIons(c)}</sup>` : ''}</div><div class="rank-name">${c.name}${c.elements.length > 1 && c.name !== joined ? ': ' + joined : ''}</div></div><div class="rank-odds"><b>${mode === 'score' ? 'Score ' + rarityShown(r, 'score') : rarityShown(r, 'odds')}</b><span>× ${c.count.toLocaleString()}</span></div>`;
     return el;
 }
 function renderInventory() {

@@ -53,7 +53,7 @@ function renderAchievements() {
     });
 }
 let achNameByFormula = null;
-function recordFromFormula(formula, count, spent) {
+function recordFromFormula(formula, count, spent, ionP, ionN) {
     if (typeof formula !== 'string' || !formula) {
         return null;
     }
@@ -87,6 +87,12 @@ function recordFromFormula(formula, count, spent) {
     if (spent > 0) {
         r.spent = Math.floor(+spent);
     }
+    if (ionP > 0) {
+        r.ionP = Math.min(3, Math.floor(ionP));
+    }
+    if (ionN > 0) {
+        r.ionN = Math.min(3, Math.floor(ionN));
+    }
     return r;
 }
 function unpackCollection(raw) {
@@ -96,7 +102,7 @@ function unpackCollection(raw) {
     const out = [];
     const seen = new Map();
     raw.forEach(x => {
-        const r = Array.isArray(x) ? recordFromFormula(x[0], x[1], x[2]) : x && recordFromFormula(x.formula, x.count, x.spent);
+        const r = Array.isArray(x) ? recordFromFormula(x[0], x[1], x[2], x[3], x[4]) : x && recordFromFormula(x.formula, x.count, x.spent);
         if (!r) {
             return;
         }
@@ -104,6 +110,8 @@ function unpackCollection(raw) {
         if (dup) {
             dup.count += r.count;
             dup.spent = (dup.spent || 0) + (r.spent || 0) || undefined;
+            dup.ionP = Math.max(dup.ionP || 0, r.ionP || 0) || undefined;
+            dup.ionN = Math.max(dup.ionN || 0, r.ionN || 0) || undefined;
             return;
         }
         seen.set(r.formula, r);
@@ -112,7 +120,8 @@ function unpackCollection(raw) {
     return out;
 }
 function packCollection() {
-    return JSON.stringify(collection.map(c => c.spent > 0 ? [c.formula, c.count || 1, c.spent] : [c.formula, c.count || 1]));
+    return JSON.stringify(collection.map(c => c.ionP || c.ionN ? [c.formula, c.count || 1, c.spent || 0, c.ionP || 0, c.ionN || 0] :
+        c.spent > 0 ? [c.formula, c.count || 1, c.spent] : [c.formula, c.count || 1]));
 }
 let collection = [];
 try {
@@ -149,22 +158,35 @@ function save() {
     }
 }
 function addRecord(r) {
-    const x = collection.find(c => c.formula === r.formula);
+    // base odds/score stay, ions only mark the best
+    const ion = r.ion || 0;
+    const base = ion ? Object.assign({}, r, { log: r.baseLog, score: r.baseScore, rarity: rarityText(r.baseLog) }) : r;
+    delete base.ion;
+    delete base.baseLog;
+    delete base.baseScore;
+    let x = collection.find(c => c.formula === r.formula);
     if (!x) {
-        r.count = 1;
-        collection.push(r);
-        return;
+        base.count = 1;
+        collection.push(base);
+        x = base;
+    } else {
+        x.count = (x.count || 1) + 1;
+        if (base.log < x.log || !Number.isFinite(x.log)) {
+            Object.assign(x, {
+                log: base.log, rarity: base.rarity, score: base.score, when: base.when, elements: base.elements, id: base.id, name: base.name
+            });
+        }
     }
-    x.count = (x.count || 1) + 1;
-    if (r.log < x.log || !Number.isFinite(x.log)) {
-        Object.assign(x, {
-            log: r.log, rarity: r.rarity, score: r.score, when: r.when, elements: r.elements, id: r.id, name: r.name
-        });
+    if (ion > 0) {
+        x.ionP = Math.max(x.ionP || 0, ion);
+    } else if (ion < 0) {
+        x.ionN = Math.max(x.ionN || 0, -ion);
     }
 }
 function go(screen) {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === screen));
     window.scrollTo(0, 0);
+    requestAnimationFrame(() => ionShowNew());
     if (screen === 'bonds') {
         renderBonds();
     }
@@ -203,6 +225,7 @@ document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click',
     $('completionView').style.display = tab === 'completionist' ? '' : 'none';
     if (tab === 'completionist') {
         renderPeriodic();
+        ionShowNew();
     }
 }));
 // Exactly three elements grant an extra roll per click.

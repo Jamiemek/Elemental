@@ -14,16 +14,17 @@ function showMultiRoll(col, records, i, best, swap) {
     const main = col.querySelector('.mr-main');
     const card = col.querySelector('.result-card');
     const reel = col.querySelector('.reel');
-    if (swap && main.textContent !== r.formula) {
+    const shown = withIon(r.formula, r.ion);
+    if (swap && main.textContent !== shown) {
         main.classList.remove('swap');
         void main.offsetWidth;
         main.classList.add('swap');
     }
-    main.textContent = r.formula;
-    fitText(main, r.formula, reel.clientWidth - 48, parseFloat(getComputedStyle(reel).getPropertyValue('--mr-fs')) || undefined);
+    main.textContent = shown;
+    fitText(main, shown, reel.clientWidth - 48, parseFloat(getComputedStyle(reel).getPropertyValue('--mr-fs')) || undefined);
     col.querySelectorAll('.mr-chip').forEach((c, k) => c.classList.toggle('sel', k === i));
     card.querySelector('.eyebrow').textContent = `Roll ${i + 1} of ${records.length}` + (i === best ? ' · best' : '');
-    card.querySelector('.result-name').textContent = r.name;
+    card.querySelector('.result-name').textContent = r.name + (r.ion ? ' ' + ionText(r.ion) + ' ion' : '');
     card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(r);
     card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : r.elements.length > 1 ? `${r.elements.length} elements chained` : 'No chain';
     col._mr = { records, best };
@@ -89,9 +90,9 @@ async function doRoll(preset, opts) {
             }
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
-            return {
+            return ionise({
                 elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
-            };
+            }, rollIon());
         });
         const stormFx = !pre && qStormOn();
         const storm = pre ? null : qStormPress(rolls.length);
@@ -107,8 +108,8 @@ async function doRoll(preset, opts) {
         let targets = null;
         if (multi) {
             reel.style.setProperty('--mr-fs', getComputedStyle(syms[0]).fontSize);
-            fitText(syms[0], rolls[feat].formula, reel.clientWidth - 48);
-            chips.forEach((c, i) => fitText(c.querySelector('b'), rolls[i].formula, c.clientWidth - 10, 18));
+            fitText(syms[0], withIon(rolls[feat].formula, rolls[feat].ion), reel.clientWidth - 48);
+            chips.forEach((c, i) => fitText(c.querySelector('b'), withIon(rolls[i].formula, rolls[i].ion), c.clientWidth - 10, 18));
             const rr = reel.getBoundingClientRect();
             const mid = el => {
                 const q = el.getBoundingClientRect();
@@ -118,10 +119,10 @@ async function doRoll(preset, opts) {
         }
         if (cut) {
             stopRollTicks();
-            await playCutscene(cut.sym, reel, multi ? [rolls[feat].formula] : rolls.map(r => r.formula), multi ? 0 : cut.idx, syms);
+            await playCutscene(cut.sym, reel, multi ? [withIon(rolls[feat].formula, rolls[feat].ion)] : rolls.map(r => withIon(r.formula, r.ion)), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay, targets, stormFx);
+            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, stormFx);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -137,8 +138,12 @@ async function doRoll(preset, opts) {
             const record = {
                 id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString(), cats: r.cats
             };
+            if (r.ion) {
+                Object.assign(record, { ion: r.ion, baseLog: r.baseLog, baseScore: r.baseScore });
+            }
             records.push(record);
             if (!pre) {
+                ionCredit(elements[0][0], record.ion);
                 addRecord(record);
                 addHistory(record, totalRolls());
                 save();
@@ -147,14 +152,14 @@ async function doRoll(preset, opts) {
             }
             if (multi) {
                 const c = chips[i];
-                c.querySelector('b').textContent = formula;
+                c.querySelector('b').textContent = withIon(formula, record.ion);
                 c.querySelector('span').textContent = rarityShown(record);
                 c.style.setProperty('--tc', MR_TIER_COL[getRarityTier(score)]);
                 c.classList.toggle('feat', i === feat);
                 c.classList.toggle('best', i === bestIdx);
             } else {
-                syms[i].textContent = formula;
-                card.querySelector('.result-name').textContent = name;
+                syms[i].textContent = withIon(formula, record.ion);
+                card.querySelector('.result-name').textContent = name + (record.ion ? ' ' + ionText(record.ion) + ' ion' : '');
                 card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(record);
                 card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
             }

@@ -130,7 +130,7 @@ async function admBoard() {
     rows.forEach(g => {
         const el = document.createElement('div');
         el.className = 'adm-row' + (g.removed || g.banned ? ' banned' : '');
-        el.innerHTML = '<div><b>' + esc(g.formula) + '</b> · ' + esc(g.display_name) + (g.removed ? ' <span class="adm-tag">Removed</span>' : '') +
+        el.innerHTML = '<div><b>' + esc(withIon(g.formula, g.ion)) + '</b> · ' + esc(g.display_name) + (g.removed ? ' <span class="adm-tag">Removed</span>' : '') +
             (g.banned ? ' <span class="adm-tag">Player banned</span>' : '') + '<small>' + rarityText(-g.odds_log) + ' · score ' + fmtScore(g.score) + ' · ' +
             new Date(g.found_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + '</small></div><button class="ghost">' + (g.removed ? 'Restore' : 'Remove') + '</button>';
         el.querySelector('button').onclick = async () => {

@@ -2581,7 +2581,7 @@ function renderAchievements() {
     });
 }
 let achNameByFormula = null;
-function recordFromFormula(formula, count, spent) {
+function recordFromFormula(formula, count, spent, ionP, ionN) {
     if (typeof formula !== 'string' || !formula) {
         return null;
     }
@@ -2615,6 +2615,12 @@ function recordFromFormula(formula, count, spent) {
     if (spent > 0) {
         r.spent = Math.floor(+spent);
     }
+    if (ionP > 0) {
+        r.ionP = Math.min(3, Math.floor(ionP));
+    }
+    if (ionN > 0) {
+        r.ionN = Math.min(3, Math.floor(ionN));
+    }
     return r;
 }
 function unpackCollection(raw) {
@@ -2624,7 +2630,7 @@ function unpackCollection(raw) {
     const out = [];
     const seen = new Map();
     raw.forEach(x => {
-        const r = Array.isArray(x) ? recordFromFormula(x[0], x[1], x[2]) : x && recordFromFormula(x.formula, x.count, x.spent);
+        const r = Array.isArray(x) ? recordFromFormula(x[0], x[1], x[2], x[3], x[4]) : x && recordFromFormula(x.formula, x.count, x.spent);
         if (!r) {
             return;
         }
@@ -2632,6 +2638,8 @@ function unpackCollection(raw) {
         if (dup) {
             dup.count += r.count;
             dup.spent = (dup.spent || 0) + (r.spent || 0) || undefined;
+            dup.ionP = Math.max(dup.ionP || 0, r.ionP || 0) || undefined;
+            dup.ionN = Math.max(dup.ionN || 0, r.ionN || 0) || undefined;
             return;
         }
         seen.set(r.formula, r);
@@ -2640,7 +2648,8 @@ function unpackCollection(raw) {
     return out;
 }
 function packCollection() {
-    return JSON.stringify(collection.map(c => c.spent > 0 ? [c.formula, c.count || 1, c.spent] : [c.formula, c.count || 1]));
+    return JSON.stringify(collection.map(c => c.ionP || c.ionN ? [c.formula, c.count || 1, c.spent || 0, c.ionP || 0, c.ionN || 0] :
+        c.spent > 0 ? [c.formula, c.count || 1, c.spent] : [c.formula, c.count || 1]));
 }
 let collection = [];
 try {
@@ -2677,22 +2686,35 @@ function save() {
     }
 }
 function addRecord(r) {
-    const x = collection.find(c => c.formula === r.formula);
+    // base odds/score stay, ions only mark the best
+    const ion = r.ion || 0;
+    const base = ion ? Object.assign({}, r, { log: r.baseLog, score: r.baseScore, rarity: rarityText(r.baseLog) }) : r;
+    delete base.ion;
+    delete base.baseLog;
+    delete base.baseScore;
+    let x = collection.find(c => c.formula === r.formula);
     if (!x) {
-        r.count = 1;
-        collection.push(r);
-        return;
+        base.count = 1;
+        collection.push(base);
+        x = base;
+    } else {
+        x.count = (x.count || 1) + 1;
+        if (base.log < x.log || !Number.isFinite(x.log)) {
+            Object.assign(x, {
+                log: base.log, rarity: base.rarity, score: base.score, when: base.when, elements: base.elements, id: base.id, name: base.name
+            });
+        }
     }
-    x.count = (x.count || 1) + 1;
-    if (r.log < x.log || !Number.isFinite(x.log)) {
-        Object.assign(x, {
-            log: r.log, rarity: r.rarity, score: r.score, when: r.when, elements: r.elements, id: r.id, name: r.name
-        });
+    if (ion > 0) {
+        x.ionP = Math.max(x.ionP || 0, ion);
+    } else if (ion < 0) {
+        x.ionN = Math.max(x.ionN || 0, -ion);
     }
 }
 function go(screen) {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === screen));
     window.scrollTo(0, 0);
+    requestAnimationFrame(() => ionShowNew());
     if (screen === 'bonds') {
         renderBonds();
     }
@@ -2731,6 +2753,7 @@ document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click',
     $('completionView').style.display = tab === 'completionist' ? '' : 'none';
     if (tab === 'completionist') {
         renderPeriodic();
+        ionShowNew();
     }
 }));
 // Exactly three elements grant an extra roll per click.
@@ -4400,6 +4423,70 @@ function exactRarity(elements, guaranteedExtras = 0) {
     elements.forEach(e => log10 -= Math.log10(ELEMENTS[SYM_IDX[e[0]]][2]));
     return log10;
 }
+// ions: 1/100 for +, 1/1000 for -, - wins a tie
+const ION_PLUS = 0.01;
+const ION_MINUS = 0.001;
+const ION_MAX = 3;
+function rollIon() {
+    if (!bondBonus().ion) {
+        return 0;
+    }
+    const plus = Math.random() < ION_PLUS;
+    const minus = Math.random() < ION_MINUS;
+    if (!plus && !minus) {
+        return 0;
+    }
+    const p = minus ? ION_MINUS : ION_PLUS;
+    let n = 1;
+    while (n < ION_MAX && Math.random() < p) {
+        n++;
+    }
+    return minus ? -n : n;
+}
+const ionScoreMult = ion => ion > 0 ? 1.5 * ion : ion < 0 ? -3 * ion : 1;
+const ionLog = ion => ion > 0 ? -2 * ion : ion < 0 ? 3 * ion : 0;
+const ION_SUP = ['', '', '²', '³'];
+const ionText = ion => ion ? ION_SUP[Math.abs(ion)] + (ion > 0 ? '⁺' : '⁻') : '';
+const withIon = (formula, ion) => formula + ionText(ion || 0);
+const entryIons = c => ionText(c.ionP || 0) + ionText(-(c.ionN || 0));
+function ionise(rec, ion) {
+    rec.ion = ion;
+    if (ion) {
+        rec.baseLog = rec.log;
+        rec.baseScore = rec.score;
+        rec.log += ionLog(ion);
+        rec.score *= ionScoreMult(ion);
+        rec.rarity = rarityText(rec.log);
+    }
+    return rec;
+}
+let ionMarks = {};
+let ionNew = [];
+try {
+    const v = JSON.parse(localStorage.getItem('elementalIons') || '{}');
+    ionMarks = v.m || {};
+    ionNew = v.n || [];
+} catch (e) { }
+function ionSave() {
+    try {
+        localStorage.setItem('elementalIons', JSON.stringify({ m: ionMarks, n: ionNew }));
+    } catch (e) { }
+}
+function ionCredit(sym, ion) {
+    if (!ion || !sym) {
+        return;
+    }
+    const m = ionMarks[sym] || [0, 0];
+    const k = ion > 0 ? 0 : 1;
+    if (Math.abs(ion) > m[k]) {
+        m[k] = Math.abs(ion);
+        ionMarks[sym] = m;
+        if (!ionNew.includes(sym)) {
+            ionNew.push(sym);
+        }
+        ionSave();
+    }
+}
 function rarityText(log) {
     const value = 10 ** (-log);
     if (Number.isFinite(value) && value < 1e21) {
@@ -4520,7 +4607,7 @@ try {
     rollHistory = JSON.parse(localStorage.getItem('elementalHistory') || '[]');
 } catch (e) { }
 function addHistory(rec, n) {
-    rollHistory.unshift({ n, f: rec.formula, l: rec.log, s: rec.score });
+    rollHistory.unshift(rec.ion ? { n, f: rec.formula, l: rec.log, s: rec.score, i: rec.ion } : { n, f: rec.formula, l: rec.log, s: rec.score });
     if (rollHistory.length > HISTORY_MAX) {
         rollHistory.length = HISTORY_MAX;
     }
@@ -4537,7 +4624,7 @@ function renderHistory() {
         el.innerHTML = '<div class="empty-line">Your rolls will be listed here.</div>';
         return;
     }
-    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula" title="${h.f}">${h.f}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
+    el.innerHTML = rollHistory.map(h => `<div class="history-row"><span class="h-num">#${h.n.toLocaleString('en-US')}</span><span class="h-formula" title="${withIon(h.f, h.i)}">${withIon(h.f, h.i)}</span><span class="h-val">${displayMode === 'score' ? 'Score ' + fmtScore(h.s) : rarityText(h.l)}</span></div>`).join('');
 }
 // Older saves stored buffed odds, so convert them back to base odds.
 (function () {
@@ -4590,12 +4677,15 @@ function buildTable(root, mode) {
     }
     root.innerHTML = '';
     const found = discoveredSymbols();
+    // ion marks
     ELEMENTS.forEach((e, i) => {
         const pos = tableLayout[e[0]] || [11, 1];
         const isFound = found.has(e[0]);
         const tile = document.createElement('button');
         tile.type = 'button';
-        tile.className = 'element-tile' + (isFound ? ' discovered fam-' + familyOf(e[0]) : '') + '';
+        const im = ionMarks[e[0]];
+        tile.dataset.sym = e[0];
+        tile.className = 'element-tile' + (isFound ? ' discovered fam-' + familyOf(e[0]) : '') + (im && im[0] ? ' ion-p' + im[0] : '') + (im && im[1] ? ' ion-n' + im[1] : '');
         tile.style.gridRow = pos[0];
         tile.style.gridColumn = pos[1];
         tile.title = isFound ? `${e[1]}, ${FAMILY_NAMES[familyOf(e[0])]}` : (mode === 'full' ? 'Not found yet. Select to see its bonus.' : 'Not found yet');
@@ -4615,6 +4705,24 @@ function buildTable(root, mode) {
         });
         root.appendChild(tile);
     });
+    ionShowNew();
+}
+function ionShowNew() {
+    if (!ionNew.length) {
+        return;
+    }
+    const scr = document.querySelector('.screen.active');
+    const tiles = scr ? [...scr.querySelectorAll('.element-tile')].filter(t => ionNew.includes(t.dataset.sym) && t.offsetParent) : [];
+    if (!tiles.length) {
+        return;
+    }
+    tiles.forEach(t => {
+        t.classList.remove('ion-new');
+        void t.offsetWidth;
+        t.classList.add('ion-new');
+    });
+    ionNew = ionNew.filter(s => !tiles.some(t => t.dataset.sym === s));
+    ionSave();
 }
 function bonusRows(s) {
     const row = (k, v, cls) => `<div><dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${v}</dd></div>`;
@@ -4708,7 +4816,7 @@ function rankRow(c, rank, mode = displayMode) {
     const el = document.createElement('div');
     const joined = c.elements.map(e => e[1]).join(' + ');
     el.className = 'rank-row';
-    el.innerHTML = `<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}</div><div class="rank-name">${c.name}${c.elements.length > 1 && c.name !== joined ? ': ' + joined : ''}</div></div><div class="rank-odds"><b>${mode === 'score' ? 'Score ' + rarityShown(r, 'score') : rarityShown(r, 'odds')}</b><span>× ${c.count.toLocaleString()}</span></div>`;
+    el.innerHTML = `<div class="rank-num">${rank}</div><div class="rank-main"><div class="rank-formula">${c.formula}${entryIons(c) ? `<sup class="ion-sup">${entryIons(c)}</sup>` : ''}</div><div class="rank-name">${c.name}${c.elements.length > 1 && c.name !== joined ? ': ' + joined : ''}</div></div><div class="rank-odds"><b>${mode === 'score' ? 'Score ' + rarityShown(r, 'score') : rarityShown(r, 'odds')}</b><span>× ${c.count.toLocaleString()}</span></div>`;
     return el;
 }
 function renderInventory() {
@@ -4770,16 +4878,17 @@ function showMultiRoll(col, records, i, best, swap) {
     const main = col.querySelector('.mr-main');
     const card = col.querySelector('.result-card');
     const reel = col.querySelector('.reel');
-    if (swap && main.textContent !== r.formula) {
+    const shown = withIon(r.formula, r.ion);
+    if (swap && main.textContent !== shown) {
         main.classList.remove('swap');
         void main.offsetWidth;
         main.classList.add('swap');
     }
-    main.textContent = r.formula;
-    fitText(main, r.formula, reel.clientWidth - 48, parseFloat(getComputedStyle(reel).getPropertyValue('--mr-fs')) || undefined);
+    main.textContent = shown;
+    fitText(main, shown, reel.clientWidth - 48, parseFloat(getComputedStyle(reel).getPropertyValue('--mr-fs')) || undefined);
     col.querySelectorAll('.mr-chip').forEach((c, k) => c.classList.toggle('sel', k === i));
     card.querySelector('.eyebrow').textContent = `Roll ${i + 1} of ${records.length}` + (i === best ? ' · best' : '');
-    card.querySelector('.result-name').textContent = r.name;
+    card.querySelector('.result-name').textContent = r.name + (r.ion ? ' ' + ionText(r.ion) + ' ion' : '');
     card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(r);
     card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : r.elements.length > 1 ? `${r.elements.length} elements chained` : 'No chain';
     col._mr = { records, best };
@@ -4845,9 +4954,9 @@ async function doRoll(preset, opts) {
             }
             const formula = hillFormula(elements);
             const log = exactRarity(elements, 0);
-            return {
+            return ionise({
                 elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
-            };
+            }, rollIon());
         });
         const stormFx = !pre && qStormOn();
         const storm = pre ? null : qStormPress(rolls.length);
@@ -4863,8 +4972,8 @@ async function doRoll(preset, opts) {
         let targets = null;
         if (multi) {
             reel.style.setProperty('--mr-fs', getComputedStyle(syms[0]).fontSize);
-            fitText(syms[0], rolls[feat].formula, reel.clientWidth - 48);
-            chips.forEach((c, i) => fitText(c.querySelector('b'), rolls[i].formula, c.clientWidth - 10, 18));
+            fitText(syms[0], withIon(rolls[feat].formula, rolls[feat].ion), reel.clientWidth - 48);
+            chips.forEach((c, i) => fitText(c.querySelector('b'), withIon(rolls[i].formula, rolls[i].ion), c.clientWidth - 10, 18));
             const rr = reel.getBoundingClientRect();
             const mid = el => {
                 const q = el.getBoundingClientRect();
@@ -4874,10 +4983,10 @@ async function doRoll(preset, opts) {
         }
         if (cut) {
             stopRollTicks();
-            await playCutscene(cut.sym, reel, multi ? [rolls[feat].formula] : rolls.map(r => r.formula), multi ? 0 : cut.idx, syms);
+            await playCutscene(cut.sym, reel, multi ? [withIon(rolls[feat].formula, rolls[feat].ion)] : rolls.map(r => withIon(r.formula, r.ion)), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => r.formula), rolls.map(r => r.score), delay, targets, stormFx);
+            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, stormFx);
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -4893,8 +5002,12 @@ async function doRoll(preset, opts) {
             const record = {
                 id: Date.now() + Math.random(), formula, name, elements, rarity, log, score, when: new Date().toISOString(), cats: r.cats
             };
+            if (r.ion) {
+                Object.assign(record, { ion: r.ion, baseLog: r.baseLog, baseScore: r.baseScore });
+            }
             records.push(record);
             if (!pre) {
+                ionCredit(elements[0][0], record.ion);
                 addRecord(record);
                 addHistory(record, totalRolls());
                 save();
@@ -4903,14 +5016,14 @@ async function doRoll(preset, opts) {
             }
             if (multi) {
                 const c = chips[i];
-                c.querySelector('b').textContent = formula;
+                c.querySelector('b').textContent = withIon(formula, record.ion);
                 c.querySelector('span').textContent = rarityShown(record);
                 c.style.setProperty('--tc', MR_TIER_COL[getRarityTier(score)]);
                 c.classList.toggle('feat', i === feat);
                 c.classList.toggle('best', i === bestIdx);
             } else {
-                syms[i].textContent = formula;
-                card.querySelector('.result-name').textContent = name;
+                syms[i].textContent = withIon(formula, record.ion);
+                card.querySelector('.result-name').textContent = name + (record.ion ? ' ' + ionText(record.ion) + ' ion' : '');
                 card.querySelector('.rarity').textContent = rarityWord() + ' ' + rarityShown(record);
                 card.querySelector('.sub').textContent = $('chainSetting').value === 'off' ? '' : elements.length > 1 ? `${elements.length} elements chained` : 'No chain';
             }
@@ -7400,7 +7513,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalIons'];
 const CLOUD_EVERY = 45000;
 let sb = null;
 let cloudUser = null;
@@ -7822,6 +7935,7 @@ let globalSettings = { min_tier: 7, announce_top10: true, discord_enabled: true,
 let globalMode = 'odds';
 let globalLoading = false;
 const globalSent = new Set();
+const globalKey = (f, ion) => f + '|' + (ion || 0);
 function globalName(formula) {
     const counts = parseFormula(formula);
     const syms = Object.keys(counts);
@@ -7840,8 +7954,8 @@ async function globalLoad() {
     }
     globalLoading = true;
     const [a, b, s] = await Promise.all([
-        sb.from('global_top_odds').select('id, formula, odds_log, score, found_at, display_name'),
-        sb.from('global_top_score').select('id, formula, odds_log, score, found_at, display_name'),
+        sb.from('global_top_odds').select('id, formula, ion, odds_log, score, found_at, display_name'),
+        sb.from('global_top_score').select('id, formula, ion, odds_log, score, found_at, display_name'),
         sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled').maybeSingle()
     ]);
     globalLoading = false;
@@ -7875,7 +7989,7 @@ function globalBeats(rec) {
     if (!b.odds || !b.score) {
         return true;
     }
-    const onBoard = list => list.some(r => r.formula === rec.formula && r.display_name === cloudName);
+    const onBoard = list => list.some(r => r.formula === rec.formula && (r.ion || 0) === (rec.ion || 0) && r.display_name === cloudName);
     if (onBoard(b.odds) || onBoard(b.score)) {
         return false;
     }
@@ -7888,13 +8002,14 @@ function globalConsider(rec, old) {
         return;
     }
     const isGlobal = !old && getRarityTier(rec.score) >= globalSettings.min_tier;
-    if (!isGlobal && (globalSent.has(rec.formula) || !globalBeats(rec))) {
+    if (!isGlobal && (globalSent.has(globalKey(rec.formula, rec.ion)) || !globalBeats(rec))) {
         return;
     }
-    globalSent.add(rec.formula);
+    globalSent.add(globalKey(rec.formula, rec.ion));
     const st = activeBuffStats();
     globalSubmit({
         f: rec.formula,
+        ion: rec.ion || 0,
         label: rec.name || globalName(rec.formula),
         rolls: totalRolls(),
         luck: Math.round(st.luck || 0),
@@ -7907,15 +8022,17 @@ async function globalSubmit(p) {
         globalQueue(p);
         return;
     }
-    const { data, error } = await sb.rpc('submit_roll', {
-        p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_old: p.old
-    });
+    const args = { p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_old: p.old };
+    if (p.ion) {
+        args.p_ion = p.ion;
+    }
+    const { data, error } = await sb.rpc('submit_roll', args);
     if (error || !data) {
-        globalSent.delete(p.f);
+        globalSent.delete(globalKey(p.f, p.ion));
         globalQueue(p);
         return;
     }
-    globalSetPending(globalPending().filter(x => !(x.f === p.f && x.old === p.old)));
+    globalSetPending(globalPending().filter(x => !(x.f === p.f && (x.ion || 0) === (p.ion || 0) && x.old === p.old)));
     if (data.ok && data.added) {
         const parts = [];
         if (data.rank_odds <= 10) {
@@ -7924,13 +8041,13 @@ async function globalSubmit(p) {
         if (data.rank_score <= 10) {
             parts.push('#' + data.rank_score + ' by score');
         }
-        showAchievementToast({ kicker: 'Global top 10', name: p.f + ' · ' + globalName(p.f), flavor: 'You are now ' + parts.join(' and ') + ' in the world.' });
+        showAchievementToast({ kicker: 'Global top 10', name: withIon(p.f, p.ion) + ' · ' + globalName(p.f), flavor: 'You are now ' + parts.join(' and ') + ' in the world.' });
         globalLoad();
     }
 }
 function globalQueue(p) {
     const list = globalPending();
-    if (!list.some(x => x.f === p.f && x.old === p.old)) {
+    if (!list.some(x => x.f === p.f && (x.ion || 0) === (p.ion || 0) && x.old === p.old)) {
         list.push(p);
         globalSetPending(list);
     }
@@ -7963,7 +8080,7 @@ function globalRow(r, rank) {
     const mine = cloudName && r.display_name === cloudName;
     el.className = 'rank-row' + (mine ? ' mine' : '');
     const when = new Date(r.found_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
-    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(r.formula) + '</div>' +
+    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(withIon(r.formula, r.ion)) + '</div>' +
         '<div class="rank-name">' + esc(globalName(r.formula)) + '</div></div><div class="rank-odds"><b>' +
         (globalMode === 'score' ? 'Score ' + fmtScore(r.score) : rarityText(-r.odds_log)) + '</b><span title="Found ' + esc(when) + '">' +
         esc(r.display_name || 'Unknown') + (mine ? ' (you)' : '') + '</span></div>';
@@ -8058,7 +8175,7 @@ function bannerNext() {
     const a = bannerQueue.shift();
     const fx = RARITY_FX[Math.min(9, a.tier)];
     el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
-    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc(a.label || globalName(a.formula)) + '</b><span>' +
+    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + ionText(a.ion || 0)) + '</b><span>' +
         (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
     el.classList.add('show');
     setTimeout(() => {
@@ -8244,7 +8361,7 @@ async function admBoard() {
     rows.forEach(g => {
         const el = document.createElement('div');
         el.className = 'adm-row' + (g.removed || g.banned ? ' banned' : '');
-        el.innerHTML = '<div><b>' + esc(g.formula) + '</b> · ' + esc(g.display_name) + (g.removed ? ' <span class="adm-tag">Removed</span>' : '') +
+        el.innerHTML = '<div><b>' + esc(withIon(g.formula, g.ion)) + '</b> · ' + esc(g.display_name) + (g.removed ? ' <span class="adm-tag">Removed</span>' : '') +
             (g.banned ? ' <span class="adm-tag">Player banned</span>' : '') + '<small>' + rarityText(-g.odds_log) + ' · score ' + fmtScore(g.score) + ' · ' +
             new Date(g.found_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + '</small></div><button class="ghost">' + (g.removed ? 'Restore' : 'Remove') + '</button>';
         el.querySelector('button').onclick = async () => {
@@ -8368,7 +8485,7 @@ function awayMakeRoll(b) {
     const log = exactRarity(elements, 0);
     const known = ACHIEVEMENTS.find(a => a.hill === formula);
     const name = elements.length === 1 ? elements[0][1] : (known ? known.name : elements.map(e => e[1]).join(' + '));
-    return { elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) };
+    return ionise({ elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) }, rollIon());
 }
 function fmtClock(s) {
     s = Math.max(0, Math.floor(s));
@@ -8439,16 +8556,23 @@ async function awayProcess() {
         }
         let x = index.get(r.formula);
         if (!x) {
-            x = { formula: r.formula, name: r.name, elements: r.elements, rarity: r.rarity, log: r.log, score: r.score, count: 0 };
+            const lg = r.ion ? r.baseLog : r.log;
+            x = { formula: r.formula, name: r.name, elements: r.elements, rarity: rarityText(lg), log: lg, score: r.ion ? r.baseScore : r.score, count: 0 };
             collection.push(x);
             index.set(r.formula, x);
             firstFinds.push(x);
         }
         x.count++;
+        if (r.ion > 0) {
+            x.ionP = Math.max(x.ionP || 0, r.ion);
+        } else if (r.ion < 0) {
+            x.ionN = Math.max(x.ionN || 0, -r.ion);
+        }
+        ionCredit(r.elements[0][0], r.ion);
         total++;
         earned += quarksFor(r.score, mult);
         if (n - i <= HISTORY_MAX) {
-            hist.push({ n: total, f: r.formula, l: r.log, s: r.score });
+            hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
     }
     renderQStorm();
@@ -8476,7 +8600,7 @@ async function awayProcess() {
     const w = openDialog('<h2>While you were away</h2>' +
         '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
         '<p class="away-clock">' + fmtClock(seconds) + ' / 24:00:00</p>' +
-        '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(best.formula) + '</span></dd>' +
+        '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
         '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
         (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
             (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +

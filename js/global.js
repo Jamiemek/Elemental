@@ -4,6 +4,7 @@ let globalSettings = { min_tier: 7, announce_top10: true, discord_enabled: true,
 let globalMode = 'odds';
 let globalLoading = false;
 const globalSent = new Set();
+const globalKey = (f, ion) => f + '|' + (ion || 0);
 function globalName(formula) {
     const counts = parseFormula(formula);
     const syms = Object.keys(counts);
@@ -22,8 +23,8 @@ async function globalLoad() {
     }
     globalLoading = true;
     const [a, b, s] = await Promise.all([
-        sb.from('global_top_odds').select('id, formula, odds_log, score, found_at, display_name'),
-        sb.from('global_top_score').select('id, formula, odds_log, score, found_at, display_name'),
+        sb.from('global_top_odds').select('id, formula, ion, odds_log, score, found_at, display_name'),
+        sb.from('global_top_score').select('id, formula, ion, odds_log, score, found_at, display_name'),
         sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled').maybeSingle()
     ]);
     globalLoading = false;
@@ -57,7 +58,7 @@ function globalBeats(rec) {
     if (!b.odds || !b.score) {
         return true;
     }
-    const onBoard = list => list.some(r => r.formula === rec.formula && r.display_name === cloudName);
+    const onBoard = list => list.some(r => r.formula === rec.formula && (r.ion || 0) === (rec.ion || 0) && r.display_name === cloudName);
     if (onBoard(b.odds) || onBoard(b.score)) {
         return false;
     }
@@ -70,13 +71,14 @@ function globalConsider(rec, old) {
         return;
     }
     const isGlobal = !old && getRarityTier(rec.score) >= globalSettings.min_tier;
-    if (!isGlobal && (globalSent.has(rec.formula) || !globalBeats(rec))) {
+    if (!isGlobal && (globalSent.has(globalKey(rec.formula, rec.ion)) || !globalBeats(rec))) {
         return;
     }
-    globalSent.add(rec.formula);
+    globalSent.add(globalKey(rec.formula, rec.ion));
     const st = activeBuffStats();
     globalSubmit({
         f: rec.formula,
+        ion: rec.ion || 0,
         label: rec.name || globalName(rec.formula),
         rolls: totalRolls(),
         luck: Math.round(st.luck || 0),
@@ -89,15 +91,17 @@ async function globalSubmit(p) {
         globalQueue(p);
         return;
     }
-    const { data, error } = await sb.rpc('submit_roll', {
-        p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_old: p.old
-    });
+    const args = { p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_old: p.old };
+    if (p.ion) {
+        args.p_ion = p.ion;
+    }
+    const { data, error } = await sb.rpc('submit_roll', args);
     if (error || !data) {
-        globalSent.delete(p.f);
+        globalSent.delete(globalKey(p.f, p.ion));
         globalQueue(p);
         return;
     }
-    globalSetPending(globalPending().filter(x => !(x.f === p.f && x.old === p.old)));
+    globalSetPending(globalPending().filter(x => !(x.f === p.f && (x.ion || 0) === (p.ion || 0) && x.old === p.old)));
     if (data.ok && data.added) {
         const parts = [];
         if (data.rank_odds <= 10) {
@@ -106,13 +110,13 @@ async function globalSubmit(p) {
         if (data.rank_score <= 10) {
             parts.push('#' + data.rank_score + ' by score');
         }
-        showAchievementToast({ kicker: 'Global top 10', name: p.f + ' · ' + globalName(p.f), flavor: 'You are now ' + parts.join(' and ') + ' in the world.' });
+        showAchievementToast({ kicker: 'Global top 10', name: withIon(p.f, p.ion) + ' · ' + globalName(p.f), flavor: 'You are now ' + parts.join(' and ') + ' in the world.' });
         globalLoad();
     }
 }
 function globalQueue(p) {
     const list = globalPending();
-    if (!list.some(x => x.f === p.f && x.old === p.old)) {
+    if (!list.some(x => x.f === p.f && (x.ion || 0) === (p.ion || 0) && x.old === p.old)) {
         list.push(p);
         globalSetPending(list);
     }
@@ -145,7 +149,7 @@ function globalRow(r, rank) {
     const mine = cloudName && r.display_name === cloudName;
     el.className = 'rank-row' + (mine ? ' mine' : '');
     const when = new Date(r.found_at).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
-    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(r.formula) + '</div>' +
+    el.innerHTML = '<div class="rank-num">' + rank + '</div><div class="rank-main"><div class="rank-formula">' + esc(withIon(r.formula, r.ion)) + '</div>' +
         '<div class="rank-name">' + esc(globalName(r.formula)) + '</div></div><div class="rank-odds"><b>' +
         (globalMode === 'score' ? 'Score ' + fmtScore(r.score) : rarityText(-r.odds_log)) + '</b><span title="Found ' + esc(when) + '">' +
         esc(r.display_name || 'Unknown') + (mine ? ' (you)' : '') + '</span></div>';
@@ -240,7 +244,7 @@ function bannerNext() {
     const a = bannerQueue.shift();
     const fx = RARITY_FX[Math.min(9, a.tier)];
     el.style.setProperty('--bc', fx ? fx.c : 'var(--hazard)');
-    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc(a.label || globalName(a.formula)) + '</b><span>' +
+    el.innerHTML = '<b>' + esc(a.display_name) + '</b> has found <b>' + esc((a.label || globalName(a.formula)) + ionText(a.ion || 0)) + '</b><span>' +
         (displayMode === 'score' ? 'Score ' + fmtScore(a.score) : rarityText(-a.odds_log)) + '</span>';
     el.classList.add('show');
     setTimeout(() => {
