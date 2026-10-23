@@ -247,3 +247,95 @@ CUTSCENES.Mu = {
         drawCard(ctx, scene, time, 6500, '#d8d2c4', '#8f8a7e');
     }
 };
+// Ln: a torch searches the lab and it's in the last drawer
+CUTSCENES.Ln = {
+    z: 0, dur: 9000,
+    snd(audio, start) {
+        [0.6, 1.4, 2.1].forEach(x => playNoise(audio, start + x, 0.12, 0.02, 600, 300, 'lowpass', 1, 0.1));
+        [2.9, 3.6, 4.3, 5].forEach(x => playNoise(audio, start + x, 0.22, 0.035, 900, 400, 'bandpass', 2, 0.15));
+        playNoise(audio, start + 5.8, 0.3, 0.04, 900, 400, 'bandpass', 2, 0.15);
+        sparkle(audio, start + 6.1, 12, 1.4, 0.022);
+        padChord(audio, start + 6.2, [293.7, 370, 440], 2.6, 0.016, 'triangle', 2600);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const found = 6100;
+        const lit = smoothstep(found, found + 700, time);
+        ctx.fillStyle = '#2a2420';
+        ctx.fillRect(0, 0, W, H);
+        // shelf and bottles
+        ctx.fillStyle = '#4a3b30';
+        ctx.fillRect(W * 0.08, H * 0.3, W * 0.36, 1.2 * u);
+        ['#5aa', '#a75', '#7a5', '#99c'].forEach((c, i) => {
+            ctx.fillStyle = c;
+            ctx.fillRect(W * 0.1 + i * 7 * u, H * 0.3 - 7 * u, 4 * u, 7 * u);
+        });
+        // bench and drawers
+        const top = H * 0.6;
+        ctx.fillStyle = '#5a4637';
+        ctx.fillRect(W * 0.05, top, W * 0.9, 2 * u);
+        const dw = W * 0.15;
+        const opens = [2900, 3600, 4300, 5000, 5800];
+        for (let i = 0; i < 5; i++) {
+            const x = W * 0.12 + i * (dw + W * 0.0125);
+            const o = smoothstep(opens[i], opens[i] + 300, time) * (i < 4 ? 1 - smoothstep(opens[i] + 600, opens[i] + 900, time) : 1);
+            ctx.fillStyle = '#3d3029';
+            ctx.fillRect(x, top + 4 * u, dw, 12 * u);
+            ctx.fillStyle = '#6b5544';
+            ctx.fillRect(x + 0.4 * u, top + 4.4 * u + o * 6 * u, dw - 0.8 * u, 11 * u);
+            ctx.fillStyle = '#c9a66b';
+            ctx.fillRect(x + dw / 2 - 2 * u, top + 9 * u + o * 6 * u, 4 * u, 0.8 * u);
+            if (o > 0.5 && i < 4) {
+                drawText(ctx, 'empty', x + dw / 2, top + 22 * u, 2 * u, '#cdbba3', (o - 0.5) * 2, 500);
+            }
+            if (i === 4 && o > 0) {
+                drawGlow(ctx, x + dw / 2, top + 6 * u, 18 * u, '#7cf2c7', o * (0.7 + 0.2 * Math.sin(time / 150)));
+            }
+        }
+        // the torch beam goes everywhere first
+        const path = [[0, W * 0.2, H * 0.2], [900, W * 0.25, H * 0.24], [1600, W * 0.7, H * 0.4], [2300, W * 0.5, H * 0.85],
+            [2900, W * 0.12 + dw / 2, top + 10 * u], [3600, W * 0.12 + 1.08 * dw + dw / 2, top + 10 * u], [4300, W * 0.12 + 2.17 * dw + dw / 2, top + 10 * u],
+            [5000, W * 0.12 + 3.25 * dw + dw / 2, top + 10 * u], [5800, W * 0.12 + 4.33 * dw + dw / 2, top + 10 * u]];
+        let bx = path[0][1];
+        let by = path[0][2];
+        for (let i = 1; i < path.length; i++) {
+            const k = smoothstep(path[i - 1][0], path[i][0], time);
+            if (k > 0) {
+                bx = path[i - 1][1] + (path[i][1] - path[i - 1][1]) * k;
+                by = path[i - 1][2] + (path[i][2] - path[i - 1][2]) * k;
+            }
+        }
+        const dark = ctx.createRadialGradient(bx, by, 0, bx, by, 20 * u);
+        dark.addColorStop(0, 'rgba(0,0,0,0)');
+        dark.addColorStop(0.75, 'rgba(0,0,0,' + 0.55 * (1 - lit) + ')');
+        dark.addColorStop(1, 'rgba(0,0,0,' + 0.93 * (1 - lit) + ')');
+        ctx.fillStyle = dark;
+        ctx.fillRect(0, 0, W, H);
+        const out = 1 - smoothstep(6800, 7300, time);
+        [[1200, W * 0.25, H * 0.12], [2000, W * 0.7, H * 0.28], [2600, W * 0.5, H * 0.72]].forEach(([t, x, y]) => {
+            drawText(ctx, '?', x, y, 5 * u, '#ffe08a', smoothstep(t - 300, t, time) * (1 - smoothstep(t + 500, t + 900, time)), 800);
+        });
+        drawText(ctx, 'FOUND IT', W / 2, H * 0.18, 5 * u * easeOutCubic((time - found) / 400), '#7cf2c7', lit * out, 800, 0.5 * u);
+        if (time > 6900) {
+            ctx.fillStyle = 'rgba(8,14,12,' + smoothstep(6900, 7500, time) * 0.95 + ')';
+            ctx.fillRect(0, 0, W, H);
+        }
+        // and up it comes
+        if (time > found) {
+            const k = easeOutCubic((time - found - 200) / 1100);
+            const ox = path[8][1] + (W / 2 - path[8][1]) * k;
+            const oy = top + 6 * u + (H / 2 - top - 6 * u) * k;
+            const fa = 1 - smoothstep(7300, 7900, time);
+            drawGlow(ctx, ox, oy, 16 * u, '#7cf2c7', 0.9 * fa);
+            ctx.globalAlpha = fa;
+            ctx.fillStyle = '#d9fff1';
+            ctx.beginPath();
+            ctx.arc(ox, oy, 2.2 * u, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+        drawCard(ctx, scene, time, 7300, '#7cf2c7', '#2bb58a');
+    }
+};
