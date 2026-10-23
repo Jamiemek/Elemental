@@ -288,7 +288,7 @@ function edgeDesc(e) {
     const outer = {
         quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
         refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold',
-        ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: 'Joke catalysts in the shop', cos: 'Unlocks ' + (COSMETIC_NAMES[v] || 'a cosmetic')
+        ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: 'Joke catalysts in the shop', cos: 'Unlocks ' + COSMETIC_NAMES[v]
     };
     return outer[e.kind] || (e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot');
 }

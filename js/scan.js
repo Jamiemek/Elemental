@@ -119,19 +119,19 @@ function evLayer(g, ev, t, W, H, f) {
         const n = 5;
         const gap = 6.2832 / n;
         const sp = t / 520;
-        const bunch = (a, col) => {
+        const bunch = (a, col, dir) => {
             for (let s = 0; s < 5; s++) {
-                const b = a - Math.sign(col.d) * s * 0.035;
+                const b = a - dir * s * 0.035;
                 g.globalAlpha = f * (1 - s / 5);
-                g.fillStyle = col.c;
+                g.fillStyle = col;
                 g.beginPath();
                 g.arc(cx + Math.cos(b) * rx, cy + Math.sin(b) * ry, 3.2 - s * 0.45, 0, 6.2832);
                 g.fill();
             }
         };
         for (let k = 0; k < n; k++) {
-            bunch(sp + k * gap, { c: '#5fd4ff', d: 1 });
-            bunch(-sp + k * gap + gap / 2, { c: '#ff6fae', d: -1 });
+            bunch(sp + k * gap, '#5fd4ff', 1);
+            bunch(-sp + k * gap + gap / 2, '#ff6fae', -1);
         }
         // collisions
         for (let k = 0; k < n; k++) {

@@ -1,13 +1,10 @@
-// retro spawn effects
+// retro + astral spawn effects
 
 // canvas over the page. o.px draws at low res for retro
 function fxScene(k, dur, draw, o) {
     o = o || {};
     const cv = document.createElement('canvas');
     cv.className = 'fx fx-canvas';
-    if (o.blend) {
-        cv.style.mixBlendMode = o.blend;
-    }
     k.ov.appendChild(cv);
     const W = innerWidth;
     const H = innerHeight;
@@ -15,6 +12,7 @@ function fxScene(k, dur, draw, o) {
     let g;
     let out;
     let buf;
+    let lines;
     if (px) {
         buf = document.createElement('canvas');
         buf.width = Math.ceil(W / px);
@@ -24,6 +22,16 @@ function fxScene(k, dur, draw, o) {
         cv.height = H;
         out = cv.getContext('2d');
         out.imageSmoothingEnabled = false;
+        if (o.scan) {
+            // scanlines
+            const s = document.createElement('canvas');
+            s.width = 1;
+            s.height = px;
+            const x = s.getContext('2d');
+            x.fillStyle = 'rgba(0,0,0,.28)';
+            x.fillRect(0, px - 1, 1, 1);
+            lines = out.createPattern(s, 'repeat');
+        }
     } else {
         const dpr = Math.min(1.5, devicePixelRatio || 1);
         cv.width = W * dpr;
@@ -42,9 +50,8 @@ function fxScene(k, dur, draw, o) {
             draw(g, t, buf.width, buf.height);
             out.clearRect(0, 0, W, H);
             out.drawImage(buf, 0, 0, buf.width * px, buf.height * px);
-            if (o.scan) {
-                // scanlines
-                out.fillStyle = scanPattern(out, px);
+            if (lines) {
+                out.fillStyle = lines;
                 out.fillRect(0, 0, W, H);
             }
         } else {
@@ -57,19 +64,6 @@ function fxScene(k, dur, draw, o) {
             cv.remove();
         }
     })(t0);
-}
-function scanPattern(g, px) {
-    if (scanPattern.c && scanPattern.c.px === px) {
-        return scanPattern.c.p;
-    }
-    const s = document.createElement('canvas');
-    s.width = 1;
-    s.height = px;
-    const x = s.getContext('2d');
-    x.fillStyle = 'rgba(0,0,0,.28)';
-    x.fillRect(0, px - 1, 1, 1);
-    scanPattern.c = { px, p: g.createPattern(s, 'repeat') };
-    return scanPattern.c.p;
 }
 // 0..1 between a and b
 const fxK = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
@@ -773,4 +767,641 @@ function retroFx(tier, k) {
         bits.draw(g, dt);
     }, { px: PX, scan });
 }
-const FX_SKINS = { retro: retroFx };
+
+// astral
+const ASTRAL_GOLD = '#ffd98a';
+// random constellation around x, y
+function astralFigure(x, y, R, n, seed) {
+    seed = seed || (Math.random() * 1e9 | 0) + 1;
+    const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const pts = [];
+    let a = r() * 6.28;
+    let px = x + Math.cos(a) * R * 0.6;
+    let py = y + Math.sin(a) * R * 0.6;
+    for (let i = 0; i < n; i++) {
+        pts.push({ x: px, y: py, s: 0.6 + r() * 0.9 });
+        a += (r() - 0.5) * 2.2;
+        const d = R * (0.35 + r() * 0.35);
+        px = Math.max(x - R, Math.min(x + R, px + Math.cos(a) * d));
+        py = Math.max(y - R, Math.min(y + R, py + Math.sin(a) * d));
+    }
+    const edges = pts.slice(1).map((_, i) => [i, i + 1]);
+    if (n > 4) {
+        edges.push([1 + (r() * (n - 3) | 0), n - 1]);
+    }
+    return { pts, edges };
+}
+// f = how far it's drawn in
+function astralDraw(g, C, f, a, col) {
+    if (f <= 0 || a <= 0) {
+        return;
+    }
+    const n = C.pts.length;
+    g.lineWidth = 1;
+    g.strokeStyle = col || ASTRAL_GOLD;
+    C.edges.forEach(([i, j], e) => {
+        const k = Math.max(0, Math.min(1, f * (C.edges.length + 1) - e));
+        if (k <= 0) {
+            return;
+        }
+        const A = C.pts[i];
+        const B = C.pts[j];
+        g.globalAlpha = a * 0.55;
+        g.beginPath();
+        g.moveTo(A.x, A.y);
+        g.lineTo(A.x + (B.x - A.x) * k, A.y + (B.y - A.y) * k);
+        g.stroke();
+    });
+    C.pts.forEach((p, i) => {
+        const k = Math.max(0, Math.min(1, f * (n + 1) - i));
+        if (k > 0) {
+            astralStar(g, p.x, p.y, 2.2 * p.s * (0.6 + 0.4 * k), '#fff', a * k, i % 3 === 0);
+        }
+    });
+    g.globalAlpha = 1;
+}
+function astralStar(g, x, y, r, col, a, spike) {
+    if (a <= 0) {
+        return;
+    }
+    const d = r * 7;
+    g.globalAlpha = Math.min(1, a);
+    g.drawImage(fxSprite(col), x - d / 2, y - d / 2, d, d);
+    if (spike) {
+        g.strokeStyle = col;
+        g.lineWidth = 0.8;
+        g.globalAlpha = Math.min(1, a) * 0.6;
+        g.beginPath();
+        g.moveTo(x - r * 5, y);
+        g.lineTo(x + r * 5, y);
+        g.moveTo(x, y - r * 5);
+        g.lineTo(x, y + r * 5);
+        g.stroke();
+    }
+    g.globalAlpha = 1;
+}
+function astralComet(g, x, y, ang, len, col, a, w) {
+    const tx = x - Math.cos(ang) * len;
+    const ty = y - Math.sin(ang) * len;
+    const gr = g.createLinearGradient(x, y, tx, ty);
+    gr.addColorStop(0, col);
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.globalAlpha = a;
+    g.strokeStyle = gr;
+    g.lineWidth = w || 2;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(tx, ty);
+    g.stroke();
+    astralStar(g, x, y, (w || 2) * 1.2, col, a);
+}
+function astralNight(g, cx, cy, W, H, a, inner) {
+    if (a <= 0) {
+        return;
+    }
+    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, Math.hypot(W, H) * 0.7);
+    const i0 = inner == null ? 1 : inner;
+    gr.addColorStop(0, 'rgba(6,10,34,' + (0.35 + 0.3 * i0) + ')');
+    gr.addColorStop(0.3, 'rgba(5,8,30,.9)');
+    gr.addColorStop(1, 'rgba(2,3,14,.97)');
+    g.globalAlpha = Math.min(1, a);
+    g.fillStyle = gr;
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 1;
+}
+function astralGlow(g, x, y, r, col, a) {
+    if (a <= 0 || r <= 0) {
+        return;
+    }
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, col);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalAlpha = Math.min(1, a);
+    g.globalCompositeOperation = 'lighter';
+    g.fillStyle = gr;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1;
+}
+function astralFx(tier, k) {
+    const { T, vd, total, cx, cy } = k;
+    const c = T.c;
+    const c2 = T.c2;
+    const hb = T.hb || [];
+    const W0 = innerWidth;
+    const H0 = innerHeight;
+    const M = Math.hypot(W0, H0);
+    // background stars
+    const field = Array.from({ length: 70 + tier * 20 }, () => ({ x: Math.random() * W0, y: Math.random() * H0, s: 0.4 + Math.random() * 1.2, tw: Math.random() * 6.28, c: Math.random() < 0.15 ? c : Math.random() < 0.2 ? ASTRAL_GOLD : '#fff' }));
+    const sky = (g, t, a) => field.forEach(s => astralStar(g, s.x, s.y, s.s, s.c, a * (0.55 + 0.45 * Math.sin(s.tw + t / 400))));
+    const halo = (g, t, at, dur, r1, col, w) => {
+        const f = fxK(t, at, at + dur);
+        if (f <= 0 || f >= 1) {
+            return;
+        }
+        g.globalAlpha = (1 - f) * 0.8;
+        g.strokeStyle = col;
+        g.lineWidth = (w || 1.5) * (1 - f * 0.6);
+        g.beginPath();
+        g.arc(cx, cy, 8 + Math.pow(f, 0.6) * r1, 0, 6.2832);
+        g.stroke();
+        g.globalAlpha = 1;
+    };
+    let draw;
+    if (tier === 1) {
+        const C = astralFigure(cx + 120, cy - 30, 70, 5);
+        draw = (g, t, W, H) => {
+            astralNight(g, cx, cy, W, H, fxEnv(t, 0, 1700, 300, 600) * 0.55);
+            astralDraw(g, C, fxK(t, 0, 900), fxEnv(t, 0, 1700, 100, 500));
+            halo(g, t, 0, 1200, 160, ASTRAL_GOLD, 1);
+        };
+        k.sweep(0, 1100, c);
+    } else if (tier === 2) {
+        // two constellations and a shooting star
+        const C1 = astralFigure(cx - 160, cy - 20, 80, 6);
+        const C2 = astralFigure(cx + 160, cy + 10, 80, 5);
+        draw = (g, t, W) => {
+            const a = fxEnv(t, 0, 2200, 100, 600);
+            astralNight(g, cx, cy, W, innerHeight, fxEnv(t, 0, 2200, 300, 700) * 0.7);
+            astralDraw(g, C1, fxK(t, 0, 1100), a);
+            astralDraw(g, C2, fxK(t, 250, 1300), a);
+            const f = fxK(t, 200, 900);
+            if (f > 0 && f < 1) {
+                astralComet(g, -40 + f * (W + 80), cy - 220 + f * 120, 0.12, 140, '#fff', 1 - f * 0.5, 2);
+            }
+            halo(g, t, 100, 1400, 220, c, 1.2);
+        };
+        k.reelGlow(0, 1500, c, 1.03);
+    } else if (tier === 3) {
+        // ring of constellations
+        const figs = Array.from({ length: 6 }, (_, i) => astralFigure(cx + Math.cos(i * 1.047) * 230, cy + Math.sin(i * 1.047) * 160, 70, 5));
+        draw = (g, t, W, H) => {
+            const a = fxEnv(t, 0, 2900, 400, 800);
+            astralNight(g, cx, cy, W, H, a * 0.85);
+            sky(g, t, a);
+            figs.forEach((C, i) => astralDraw(g, C, fxK(t, 200 + i * 140, 1100 + i * 140), a));
+            halo(g, t, 150, 1600, 260, ASTRAL_GOLD, 1.5);
+        };
+        k.dof(0, 2700, 3, 0.5);
+        k.particles([{ type: 'burst', at: 150, n: 60, cols: ['#fff', ASTRAL_GOLD, c], speed: 300, life: 1.8, size: 1.6, drag: 1.4 }]);
+    } else if (tier === 4) {
+        // orbiting planet
+        draw = (g, t, W, H) => {
+            const a = fxEnv(t, 0, 3400, 300, 800);
+            astralNight(g, cx, cy, W, H, a * 0.85);
+            sky(g, t, a);
+            const rx = Math.min(W * 0.42, 420);
+            const ry = rx * 0.32;
+            g.globalAlpha = a * 0.45;
+            g.strokeStyle = ASTRAL_GOLD;
+            g.lineWidth = 1;
+            g.beginPath();
+            g.ellipse(cx, cy, rx, ry, -0.18, 0, 6.2832);
+            g.stroke();
+            const ang = -1.2 + fxK(t, 0, 3200) * 6.28 * 1.15;
+            const px = cx + Math.cos(ang) * rx * Math.cos(-0.18) - Math.sin(ang) * ry * Math.sin(-0.18);
+            const py = cy + Math.cos(ang) * rx * Math.sin(-0.18) + Math.sin(ang) * ry * Math.cos(-0.18);
+            const pr = 12 + 4 * Math.sin(ang);
+            const front = Math.sin(ang) > 0;
+            if (front || fxK(t, 0, 3200) < 1) {
+                const gr = g.createRadialGradient(px - pr * 0.4, py - pr * 0.4, 1, px, py, pr);
+                gr.addColorStop(0, '#fff');
+                gr.addColorStop(0.3, c);
+                gr.addColorStop(1, c2);
+                g.globalAlpha = a;
+                g.fillStyle = gr;
+                g.beginPath();
+                g.arc(px, py, pr, 0, 6.2832);
+                g.fill();
+                astralGlow(g, px, py, pr * 3, c, a * 0.5);
+            }
+            halo(g, t, 0, 1500, 300, '#fff', 2);
+            halo(g, t, 200, 1800, 360, c, 1.2);
+        };
+        k.shockPage(40, 30, 1, 1.4);
+        k.particles([{ type: 'burst', at: 0, n: 110, cols: ['#fff', ASTRAL_GOLD, c, c2], speed: 520, life: 2, size: 1.8, trail: 1 }]);
+    } else if (tier === 5) {
+        // meteor shower
+        const meteors = Array.from({ length: 34 }, (_, i) => ({ at: 150 + i * 105 + Math.random() * 80, x: Math.random() * 1.3 - 0.1, y: -0.1 - Math.random() * 0.2, sp: 0.9 + Math.random() * 0.8, len: 80 + Math.random() * 160, col: i % 4 ? '#fff' : i % 8 ? ASTRAL_GOLD : c }));
+        draw = (g, t, W, H) => {
+            const a = fxEnv(t, 0, 4200, 400, 900);
+            astralNight(g, cx, cy, W, H, a * 0.9);
+            sky(g, t, a);
+            meteors.forEach(m => {
+                const f = fxK(t, m.at, m.at + 900 / m.sp);
+                if (f > 0 && f < 1) {
+                    const x = (m.x - f * 0.5) * W;
+                    const y = (m.y + f * 0.9) * H;
+                    astralComet(g, x, y, 2.07, m.len, m.col, a * Math.sin(Math.PI * f), 1.6);
+                }
+            });
+            halo(g, t, 0, 1800, 320, ASTRAL_GOLD, 2);
+        };
+        k.P(k.app, [{ transform: 'none' }, { transform: 'perspective(1100px) rotateX(8deg) scale(.95)', offset: 0.28 }, { transform: 'perspective(1100px) rotateX(6deg) scale(.955)', offset: 0.6 }, { transform: 'none' }], { duration: 4000, easing: 'cubic-bezier(.3,.1,.2,1)' });
+        if (k.app) {
+            k.app.style.transformOrigin = '50% ' + (cy - k.app.getBoundingClientRect().top) + 'px';
+        }
+        k.bars(0, 4200, 7);
+        k.particles([{ type: 'burst', at: 0, n: 120, cols: ['#fff', ASTRAL_GOLD, c], speed: 520, life: 2, size: 2, trail: 1, grav: 30 }]);
+    } else if (tier === 6) {
+        // solar flare
+        const loops = Array.from({ length: 7 }, (_, i) => ({ a: i * 0.9 + Math.random() * 0.5, h: 0.6 + Math.random() * 0.8, at: 100 + i * 220 }));
+        draw = (g, t, W, H) => {
+            const a = fxEnv(t, 0, 5000, 200, 1200);
+            astralNight(g, cx, cy, W, H, a * 0.9, 0.6);
+            sky(g, t, a * 0.7);
+            const R = Math.min(W, H) * 0.09;
+            const sun = a * (1 - fxK(t, 1600, 2600) * 0.85);
+            astralGlow(g, cx, cy, R * 6, c2, a * 0.6);
+            astralGlow(g, cx, cy, R * 3, c, sun * 0.9);
+            // corona
+            g.save();
+            g.translate(cx, cy);
+            g.rotate(t / 4000);
+            g.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < 24; i++) {
+                const L = R * (2.2 + Math.sin(i * 2.7 + t / 500) * 0.6);
+                g.globalAlpha = a * 0.25;
+                g.strokeStyle = i % 2 ? c : '#ffe6b0';
+                g.lineWidth = 2;
+                g.beginPath();
+                g.moveTo(Math.cos(i * 0.2618) * R, Math.sin(i * 0.2618) * R);
+                g.lineTo(Math.cos(i * 0.2618 + 0.05) * L, Math.sin(i * 0.2618 + 0.05) * L);
+                g.stroke();
+            }
+            g.restore();
+            loops.forEach(l => {
+                const f = fxK(t, l.at, l.at + 1600);
+                if (f <= 0 || f >= 1) {
+                    return;
+                }
+                const a0 = l.a;
+                const a1 = l.a + 0.5;
+                const x0 = cx + Math.cos(a0) * R;
+                const y0 = cy + Math.sin(a0) * R;
+                const x1 = cx + Math.cos(a1) * R;
+                const y1 = cy + Math.sin(a1) * R;
+                const am = (a0 + a1) / 2;
+                const hx = cx + Math.cos(am) * R * (1 + l.h * 2.4 * Math.sin(Math.PI * Math.min(1, f * 1.4)));
+                const hy = cy + Math.sin(am) * R * (1 + l.h * 2.4 * Math.sin(Math.PI * Math.min(1, f * 1.4)));
+                g.globalAlpha = a * (1 - f) * 0.9;
+                g.strokeStyle = '#ffb35a';
+                g.lineWidth = 3;
+                g.globalCompositeOperation = 'lighter';
+                g.beginPath();
+                g.moveTo(x0, y0);
+                g.quadraticCurveTo(hx, hy, x1, y1);
+                g.stroke();
+                g.globalCompositeOperation = 'source-over';
+            });
+            g.globalAlpha = sun;
+            const gr = g.createRadialGradient(cx, cy, 0, cx, cy, R);
+            gr.addColorStop(0, '#fff');
+            gr.addColorStop(0.6, '#ffe6b0');
+            gr.addColorStop(1, c);
+            g.fillStyle = gr;
+            g.beginPath();
+            g.arc(cx, cy, R, 0, 6.2832);
+            g.fill();
+            g.globalAlpha = 1;
+            halo(g, t, 0, 1600, 360, '#fff', 3);
+            halo(g, t, 120, 2000, 420, c, 2);
+        };
+        k.flash(0, 1100, '#fff', 0.7, 60);
+        k.shake(k.game, 0, 1200, 14, 0.5);
+        k.shockPage(30, 44, 2, 1.8);
+        k.particles([
+            { type: 'burst', at: 0, n: 180, cols: [c, c2, '#fff', '#ffe6b0'], speed: 720, life: 2.2, size: 2.2, trail: 1, grav: 60, drag: 1.8 },
+            { type: 'embers', at: 200, until: 4400, rate: 40, cols: [c, '#ffe6b0'], life: 2.4, size: 2, wide: 1 }
+        ]);
+    } else if (tier === 7) {
+        // comets
+        draw = (g, t, W, H) => {
+            const a = fxEnv(t, -600, 5800, 1, 1200);
+            astralNight(g, cx, cy, W, H, Math.max(a, 0) * 0.92, 0.5);
+            sky(g, t, a);
+            [[0, -1], [340, 1]].forEach(([ms, side], i) => {
+                const f = ms ? fxK(t, 0, ms) : 0;
+                if (f > 0 && f < 1) {
+                    const sx = side < 0 ? -60 : W + 60;
+                    const sy = i ? H * 0.15 : H * 0.85;
+                    const x = sx + (cx - sx) * Math.pow(f, 1.5);
+                    const y = sy + (cy - sy) * Math.pow(f, 1.5);
+                    astralComet(g, x, y, Math.atan2(cy - sy, cx - sx), 260, i ? c : '#bfe6ff', 1, 3);
+                }
+                halo(g, t, ms, 1300, 380, i ? c : '#fff', 3);
+                halo(g, t, ms + 120, 1700, 460, i ? c2 : '#bfe6ff', 1.5);
+            });
+            const C = draw.C || (draw.C = astralFigure(cx, cy, Math.min(W, H) * 0.4, 9));
+            astralDraw(g, C, fxK(t, 900, 2600), fxEnv(t, 900, 5600, 300, 1200));
+        };
+        k.flash(0, 900, '#fff', 0.6, 50);
+        k.flash(340, 1600, c, 0.6, 70);
+        k.shake(k.game, 0, 380, 12, 0.5);
+        k.shake(k.game, 340, 1400, 20, 0.8);
+        k.shockPage(360, 52, 2.5, 2);
+        k.particles([
+            { type: 'burst', at: 0, n: 90, cols: ['#fff', '#bfe6ff'], speed: 520, life: 1.6, size: 2, trail: 1 },
+            { type: 'burst', at: 340, n: 200, cols: [c, c2, '#fff', ASTRAL_GOLD], speed: 820, life: 2.4, size: 2.3, trail: 1, drag: 1.6 },
+            { type: 'stars', at: 600, n: 80, cols: ['#fff', ASTRAL_GOLD], life: 4.6, size: 1.4, pull: -20, rot: 0.05 }
+        ]);
+    } else if (tier === 8) {
+        // eclipse, one step per beat
+        draw = (g, t, W, H) => {
+            const a = Math.min(1, fxK(t, 0, 600)) * (t > vd ? fxEnv(t, vd, vd + 5800, 1, 1500) : 1);
+            astralNight(g, cx, cy, W, H, a * 0.95, 0.4);
+            sky(g, t, a * fxK(t, vd - 1200, vd + 200));
+            const R = Math.min(W, H) * 0.1;
+            let n = 0;
+            hb.forEach(ms => {
+                if (t >= ms) {
+                    n++;
+                }
+            });
+            const cover = t < vd ? n / (hb.length + 1) : 1;
+            const off = (1 - cover) * R * 2.1;
+            astralGlow(g, cx, cy, R * (t > vd ? 5 : 2.2), t > vd ? '#cfe0ff' : '#ffe6b0', a * (t > vd ? 0.8 * (1 - fxK(t, vd + 1200, vd + 2400) * 0.75) : 0.9));
+            if (t > vd) {
+                // corona
+                g.save();
+                g.translate(cx, cy);
+                g.globalCompositeOperation = 'lighter';
+                for (let i = 0; i < 40; i++) {
+                    const L = R * (1.8 + ((i * 37) % 11) / 8);
+                    g.globalAlpha = a * 0.22;
+                    g.strokeStyle = '#e8f0ff';
+                    g.lineWidth = 1.5;
+                    g.beginPath();
+                    g.moveTo(Math.cos(i * 0.157) * R, Math.sin(i * 0.157) * R);
+                    g.lineTo(Math.cos(i * 0.157) * L, Math.sin(i * 0.157) * L);
+                    g.stroke();
+                }
+                g.restore();
+            }
+            // fade them out so the result shows
+            g.globalAlpha = a * (1 - fxK(t, vd + 1200, vd + 2200));
+            g.fillStyle = '#fff4d6';
+            g.beginPath();
+            g.arc(cx, cy, R, 0, 6.2832);
+            g.fill();
+            g.fillStyle = '#05060f';
+            g.beginPath();
+            g.arc(cx + off, cy - off * 0.25, R * 1.02, 0, 6.2832);
+            g.fill();
+            g.globalAlpha = 1;
+            // diamond ring
+            const dr = fxEnv(t, vd - 120, vd + 700, 80, 500);
+            if (dr > 0) {
+                astralStar(g, cx - R * 0.72, cy - R * 0.7, 6, '#fff', dr, true);
+                astralGlow(g, cx - R * 0.72, cy - R * 0.7, R * 2.5, '#ffffff', dr * 0.8);
+            }
+            hb.forEach(ms => halo(g, t, ms, 600, R * 2, '#ffe6b0', 1));
+            halo(g, t, vd, 1600, 380, '#fff', 3);
+            halo(g, t, vd + 200, 2000, 440, c, 1.5);
+        };
+        k.dof(0, vd + 400, 3, 0.4);
+        k.particles([
+            { type: 'burst', at: vd, n: 160, cols: ['#fff', '#cfe0ff', c], speed: 640, life: 2.4, size: 2, trail: 1 },
+            { type: 'stars', at: vd + 300, n: 90, cols: ['#fff', ASTRAL_GOLD], life: 5, size: 1.4, pull: -24, rot: 0.06 }
+        ], total);
+    } else if (tier === 9) {
+        // star trails + zodiac wheel, then dawn
+        const trails = Array.from({ length: 160 }, () => ({ r: 30 + Math.random() * M * 0.6, a: Math.random() * 6.28, s: 0.5 + Math.random(), c: Math.random() < 0.2 ? ASTRAL_GOLD : Math.random() < 0.2 ? c2 : '#fff' }));
+        const zod = Array.from({ length: 12 }, (_, i) => astralFigure(0, 0, 26, 4, 1000 + i * 77));
+        draw = (g, t, W, H) => {
+            const a = Math.min(1, fxK(t, 0, 700)) * (t > vd ? fxEnv(t, vd, vd + 7600, 1, 1800) : 1);
+            astralNight(g, cx, cy, W, H, a * 0.95, 0.4);
+            const span = Math.min(1.6, fxK(t, 200, vd) * 1.6) * (t > vd ? 1 - fxK(t, vd, vd + 1600) : 1);
+            g.lineCap = 'round';
+            trails.forEach(s => {
+                const a0 = s.a + t / 3000;
+                g.globalAlpha = a * 0.5;
+                g.strokeStyle = s.c;
+                g.lineWidth = s.s;
+                g.beginPath();
+                g.arc(cx, cy, s.r, a0, a0 + Math.max(0.01, span * s.s * 0.6));
+                g.stroke();
+            });
+            g.globalAlpha = 1;
+            const zr = Math.min(W, H) * 0.32;
+            const za = fxEnv(t, 300, vd + 6000, 800, 1500) * a;
+            if (za > 0) {
+                const rot = -0.8 + fxK(t, 300, vd) * 0.8;
+                g.globalAlpha = za * 0.5;
+                g.strokeStyle = ASTRAL_GOLD;
+                g.lineWidth = 1;
+                [zr * 0.78, zr * 1.22].forEach(r => {
+                    g.beginPath();
+                    g.arc(cx, cy, r, 0, 6.2832);
+                    g.stroke();
+                });
+                for (let i = 0; i < 12; i++) {
+                    const an = rot + i * 0.5236;
+                    g.globalAlpha = za * 0.5;
+                    g.beginPath();
+                    g.moveTo(cx + Math.cos(an) * zr * 0.78, cy + Math.sin(an) * zr * 0.78);
+                    g.lineTo(cx + Math.cos(an) * zr * 1.22, cy + Math.sin(an) * zr * 1.22);
+                    g.stroke();
+                    const zc = zod[i];
+                    const mx = cx + Math.cos(an + 0.26) * zr;
+                    const my = cy + Math.sin(an + 0.26) * zr;
+                    const moved = { pts: zc.pts.map(p => ({ x: mx + p.x, y: my + p.y, s: p.s * 0.7 })), edges: zc.edges };
+                    let lit = 0;
+                    hb.forEach(ms => {
+                        if (t >= ms) {
+                            lit++;
+                        }
+                    });
+                    const on = t > vd || i < lit * 12 / hb.length;
+                    astralDraw(g, moved, on ? 1 : 0.25, za * (on ? 1 : 0.5));
+                }
+            }
+            // dawn
+            const dawn = fxEnv(t, vd - 100, vd + 3000, 150, 2400);
+            if (dawn > 0) {
+                const gr = g.createLinearGradient(0, H, 0, 0);
+                gr.addColorStop(0, 'rgba(255,190,120,' + fxFlash(dawn) * 0.8 + ')');
+                gr.addColorStop(0.5, 'rgba(255,140,170,' + fxFlash(dawn) * 0.35 + ')');
+                gr.addColorStop(1, 'rgba(255,140,170,0)');
+                g.fillStyle = gr;
+                g.fillRect(0, 0, W, H);
+            }
+            hb.forEach(ms => halo(g, t, ms, 700, 120, ASTRAL_GOLD, 1));
+            halo(g, t, vd, 1800, 420, '#fff', 3);
+        };
+        k.dof(0, vd, 3, 0.35);
+        k.flash(vd - 60, 1600, '#fff', 0.8, 90);
+        k.shockPage(vd + 40, 60, 2, 2);
+        k.particles([
+            { type: 'galaxy', at: vd, n: 220, cols: ['#fff', ASTRAL_GOLD, c, c2], speed: 1000, life: 3, size: 2.2, trail: 1, drag: 1.2, spin: 0.8 },
+            { type: 'embers', at: vd + 500, until: vd + 7000, rate: 24, cols: ['#fff', ASTRAL_GOLD], life: 3, size: 1.6, wide: 1 }
+        ], total);
+    } else if (tier === 10) {
+        // nebula, then a pulsar
+        const clouds = Array.from({ length: 9 }, (_, i) => ({ x: (Math.random() - 0.5) * 0.7, y: (Math.random() - 0.5) * 0.5, r: 0.18 + Math.random() * 0.2, c: [c, c2, '#ff7ad9', '#5a7bff'][i % 4], d: Math.random() * 6.28 }));
+        draw = (g, t, W, H) => {
+            const a = Math.min(1, fxK(t, 0, 800)) * (t > vd ? fxEnv(t, vd, vd + 8000, 1, 2000) : 1);
+            astralNight(g, cx, cy, W, H, a * 0.95, 0.3);
+            sky(g, t, a);
+            clouds.forEach(cl => {
+                const grow = 0.4 + fxK(t, 0, vd) * 0.6 + (t > vd ? fxK(t, vd, vd + 3000) * 0.5 : 0);
+                const x = cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20;
+                const y = cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14;
+                astralGlow(g, x, y, cl.r * Math.min(W, H) * grow * 1.6, cl.c, a * 0.32 * (1 - fxK(t, vd + 800, vd + 2600) * 0.6));
+            });
+            let pulse = 0;
+            hb.forEach(ms => {
+                pulse = Math.max(pulse, fxEnv(t, ms, ms + 400, 40, 340));
+            });
+            if (t < vd) {
+                astralGlow(g, cx, cy, 30 + pulse * 40 + fxK(t, 0, vd) * 30, '#fff', a * (0.4 + pulse * 0.6));
+                hb.forEach(ms => halo(g, t, ms, 800, 140, c, 1));
+            } else {
+                const ang = (t - vd) / 900;
+                const bl = fxEnv(t, vd, vd + 7000, 200, 1600) * a;
+                g.save();
+                g.translate(cx, cy);
+                g.globalCompositeOperation = 'lighter';
+                [0, Math.PI].forEach(o => {
+                    g.rotate(o);
+                    const gr = g.createLinearGradient(0, 0, M * 0.6, 0);
+                    gr.addColorStop(0, 'rgba(255,255,255,' + 0.5 * bl + ')');
+                    gr.addColorStop(1, 'rgba(255,255,255,0)');
+                    g.fillStyle = gr;
+                    g.save();
+                    g.rotate(ang);
+                    g.beginPath();
+                    g.moveTo(0, 0);
+                    g.lineTo(M * 0.6, -24);
+                    g.lineTo(M * 0.6, 24);
+                    g.fill();
+                    g.restore();
+                });
+                g.restore();
+                const core = bl * (1 - fxK(t, vd + 1200, vd + 2400) * 0.7);
+                astralGlow(g, cx, cy, 90, '#fff', core);
+                astralStar(g, cx, cy, 6, '#fff', core, true);
+            }
+            [0, 150, 300].forEach((ms, i) => halo(g, t, vd + ms, 2000 + i * 300, 460 + i * 60, [ '#fff', c, c2][i], 3 - i));
+        };
+        k.rumble(k.game, 0, vd, 5);
+        k.flash(vd - 60, 1800, '#fff', 0.9, 90);
+        k.shake(k.game, vd, 1800, 20, 1);
+        k.shockPage(vd + 40, 110, 5, 2.8);
+        k.particles([
+            { type: 'spiral', at: 400, until: vd, rate: 70, ramp: 1, cols: ['#fff', c, c2], life: 1.3, size: 1.8, dir: -1 },
+            { type: 'galaxy', at: vd, n: 260, cols: [c, c2, '#fff', '#ff7ad9'], speed: 1200, life: 3.2, size: 2.4, trail: 1, drag: 1.2, spin: 0.6 },
+            { type: 'embers', at: vd + 700, until: vd + 7000, rate: 26, cols: [c, c2, '#fff'], life: 2.8, size: 1.8, wide: 1 }
+        ], total);
+    } else if (tier === 11) {
+        // galaxy, jets on the hit
+        const stars = Array.from({ length: 700 }, (_, i) => {
+            const arm = i % 3;
+            const d = Math.pow(Math.random(), 0.7);
+            return { arm, d, j: (Math.random() - 0.5) * 0.5, c: d < 0.2 ? '#fff4d6' : Math.random() < 0.3 ? c2 : Math.random() < 0.4 ? c : '#cfe0ff' };
+        });
+        draw = (g, t, W, H) => {
+            const a = Math.min(1, fxK(t, 0, 900)) * (t > vd ? fxEnv(t, vd, vd + 8600, 1, 2000) : 1);
+            astralNight(g, cx, cy, W, H, a * 0.96, 0.3);
+            sky(g, t, a * 0.6);
+            const R = Math.min(W, H) * 0.55 * (0.35 + 0.65 * fxK(t, 0, vd));
+            const spin = t / 1800 + fxK(t, 0, vd) * 2;
+            g.globalCompositeOperation = 'lighter';
+            stars.forEach(s => {
+                const ang = s.arm * 2.094 + s.d * 4.2 + s.j - spin * (1.2 - s.d * 0.6);
+                const r = s.d * R;
+                const x = cx + Math.cos(ang) * r;
+                const y = cy + Math.sin(ang) * r * 0.55;
+                g.globalAlpha = a * (0.35 + (1 - s.d) * 0.5);
+                g.fillStyle = s.c;
+                g.fillRect(x, y, 1.6, 1.6);
+            });
+            g.globalCompositeOperation = 'source-over';
+            let pulse = 0;
+            hb.forEach(ms => {
+                pulse = Math.max(pulse, fxEnv(t, ms, ms + 400, 40, 340));
+            });
+            astralGlow(g, cx, cy, 40 + pulse * 30 + (t > vd ? 120 * fxEnv(t, vd, vd + 2500, 60, 2000) : 0), '#fff4d6', a * (0.6 + pulse * 0.4));
+            if (t > vd) {
+                const j = fxEnv(t, vd, vd + 5500, 150, 1800) * a;
+                [-1, 1].forEach(d => {
+                    const gr = g.createLinearGradient(cx, cy, cx, cy + d * H * 0.7);
+                    gr.addColorStop(0, 'rgba(255,255,255,' + 0.7 * j + ')');
+                    gr.addColorStop(0.4, c + '88');
+                    gr.addColorStop(1, 'rgba(0,0,0,0)');
+                    g.fillStyle = gr;
+                    g.globalCompositeOperation = 'lighter';
+                    g.beginPath();
+                    g.moveTo(cx - 6, cy);
+                    g.lineTo(cx - 30, cy + d * H * 0.7);
+                    g.lineTo(cx + 30, cy + d * H * 0.7);
+                    g.lineTo(cx + 6, cy);
+                    g.fill();
+                    g.globalCompositeOperation = 'source-over';
+                });
+            }
+            hb.forEach(ms => halo(g, t, ms, 700, 90, c, 1));
+            [0, 160, 320].forEach((ms, i) => halo(g, t, vd + ms, 2200 + i * 300, 480 + i * 60, ['#fff', c, c2][i], 3 - i));
+        };
+        k.dof(0, vd, 4, 0.3);
+        k.flash(vd - 40, 2000, '#fff', 0.9, 90);
+        k.shake(k.game, vd, 1900, 22, 1);
+        k.shockPage(vd + 40, 110, 5, 2.8);
+        k.particles([
+            { type: 'galaxy', at: vd, n: 300, cols: [c, c2, '#fff', '#cfe0ff'], speed: 1250, life: 3.4, size: 2.4, trail: 1, drag: 1.2, spin: -1.6 },
+            { type: 'embers', at: vd + 800, until: vd + 7400, rate: 26, cols: [c, c2, '#fff'], life: 2.8, size: 1.8, wide: 1 }
+        ], total);
+    } else {
+        // cosmic dawn
+        const figs = Array.from({ length: Math.max(7, hb.length) }, (_, i) => {
+            const an = i / Math.max(7, hb.length) * 6.28 + 0.3;
+            const r = Math.min(W0, H0) * (0.3 + (i % 2) * 0.12);
+            return astralFigure(cx + Math.cos(an) * r * 1.4, cy + Math.sin(an) * r, 90, 6);
+        });
+        draw = (g, t, W, H) => {
+            const a = Math.min(1, fxK(t, 0, 1400)) * (t > vd ? fxEnv(t, vd, vd + 10000, 1, 2400) : 1);
+            astralNight(g, cx, cy, W, H, a, t < vd ? 1 : 0.3);
+            if (t < vd) {
+                sky(g, t, a * fxK(t, 600, 2000));
+                // one per beat, then they all fall in
+                const fall = fxK(t, vd - 1000, vd);
+                figs.forEach((C, i) => {
+                    const ms = hb[i] != null ? hb[i] : 1500 + i * 400;
+                    const moved = fall > 0 ? { pts: C.pts.map(p => ({ x: p.x + (cx - p.x) * fall * fall, y: p.y + (cy - p.y) * fall * fall, s: p.s })), edges: C.edges } : C;
+                    astralDraw(g, moved, fxK(t, ms, ms + 700), a * (1 - fall * 0.6));
+                });
+                astralGlow(g, cx, cy, 20 + fxK(t, vd - 1000, vd) * 80, '#fff', fxK(t, vd - 1000, vd));
+            } else {
+                sky(g, t, a);
+                const h = fxEnv(t, vd + 300, vd + 9800, 800, 2400) * a;
+                g.globalAlpha = h * 0.7;
+                g.strokeStyle = ASTRAL_GOLD;
+                g.lineWidth = 2;
+                g.beginPath();
+                g.arc(cx, cy, Math.min(W, H) * 0.28, 0, 6.2832);
+                g.stroke();
+                g.globalAlpha = 1;
+                for (let i = 0; i < 24; i++) {
+                    const an = i * 0.2618 + (t - vd) / 4000;
+                    astralStar(g, cx + Math.cos(an) * Math.min(W, H) * 0.28, cy + Math.sin(an) * Math.min(W, H) * 0.28, 1.6, i % 3 ? '#fff' : ASTRAL_GOLD, h, i % 6 === 0);
+                }
+                figs.forEach((C, i) => astralDraw(g, C, 1, h * 0.7));
+            }
+            [0, 180, 360, 540].forEach((ms, i) => halo(g, t, vd + ms, 2400 + i * 300, 520 + i * 60, ['#fff', ASTRAL_GOLD, c2, c][i], 3.5 - i * 0.6));
+        };
+        k.flash(vd - 60, 2600, '#fff', 1, 100);
+        k.rays(vd + 300, 8200, 0.45, 120, ['#fff', ASTRAL_GOLD, c2, c], 40);
+        k.aurora(vd + 600, 8400, [c, c2, '#7a5cff', '#3ff0ff'], 0.5);
+        k.shake(k.game, vd + 100, 2200, 24, 1.2);
+        k.trace(vd + 2400, 5600, ASTRAL_GOLD, 5, 4);
+        k.reelGlow(vd + 2400, 6000, ASTRAL_GOLD, 1.1);
+        k.particles([
+            { type: 'galaxy', at: vd + 100, n: 320, cols: ['#fff', ASTRAL_GOLD, c, c2], speed: 1500, life: 3.8, size: 2.5, trail: 1, drag: 1.1, spin: 1.2 },
+            { type: 'stars', at: vd + 1400, n: 160, cols: ['#ffffff', '#fff2c4'], life: 6, size: 1.5, pull: -40, rot: 0.06 },
+            { type: 'embers', at: vd + 1200, until: vd + 9200, rate: 30, cols: ['#fff', ASTRAL_GOLD, c], life: 3, size: 1.8, wide: 1 }
+        ], total);
+    }
+    fxScene(k, total, draw);
+}
+const FX_SKINS = { retro: retroFx, astral: astralFx };

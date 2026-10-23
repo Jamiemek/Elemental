@@ -201,14 +201,16 @@
         buffCache = weightCache = null;
         applyCosmetics();
     });
-    add('Spawn effects: normal / Retro', () => {
-        if (!cosState.owned.includes('retro')) {
-            cosState.owned.push('retro');
-        }
+    add('Spawn effects: normal / Retro / Astral', () => {
+        ['retro', 'astral'].forEach(id => {
+            if (!cosState.owned.includes(id)) {
+                cosState.owned.push(id);
+            }
+        });
         net().nodes.forEach(n => netState[n.id] = 1);
         saveNet();
         netVer++;
-        cosState.effects = cosState.effects === 'retro' ? '' : 'retro';
+        cosState.effects = { '': 'retro', retro: 'astral', astral: '' }[cosState.effects || ''];
         cosSave();
         applyCosmetics();
     });

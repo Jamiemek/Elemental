@@ -553,7 +553,7 @@ function playRarityFx(tier, dark) {
     // retro/astral skins (secrets stay normal)
     const skin = !dark && effectSkin();
     if (skin && FX_SKINS[skin]) {
-        FX_SKINS[skin](tier, { T, vd, total, cx, cy, tok, ov, E, A, P, app, game, parts, reels, shake, rumble, shockPage, dof, veil, bars, edge, reelGlow, flash, sweep, trace, ring, bloom });
+        FX_SKINS[skin](tier, { T, vd, total, cx, cy, tok, ov, E, A, P, app, game, parts, reels, shake, rumble, shockPage, dof, veil, bars, edge, reelGlow, flash, sweep, trace, ring, bloom, rays, aurora, particles });
         done();
         return;
     }

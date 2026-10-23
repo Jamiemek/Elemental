@@ -7,7 +7,7 @@ const COSMETICS = [
     { id: 'notebook', kind: 'page', name: 'Lab notebook', desc: 'Ruled paper, a margin line and ink.', price: 90000 },
     { id: 'gameover', kind: 'page', name: 'Game Over', desc: 'Black, red and a CRT glow.', free: 'Gg' },
     { id: 'retro', kind: 'effects', name: 'Retro spawn effects', desc: 'All 12 rarity effects redone in 8-bit: pixels, coins, fireworks and a CRT.', price: 120000 },
-    { id: 'astral', kind: 'effects', name: 'Astral spawn effects', soon: true }
+    { id: 'astral', kind: 'effects', name: 'Astral spawn effects', desc: 'All 12 rarity effects redone among the stars: constellations, comets, eclipses and galaxies.', price: 200000 }
 ];
 const COS = Object.fromEntries(COSMETICS.map(c => [c.id, c]));
 const COS_KINDS = { scanner: 'Scanner', page: 'Page', effects: 'Spawn effects' };
@@ -27,7 +27,7 @@ const effectSkin = () => cosState.effects && cosOwned(cosState.effects) ? cosSta
 const scannerSkin = () => cosState.scanner && cosOwned(cosState.scanner) ? cosState.scanner : '';
 function applyCosmetics() {
     // toast new unlocks
-    const un = bondBonus().cos.filter(id => COS[id] && !COS[id].soon);
+    const un = bondBonus().cos;
     if (!cosState.seen) {
         cosState.seen = un.slice();
         cosSave();
@@ -80,9 +80,7 @@ function renderCosmetics() {
     const list = COSMETICS.filter(c => un.includes(c.id));
     const card = c => {
         let btn;
-        if (c.soon) {
-            btn = '<button class="ghost" disabled>Coming in 2.1</button>';
-        } else if (!cosOwned(c.id)) {
+        if (!cosOwned(c.id)) {
             btn = `<button class="primary cos-buy" data-id="${c.id}"${quarks < c.price ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
         } else if (cosState[c.kind] === c.id) {
             btn = `<button class="ghost cos-use on" data-id="${c.id}">In use · take off</button>`;
@@ -90,7 +88,7 @@ function renderCosmetics() {
             btn = `<button class="primary cos-use" data-id="${c.id}">Use</button>`;
         }
         const how = c.free ? `<p class="cat-len">Free: unlocked by ${elementBySymbol[c.free][1]}</p>` : '';
-        return `<article class="cat-card cos-card${cosState[c.kind] === c.id ? ' held' : ''}" style="--tc:var(--hazard)"><div class="cos-swatch sw-${c.id}" aria-hidden="true"></div><span class="cos-kind">${COS_KINDS[c.kind]}</span><h3>${c.name}</h3><p>${c.soon ? 'Unlocked by Outer Ring 1. Arrives with update 2.1.' : c.desc}</p>${how}${btn}</article>`;
+        return `<article class="cat-card cos-card${cosState[c.kind] === c.id ? ' held' : ''}" style="--tc:var(--hazard)"><div class="cos-swatch sw-${c.id}" aria-hidden="true"></div><span class="cos-kind">${COS_KINDS[c.kind]}</span><h3>${c.name}</h3><p>${c.desc}</p>${how}${btn}</article>`;
     };
     let html = list.map(card).join('');
     if (hasFinalBadge()) {

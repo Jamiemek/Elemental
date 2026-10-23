@@ -412,14 +412,12 @@ function buyStock(i) {
         return;
     }
     const c = CAT[s.id];
-    const p = shopPrice(c, true);
+    const p = shopPrice(c);
     if (quarks < p) {
         return;
     }
     addQuarks(-p);
-    if (catFlags.grant) {
-        takeFlag('grant');
-    }
+    takeFlag('grant');
     s.sold = true;
     s.held = false;
     const two = Math.random() < bondBonus().dup / 100;

@@ -155,7 +155,6 @@ function hillFormula(elements) {
     return syms.map(s => s + (counts[s] > 1 ? counts[s] : '')).join('');
 }
 const BASE_CHAIN = 8;
-const SYM_IDX = Object.fromEntries(ELEMENTS.map((e, i) => [e[0], i]));
 // Odds are always base odds: no luck, chain or other buffs are counted
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
@@ -213,7 +212,7 @@ function ionSave() {
     } catch (e) { }
 }
 function ionCredit(sym, ion) {
-    if (!ion || !sym) {
+    if (!ion) {
         return;
     }
     const m = ionMarks[sym] || [0, 0];
@@ -356,7 +355,7 @@ function evSave() {
         }
     } catch (e) { }
 }
-const evOn = id => !!(evRun && evRun.left > 0 && (!id || evRun.id === id));
+const evOn = id => !!evRun && (!id || evRun.id === id);
 const anyEventOn = () => qStormOn() || evOn();
 const eventNow = () => qStormOn() ? 'storm' : evOn() ? evRun.id : null;
 function evStart(id) {
