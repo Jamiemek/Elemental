@@ -85,6 +85,3 @@ async function viewerPlay(btn) {
         viewerPlay(b);
     }
 }));
-if (/[?&]app=play\b/.test(location.search) || /; wv\)/.test(navigator.userAgent)) {
-    document.querySelectorAll('.donate-only').forEach(e => e.remove());
-}

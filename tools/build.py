@@ -33,7 +33,7 @@ JS_FILES = [
     'cutscenes.js',  # the 15 element cutscenes
     'jokecuts.js',   # the 16 joke element cutscenes
     'storage.js',    # storage use and "Clear redundant finds"
-    'viewer.js',     # cutscene and effect viewer, donation links
+    'viewer.js',     # cutscene and effect viewer
     'cloud.js',      # accounts and cloud saves
     'global.js',     # global top 10, banner, gifts
     'admin.js',      # admin tab
