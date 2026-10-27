@@ -793,7 +793,8 @@ function retroFx(tier, k) {
                     if (r < 2) {
                         continue;
                     }
-                    g.fillStyle = RAINBOW8[(i + (calmFx ? 0 : Math.floor(t / 300))) % 7];
+                    // each ring keeps its colour as it flies out, so the tunnel moves without flickering
+                    g.fillStyle = RAINBOW8[i % 7];
                     g.fillRect(cx - r, cy - r, r * 2, 1);
                     g.fillRect(cx - r, cy + r, r * 2, 1);
                     g.fillRect(cx - r, cy - r, 1, r * 2);
@@ -817,7 +818,7 @@ function retroFx(tier, k) {
                 for (let i = 0; i < 7; i++) {
                     const r = R - i * 7;
                     if (r > 1) {
-                        pxDisc(g, cx, cy, r, RAINBOW8[(i + (calmFx ? 0 : Math.floor(t / 120))) % 7]);
+                        pxDisc(g, cx, cy, r, RAINBOW8[i % 7]);
                     }
                 }
                 pxDisc(g, cx, cy, Math.max(1, R - 56), '#fff');
@@ -830,7 +831,8 @@ function retroFx(tier, k) {
                     star(g, cx, cy, (6 + 16 * f), -t / 500, '#fff');
                 }
             }
-            palFlash(g, fxEnv(t, vd - 40, vd + 500, 20, 450), W, H, '#fff');
+            // a soft white rise rather than a hard flash
+            palFlash(g, fxEnv(t, vd - 120, vd + 700, 260, 520) * 0.45, W, H, '#fff');
             [0, 2600, 4600].forEach((d, j) => [0, 150, 300, 450].forEach((ms, i) => ringAt(g, t, vd + d + ms, 1800 + i * 200, 240 + i * 40 + j * 30, RAINBOW8[(i + j * 2) % 7], 3 - Math.min(2, i))));
             rockets.forEach((r, i) => {
                 const x = Math.round(r.x * W);

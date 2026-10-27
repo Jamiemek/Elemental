@@ -119,8 +119,12 @@ let shopState = loadJSON('elementalShop', { slot: -1, stock: [] });
 let catInv = loadJSON('elementalCatInv', {});
 let catActive = loadJSON('elementalCatActive', {});
 let catFlags = loadJSON('elementalCatFlags', {});
-// where each catalyst in the inventory came from, for the ones the server checks
+// where each catalyst in the inventory came from, so the server can check it (and check upgrades made from it)
 let catSrc = loadJSON('elementalCatSrc', {});
+// the upgrade section: which tier is open, and how many of each catalyst are going in
+let upTier = null;
+let upPick = {};
+let upBusy = false;
 function saveCats() {
     try {
         localStorage.setItem('elementalShop', JSON.stringify(shopState));
@@ -131,8 +135,15 @@ function saveCats() {
     } catch (e) { }
 }
 function srcAdd(id, src) {
-    if (src && acTracked(CAT[id])) {
+    if (src && CAT[id]) {
         (catSrc[id] = catSrc[id] || []).push(src);
+    }
+}
+// using up a catalyst the rolls don't check: spend ones with no source first, so the checked ones stay free to upgrade
+function srcSpend(id, n) {
+    const extra = (catSrc[id] || []).length - Math.max(0, (catInv[id] || 0) - n);
+    if (extra > 0) {
+        srcTake(id, extra);
     }
 }
 function srcTake(id, n) {
@@ -280,6 +291,7 @@ function useCatalyst(id, n) {
     } else {
         const base = cur ? cur.until : Date.now();
         catActive[catSlot(c)] = { id, until: base + c.min * 60000 * n * (1 + bondBonus().cdur / 100) };
+        srcSpend(id, n);
     }
     catInv[id] = have - n;
     if (!catInv[id]) {
@@ -325,6 +337,9 @@ function useInstant(c, n) {
     } else {
         const k = f.rod ? 'rod' : f.logger ? 'logger' : 'grant';
         catFlags[k] = (catFlags[k] || 0) + n;
+    }
+    if (!f.start) {
+        srcSpend(c.id, n);
     }
     catInv[c.id] -= n;
     if (!catInv[c.id]) {
@@ -616,16 +631,18 @@ function renderActiveCats() {
     const list = activeList();
     const waiting = [['rod', 'Lightning Rod', 'next Quark Storm'], ['logger', 'Event Logger', 'next event'], ['grant', 'Grant Funding', 'next purchase']]
         .filter(([k]) => catFlags[k] > 0).map(([k, name, what]) => `<div class="act-row" style="--tc:${CAT_TIERS[CAT[k].tier].col}">${tierChip(CAT[k].tier)}<strong>${name}${catFlags[k] > 1 ? ' ×' + catFlags[k] : ''}</strong><span class="act-left">Waiting: ${what}</span></div>`).join('');
-    const html = list.length || waiting ? list.map(({ key, tier, a, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><span class="act-left" data-tier="${key}">${catLeft(a)}</span></div>`).join('') + waiting : '<p class="muted">No catalysts active.</p>';
+    // the inventory's list can cancel them, the roll page's only shows them
+    const rows = cancel => list.map(({ key, tier, a, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><span class="act-left" data-tier="${key}">${catLeft(a)}</span>` +
+        (cancel ? `<button class="ghost cat-clear" data-tier="${key}">Cancel</button>` : '') + '</div>').join('') + waiting;
     ['catActive', 'rollCats'].forEach(k => {
         const el = $(k);
         if (el) {
-            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + html : '';
+            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + rows(k === 'catActive') : '';
         }
     });
     const cl = $('catClear');
     if (cl) {
-        cl.innerHTML = list.length ? list.map(({ key, tier, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><button class="ghost cat-clear" data-tier="${key}">Clear</button></div>`).join('') : '<p class="muted">No catalysts active.</p>';
+        cl.innerHTML = list.length ? list.map(({ key, tier, c }) => `<div class="act-row" style="--tc:${CAT_TIERS[tier].col}">${tierChip(tier)}<strong>${c.name}</strong><button class="ghost cat-clear" data-tier="${key}">Cancel</button></div>`).join('') : '<p class="muted">No catalysts active.</p>';
     }
     const hs = $('homeShop');
     if (hs) {
@@ -661,6 +678,7 @@ function renderCatInv() {
         const c = CAT[id];
         return `<button class="inv-tile${id === invSel ? ' sel' : ''}" data-sel="${id}" style="--tc:${CAT_TIERS[c.tier].col}"><span class="it-name">${c.name}</span><span class="it-n">×${catInv[id].toLocaleString('en-US')}</span></button>`;
     }).join('') : '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
+    renderUpgrade();
     const d = $('invDetail');
     if (!invSel) {
         d.innerHTML = '<div class="inv-preview" style="--tc:var(--soft)"><span class="ip-mark">–</span></div><p class="muted">Select a catalyst to see it here.</p>';
@@ -713,7 +731,7 @@ $('invDetail').addEventListener('click', e => {
     }
     renderRollStats();
 });
-$('catClear').addEventListener('click', e => {
+function catCancelClick(e) {
     const b = e.target.closest('.cat-clear');
     if (!b) {
         return;
@@ -724,7 +742,7 @@ $('catClear').addEventListener('click', e => {
         return;
     }
     const c = CAT[a.id];
-    if (!confirm(`Clear ${c.name}?\n\nIt stops working straight away with ${catLeft(a)} left. You will not get it back.`)) {
+    if (!confirm(`Cancel ${c.name}?\n\nIt stops working straight away with ${catLeft(a)} left. You will not get it back.`)) {
         return;
     }
     if (!confirm(`Are you sure? This can't be undone.`)) {
@@ -733,7 +751,133 @@ $('catClear').addEventListener('click', e => {
     clearCatalyst(t);
     renderActiveCats();
     renderRollStats();
+    renderCatInv();
+}
+$('catClear').addEventListener('click', catCancelClick);
+$('catActive').addEventListener('click', catCancelClick);
+// upgrades: 10 of one tier into a random one of the tier above, unlocked on the bonds tree
+const UP_NEED = 10;
+const UP_TOP = 5;
+// signed in, the server checks each catalyst going in, so only ones with a source can go
+const upChecked = () => !!(acKeys && sb && cloudUser);
+const upFree = id => Math.min(catInv[id] || 0, upChecked() ? (catSrc[id] || []).length : Infinity);
+const upSay = (text, ok) => {
+    $('upMsg').textContent = text;
+    $('upMsg').classList.toggle('ok', !!ok);
+};
+const upCount = () => Object.values(upPick).reduce((s, n) => s + n, 0);
+function renderUpgrade() {
+    const box = $('catUp');
+    if (!box) {
+        return;
+    }
+    box.hidden = !bondBonus().upgrade;
+    if (box.hidden) {
+        return;
+    }
+    const have = t => Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === t).reduce((s, id) => s + upFree(id), 0);
+    if (upTier == null) {
+        upTier = [0, 1, 2, 3, 4].find(t => have(t) >= UP_NEED) ?? 0;
+    }
+    $('upTiers').innerHTML = [0, 1, 2, 3, 4].map(t => `<button class="ghost${t === upTier ? ' sel' : ''}" data-t="${t}" style="--tc:${CAT_TIERS[t].col}">${CAT_TIERS[t].name}<small>${have(t)}</small></button>`).join('');
+    const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === upTier && catInv[id] > 0).sort((a, b) => CAT[a].name.localeCompare(CAT[b].name));
+    Object.keys(upPick).forEach(id => {
+        upPick[id] = Math.min(upPick[id], upFree(id));
+        if (!upPick[id] || CAT[id].tier !== upTier) {
+            delete upPick[id];
+        }
+    });
+    const stuck = ids.some(id => upFree(id) < catInv[id]);
+    $('upList').innerHTML = (ids.length ? ids.map(id => `<div class="up-row" style="--tc:${CAT_TIERS[upTier].col}"><strong>${CAT[id].name}</strong><span class="muted">${upFree(id) < catInv[id] ? upFree(id) + ' of ' + catInv[id] + ' can go in' : '×' + catInv[id]}</span>
+<span class="up-step"><button class="ghost" data-d="-1" data-id="${id}" aria-label="One fewer">−</button><b>${upPick[id] || 0}</b><button class="ghost" data-d="1" data-id="${id}" aria-label="One more">+</button></span></div>`).join('') :
+        `<p class="muted">You have no ${CAT_TIERS[upTier].name.toLowerCase()} catalysts.</p>`) +
+        (stuck ? '<p class="muted up-note">Some of these came from before upgrades existed, so they can be used but not combined.</p>' : '');
+    const n = upCount();
+    $('upGo').textContent = `Combine ${n} / ${UP_NEED}`;
+    $('upGo').disabled = n !== UP_NEED || upBusy;
+}
+$('upTiers').addEventListener('click', e => {
+    const b = e.target.closest('[data-t]');
+    if (b) {
+        upTier = +b.dataset.t;
+        upPick = {};
+        upSay('');
+        renderUpgrade();
+    }
 });
+$('upList').addEventListener('click', e => {
+    const b = e.target.closest('[data-d]');
+    if (!b) {
+        return;
+    }
+    const id = b.dataset.id;
+    const next = (upPick[id] || 0) + +b.dataset.d;
+    if (next >= 0 && next <= upFree(id) && (+b.dataset.d < 0 || upCount() < UP_NEED)) {
+        upPick[id] = next;
+        renderUpgrade();
+    }
+});
+// most-owned first
+$('upFill').onclick = () => {
+    const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === upTier).sort((a, b) => upFree(b) - upFree(a));
+    upPick = {};
+    let left = UP_NEED;
+    ids.forEach(id => {
+        const n = Math.min(left, upFree(id));
+        if (n > 0) {
+            upPick[id] = n;
+            left -= n;
+        }
+    });
+    upSay(left ? `You need ${left} more ${CAT_TIERS[upTier].name.toLowerCase()} catalyst${left === 1 ? '' : 's'}.` : '');
+    renderUpgrade();
+};
+$('upEmpty').onclick = () => {
+    upPick = {};
+    upSay('');
+    renderUpgrade();
+};
+$('upGo').onclick = async () => {
+    const t = upTier;
+    if (upBusy || upCount() !== UP_NEED || t >= UP_TOP) {
+        return;
+    }
+    const jokes = !!(bondBonus().jokecat && jokesOn());
+    const ids = Object.keys(upPick);
+    let out;
+    if (upChecked()) {
+        const inputs = [];
+        ids.forEach(id => (catSrc[id] || []).slice(0, upPick[id]).forEach(src => inputs.push({ id, src })));
+        upBusy = true;
+        upSay('Combining…');
+        renderUpgrade();
+        const { data, error } = await sb.rpc('ac_upgrade', { p_in: inputs, p_jokes: jokes });
+        upBusy = false;
+        if (error || !data || data.error || !CAT[data.id]) {
+            upSay(error ? "Couldn't reach the server, so nothing was used. Try again." : "The server wouldn't accept those catalysts, so nothing was used.");
+            renderUpgrade();
+            return;
+        }
+        out = data;
+        ids.forEach(id => srcTake(id, upPick[id]));
+    } else {
+        const pool = CATALYSTS.filter(c => c.tier === t + 1 && (!c.joke || jokes) && c.id !== 'insidejoke' && c.id !== 'colliderkey');
+        out = { id: pool[Math.floor(Math.random() * pool.length)].id, src: null };
+    }
+    ids.forEach(id => {
+        catInv[id] -= upPick[id];
+        if (!catInv[id]) {
+            delete catInv[id];
+        }
+    });
+    catInv[out.id] = (catInv[out.id] || 0) + 1;
+    srcAdd(out.id, out.src);
+    saveCats();
+    upPick = {};
+    invSel = out.id;
+    upSay(`${UP_NEED} ${CAT_TIERS[t].name.toLowerCase()} catalysts became ${CAT[out.id].name} (${CAT_TIERS[t + 1].name}).`, true);
+    renderCatInv();
+};
 // tick timers once a second
 setInterval(() => {
     const before = Object.keys(catActive).length;

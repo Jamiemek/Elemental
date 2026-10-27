@@ -12,7 +12,7 @@ const TUT = [
     { on: 'bonds', way: 'Next up, your bonds tree.', say: 'This is your bonds tree. Each slot asks for something you\'ve rolled, and filling it lights up the line to it for a bonus. Tap the glowing slot in the middle to put your oxygen in.', done: () => netFilled(0) },
     { on: 'bonds', say: 'The slots next to it want helium and nitrogen. Fill them both.', done: () => tutAround() >= 2 },
     { on: 'bonds', say: 'Those rolls are used up now, but the bonuses stay. The tree goes a long way out.' },
-    { on: 'shop', way: 'Next, the catalyst shop.', at: '#shopTimer', say: 'The catalyst shop. Catalysts boost your luck, your speed and plenty more for a while. They cost quarks, which every roll earns, and the stock changes on a timer.' },
+    { on: 'shop', way: 'Next, the shop.', at: '#shopTimer', say: 'The shop. Catalysts boost your luck, your speed and plenty more for a while. They cost quarks, which every roll earns, and the stock changes on a timer.' },
     { on: 'catinv', way: 'Now your inventory.', say: 'Catalysts you buy wait in your inventory until you use them. Yours is empty for now.' },
     { on: 'settings', way: 'On to Settings.', at: '#accountBody', say: 'Signing in with Google is optional. It keeps your save in the cloud and puts you on the global top 10. Rolls made before signing in don\'t carry over to an account, so now is the best time.' },
     { on: 'settings', say: 'Settings is also where you change the theme and sound, turn down flashing, and watch again any effect you\'ve seen.' },

@@ -25,7 +25,7 @@
     } catch (e) { }
 })();
 </script>
-<link rel="stylesheet" href="css/style.css?v=e6dbba56c9">
+<link rel="stylesheet" href="css/style.css?v=50951f0aad">
 </head>
 <body>
 <div class="topband"><div class="topband-in">
@@ -45,7 +45,7 @@
 <nav class="navlist" aria-label="Sections">
 <button class="nav-row" data-go="inventory"><span>Collection</span></button>
 <button class="nav-row" data-go="bonds"><span>Bonds</span><span class="val" id="homeBonds">0 / 30</span></button>
-<button class="nav-row" data-go="shop"><span>Catalyst shop</span><span class="val" id="homeShop"></span></button>
+<button class="nav-row" data-go="shop"><span>Shop</span><span class="val" id="homeShop"></span></button>
 <button class="nav-row" data-go="achievements"><span>Achievements</span><span class="val" id="homeAch">0 / 0</span></button>
 <button class="nav-row" data-go="global"><span>Global top 10</span><span class="val" id="homeGlobal"></span></button>
 <button class="nav-row" data-go="settings"><span>Settings</span><span class="val">Sound, effects, save</span></button>
@@ -73,10 +73,10 @@
 <div id="autoHint"></div>
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
 <nav class="roll-nav" aria-label="Pages">
-<button class="ghost" data-go="inventory" title="Collection" aria-label="Collection"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
-<button class="ghost" data-go="shop" title="Shop" aria-label="Shop"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg></button>
-<button class="ghost" data-go="catinv" title="Inventory" aria-label="Inventory"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg></button>
-<button class="ghost roll-bonds" data-go="bonds" id="rollBondsBtn" title="Bonds" aria-label="Bonds"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8M8.5 6h7"/></svg></button>
+<button class="ghost" data-go="inventory" title="Collection" aria-label="Collection"><span class="rn-label">Collection</span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+<button class="ghost" data-go="shop" title="Shop" aria-label="Shop"><span class="rn-label">Shop</span><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg></button>
+<button class="ghost" data-go="catinv" title="Inventory" aria-label="Inventory"><span class="rn-label">Inventory</span><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg></button>
+<button class="ghost roll-bonds" data-go="bonds" id="rollBondsBtn" title="Bonds" aria-label="Bonds"><span class="rn-label">Bonds</span><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8M8.5 6h7"/></svg></button>
 </nav>
 </section>
 <aside class="roll-side">
@@ -211,7 +211,7 @@
 </tbody></table></div></div>
 </details>
 <details class="set-group" data-group="gameplay"><summary>Gameplay</summary>
-<div class="setting"><h3>Active catalysts</h3><div class="body"><p><b>Clearing a catalyst stops it immediately and it is gone for good.</b> There is no refund and this cannot be undone.</p><div id="catClear"></div></div></div>
+<div class="setting"><h3>Active catalysts</h3><div class="body"><p><b>Cancelling a catalyst stops it immediately and it is gone for good.</b> There is no refund and this cannot be undone. You can also cancel them from the inventory.</p><div id="catClear"></div></div></div>
 <div class="setting" id="jokeSetting" hidden><h3>Joke periodic table</h3><div class="body"><p>Joke elements roll alongside the real ones. With mixing on they can chain with real elements into joke compounds. With it off, a chain is all joke or all real: a joke element that turns up in a chain takes the roll on its own. Your chances of finding them are the same either way.</p>
 <label class="check"><input type="checkbox" id="jokeMixSet">Mix joke elements into chains</label>
 <label class="check"><input type="checkbox" id="jokeHideSet">Hide joke finds on the global top 10</label></div></div>
@@ -246,7 +246,7 @@
 </main>
 
 <main id="shop" class="screen">
-<div class="page-head"><div><h1>Catalyst shop</h1><p class="sub">Restocks in <b id="shopTimer">0:00</b>. Buy with quarks, use whenever you like.</p></div><div class="head-btns"><button class="ghost" id="shopBuyAll">Buy all</button><button class="ghost" id="shopCourier" hidden>Use Courier</button><button class="ghost" data-go="catinv">Inventory</button><button class="ghost" data-go="menu">Back</button></div></div>
+<div class="page-head"><div><h1>Shop</h1><p class="sub">Restocks in <b id="shopTimer">0:00</b>. Buy with quarks, use whenever you like.</p></div><div class="head-btns"><button class="ghost" id="shopBuyAll">Buy all</button><button class="ghost" id="shopCourier" hidden>Use Courier</button><button class="ghost" data-go="catinv">Inventory</button><button class="ghost" data-go="menu">Back</button></div></div>
 <div class="tabs shop-tabs" id="shopTabs" hidden><button class="tab active" data-stab="cats">Catalysts</button><button class="tab" data-stab="cos">Cosmetics</button></div>
 <section class="inventory-panel" id="shopCats">
 <div class="toolbar"><strong>In stock</strong><span class="stat" id="shopSlotsNote"></span></div>
@@ -269,6 +269,14 @@
 <div id="catActive" class="inv-active"></div>
 <div class="inv-sect"><span>Catalysts</span></div>
 <div class="inv-grid" id="catInv"></div>
+<div id="catUp" class="cat-up" hidden>
+<div class="inv-sect"><span>Upgrade</span></div>
+<p class="muted">Put in 10 catalysts of one tier and get a random catalyst from the tier above. Mythic is as high as it goes.</p>
+<div class="up-tiers" id="upTiers"></div>
+<div class="up-list" id="upList"></div>
+<div class="btn-row"><button class="ghost" id="upFill">Fill</button><button class="ghost" id="upEmpty">Empty</button><button class="primary" id="upGo">Combine</button></div>
+<p class="shop-msg" id="upMsg" aria-live="polite"></p>
+</div>
 </section>
 </div>
 </main>
@@ -369,5 +377,5 @@
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=11cdfd426e"></script>
+<script src="game.js?v=a2143e14a6"></script>
 </body></html>

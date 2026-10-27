@@ -26,7 +26,8 @@ const OUTER_BRIDGES = 6;
 const OUTER_TOTALS = { quark: 100, event: 100, cdur: 50, dup: 25, refund: 25, storm: 100 };
 const OUTER_SHARE = [['quark', 0.25], ['event', 0.2], ['cdur', 0.2], ['dup', 0.12], ['refund', 0.12], ['storm', 0.11]];
 // each bridge unlocks a feature: [kind, cosmetic, what its outer slot asks for]
-const BRIDGE_UNLOCKS = [['ion', 0, ['Co', 240]], ['hold', 0, ['Sb', 360]], ['cos', 'oscilloscope', ['Sc', 370]],
+// the two joke bridges work in order: the first one lit gives the joke table, the second the joke catalysts
+const BRIDGE_UNLOCKS = [['ion', 0, ['Co', 240]], ['hold', 0, ['Sb', 360]], ['upgrade', 0, ['Sc', 370]],
     ['slot', 0, ['Dy', 430]], ['joke', 0, ['Ho', 420]], ['jokecat', 0, ['Ac', 190]]];
 // bridges in the order players reach their inner ends
 const BRIDGE_ORDER = [3, 1, 5, 0, 2, 4];
@@ -374,7 +375,13 @@ function shownNet() {
     }
     return N.inner || (N.inner = { nodes: N.nodes.slice(0, N.base), edges: N.edges.filter(e => e.orbit == null), adj: N.adj });
 }
-const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos', 'drop']);
+const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos', 'drop', 'upgrade']);
+const isJokeLine = e => e.kind === 'joke' || e.kind === 'jokecat';
+// which of the two the line gives: the joke table if it was lit first (or no other is lit yet), the joke catalysts if second
+function jokeLineGives(e) {
+    const lit = net().edges.filter(x => isJokeLine(x) && edgeLit(x));
+    return (edgeLit(e) ? lit.indexOf(e) : lit.length) === 0 ? 'table' : 'cats';
+}
 const edgeLit = e => netFilled(e.a) && netFilled(e.b);
 function edgeDesc(e) {
     const v = e.val;
@@ -384,8 +391,11 @@ function edgeDesc(e) {
     const outer = {
         quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
         refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold', drop: 'Catalyst drops (1 in 500 presses of Roll)',
-        ion: 'Unlocks ionisation', joke: 'Unlocks the joke table', jokecat: jokesOn() ? 'Joke catalysts in the shop' : 'You have unlocked something…', cos: 'Unlocks ' + COSMETIC_NAMES[v]
+        ion: 'Unlocks ionisation', upgrade: 'Unlocks catalyst upgrades', cos: 'Unlocks ' + COSMETIC_NAMES[v]
     };
+    if (isJokeLine(e)) {
+        return jokeLineGives(e) === 'table' ? 'Unlocks the joke table' : 'Joke catalysts in the shop';
+    }
     return outer[e.kind] || (e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot');
 }
 function reqShort(q) {
@@ -525,6 +535,7 @@ function pityPrice(n) {
 const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && quarks >= pityPrice(n);
 const agentReady = n => catInv.bondagent > 0 && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req);
 function useAgent(n) {
+    srcSpend('bondagent', 1);
     catInv.bondagent--;
     if (!catInv.bondagent) {
         delete catInv.bondagent;
@@ -573,14 +584,17 @@ function netBonus() {
     }
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
-        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, cos: [],
+        quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, upgrade: false, cos: [],
         away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
     };
+    let jokeLines = 0;
     net().edges.forEach(e => {
         if (!edgeLit(e)) {
             return;
         }
-        if (e.kind === 'luck') {
+        if (isJokeLine(e)) {
+            jokeLines++;
+        } else if (e.kind === 'luck') {
             r.add += e.val;
         } else if (e.kind === 'mult') {
             r.mult *= e.val;
@@ -594,6 +608,12 @@ function netBonus() {
             r[e.kind] += e.val;
         }
     });
+    r.joke = jokeLines >= 1;
+    r.jokecat = jokeLines >= 2;
+    // the oscilloscope comes with the first slot filled on outer ring 1
+    if (net().nodes.some(n => n.orbit === 0 && netFilled(n.id))) {
+        r.cos.push('oscilloscope');
+    }
     netCache = { v: netVer, r };
     return r;
 }
@@ -1048,7 +1068,7 @@ function netTotalsHtml() {
             rows.push([k, '+' + v.toFixed(2) + u]);
         }
     });
-    [['Shop hold', b.hold], ['Ionisation', b.ion], ['Joke periodic table', b.joke], ['Joke catalysts', b.jokecat && b.joke]].forEach(([k, on]) => {
+    [['Shop hold', b.hold], ['Ionisation', b.ion], ['Catalyst upgrades', b.upgrade], ['Joke periodic table', b.joke], ['Joke catalysts', b.jokecat]].forEach(([k, on]) => {
         if (on) {
             rows.push([k, 'Unlocked']);
         }
