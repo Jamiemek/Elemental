@@ -25,7 +25,7 @@
     } catch (e) { }
 })();
 </script>
-<link rel="stylesheet" href="css/style.css?v=9d9f234690">
+<link rel="stylesheet" href="css/style.css?v=e6dbba56c9">
 </head>
 <body>
 <div class="topband"><div class="topband-in">
@@ -49,7 +49,7 @@
 <button class="nav-row" data-go="achievements"><span>Achievements</span><span class="val" id="homeAch">0 / 0</span></button>
 <button class="nav-row" data-go="global"><span>Global top 10</span><span class="val" id="homeGlobal"></span></button>
 <button class="nav-row" data-go="settings"><span>Settings</span><span class="val">Sound, effects, save</span></button>
-<button class="nav-row admin-only" data-go="admin" hidden><span>Admin</span><span class="val">Only you</span></button>
+<button class="nav-row admin-only" data-go="admin" hidden><span id="staffNav">Admin</span><span class="val">Staff only</span></button>
 </nav>
 <h2 class="side-h" id="homeRarestH">Rarest find</h2>
 <div id="homeRarest"></div>
@@ -283,9 +283,9 @@
 </main>
 
 <main id="admin" class="screen">
-<div class="page-head"><div><h1>Admin</h1><p class="sub">Only your account can see this tab.</p></div><button class="ghost" data-go="menu">Back</button></div>
+<div class="page-head"><div><h1 id="staffTitle">Admin</h1><p class="sub" id="staffSub"></p></div><button class="ghost" data-go="menu">Back</button></div>
 <section class="inventory-panel">
-<details class="set-group" data-group="adm-globals" open><summary>Globals</summary>
+<details class="set-group" data-group="adm-globals" data-rank="2"><summary>Globals</summary>
 <div class="setting"><h3>Globals</h3><div class="body">
 <p>A global is shown as a banner in everyone's game and posted to Discord.</p>
 <label class="adm-label" for="admTier">What counts as a global</label>
@@ -296,21 +296,34 @@
 <div class="btn-row"><button class="ghost" id="admSave">Save</button><button class="ghost" id="admTest">Send a test post to Discord</button></div>
 <p class="adm-msg" id="admSetMsg"></p></div></div>
 </details>
-<details class="set-group" data-group="adm-players"><summary>Players</summary>
+<details class="set-group" data-group="adm-players" data-rank="1"><summary>Players</summary>
 <div class="setting"><h3>Players</h3><div class="body">
 <p>Banned players can still play, but can't put rolls on the board or make globals, and their entries are hidden.</p>
 <div class="adm-find"><input id="admFind" class="adm-input" placeholder="Search by display name" autocomplete="off"><button class="ghost" id="admFindBtn">Search</button></div>
-<input id="admReason" class="adm-input" placeholder="Reason for a ban (only you see this)" maxlength="140">
+<input id="admReason" class="adm-input" placeholder="Reason for a ban (only staff see this)" maxlength="140">
 <p class="adm-msg" id="admBanMsg"></p>
 <div id="admPlayerList" class="adm-list"></div></div></div>
 </details>
-<details class="set-group" data-group="adm-globalboard"><summary>Global board</summary>
+<details class="set-group" data-group="adm-promote" data-rank="2"><summary>Promote</summary>
+<div class="setting"><h3>Promote</h3><div class="body">
+<p id="admRoleHelp"></p>
+<div class="adm-find"><input id="admRoleFind" class="adm-input" placeholder="Search by display name" autocomplete="off"><button class="ghost" id="admRoleFindBtn">Search</button></div>
+<p class="adm-msg" id="admRoleMsg"></p>
+<div id="admRoleList" class="adm-list"></div></div></div>
+</details>
+<details class="set-group" data-group="adm-log" data-rank="2"><summary>Log</summary>
+<div class="setting"><h3>Log</h3><div class="body">
+<p>Bans, unbans, gifts and role changes, newest first, with who did them.</p>
+<p class="adm-msg" id="admLogMsg"></p>
+<div id="admLogList" class="adm-list"></div></div></div>
+</details>
+<details class="set-group" data-group="adm-globalboard" data-rank="2"><summary>Global board</summary>
 <div class="setting"><h3>Global board</h3><div class="body">
 <p>Every entry, rarest first. Removing one takes it off the board for everyone, and you can put it back.</p>
 <p class="adm-msg" id="admBoardMsg"></p>
 <div id="admBoardList" class="adm-list"></div></div></div>
 </details>
-<details class="set-group" data-group="adm-giveaways"><summary>Giveaways</summary>
+<details class="set-group" data-group="adm-giveaways" data-rank="2"><summary>Giveaways</summary>
 <div class="setting"><h3>Giveaways</h3><div class="body">
 <p>Gifts land in the player's catalyst inventory the next time they open the game while signed in. A gift to everyone goes to every player with an account at the time.</p>
 <div class="adm-who"><label class="check"><input type="radio" name="admWhoMode" id="admWhoAll" checked>Everyone</label><label class="check"><input type="radio" name="admWhoMode" id="admWhoOne">One player</label><input id="admWho" class="adm-input" placeholder="Display name" autocomplete="off" disabled></div>
@@ -320,7 +333,7 @@
 <p class="adm-msg" id="admGiftMsg"></p>
 <div id="admGiftList" class="adm-list"></div></div></div>
 </details>
-<details class="set-group" data-group="adm-dev"><summary>Dev copy</summary>
+<details class="set-group" data-group="adm-dev" data-rank="2"><summary>Dev copy</summary>
 <div class="setting"><h3>Dev copy</h3><div class="body">
 <p>A copy of the game with the testing tools, for trying out new things. It never talks to the server, keeps its own saves apart from your real ones, and only admins can open it.</p>
 <p class="adm-note" id="admDevInfo"></p>
@@ -328,7 +341,7 @@
 <input type="file" id="admDevPick" accept=".html,text/html" hidden>
 <p class="adm-msg" id="admDevMsg"></p></div></div>
 </details>
-<details class="set-group" data-group="adm-backups"><summary>Backups</summary>
+<details class="set-group" data-group="adm-backups" data-rank="3"><summary>Backups</summary>
 <div class="setting"><h3>Backups</h3><div class="body">
 <p>A backup holds everyone's saves, names, the global board, announcements and gifts. One is made every night, and one before any going back or reset. Download one every so often, so there's a copy kept off the server too.</p>
 <div class="btn-row"><button class="ghost" id="admBackup">Back up now</button><button class="ghost" id="admBackupFile">Go back to a downloaded file</button></div>
@@ -356,5 +369,5 @@
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=98f76d2c6c"></script>
+<script src="game.js?v=c1fb43428c"></script>
 </body></html>

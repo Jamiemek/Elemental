@@ -1326,6 +1326,10 @@ a.link-btn:hover {
 .adm-note {
   color: var(--ink-2);
 }
+.adm-tag.role {
+  border-color: var(--ink-2);
+  color: var(--ink-2);
+}
 
 /* achievement toast */
 .achievement-toast {

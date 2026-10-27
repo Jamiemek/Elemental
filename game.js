@@ -8664,7 +8664,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.7';
+const APP_VERSION = '2.1.8';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -14556,18 +14556,35 @@ function errSend() {
     });
 }
 setInterval(errSend, 20000);
-// Admin tab: only shown to the admin account
+// Staff tab: the owner, admins and mods each get their own panel
 let isAdmin = false;
+const admWhen = at => new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+let staffRank = 0;
+const RANKS = { owner: 3, admin: 2, mod: 1 };
+const PANEL = ['', 'Moderator panel', 'Admin panel', 'Owner panel'];
+const PANEL_SUB = ['', 'Bans and unbans. Only staff can see this tab.', 'Everything apart from backups. Only staff can see this tab.', 'Only staff can see this tab, and only you see all of it.'];
 async function adminCheck() {
     if (!sb || !cloudUser) {
-        adminShow(false);
+        adminShow(null);
         return;
     }
-    const { data } = await sb.rpc('is_admin');
-    adminShow(data === true);
+    const { data } = await sb.rpc('my_role');
+    adminShow(data);
 }
-function adminShow(on) {
-    isAdmin = !!on;
+function adminShow(role) {
+    staffRank = RANKS[role] || 0;
+    isAdmin = staffRank > 0;
+    $('staffNav').textContent = PANEL[staffRank] || 'Admin';
+    $('staffTitle').textContent = PANEL[staffRank] || 'Admin';
+    $('staffSub').textContent = PANEL_SUB[staffRank] || '';
+    document.querySelectorAll('#admin details[data-rank]').forEach(d => d.hidden = staffRank < +d.dataset.rank);
+    // the first section this rank can see starts open
+    const first = [...document.querySelectorAll('#admin details[data-rank]')].find(d => !d.hidden);
+    if (first && !document.querySelector('#admin details[data-rank]:not([hidden])[open]')) {
+        first.open = true;
+    }
+    $('admRoleHelp').textContent = staffRank >= 3 ? 'Mods can ban and unban players. Admins get this whole panel apart from backups and the reset, and can make or remove mods.' :
+        'Mods can ban and unban players. You can make players mods, or take it away again.';
     document.querySelectorAll('.admin-only').forEach(e => e.hidden = !isAdmin);
     if (!isAdmin && $('admin').classList.contains('active')) {
         go('menu');
@@ -14583,13 +14600,17 @@ function admMsg(id, text, bad) {
 async function admCall(fn, args, msgId) {
     const { data, error } = await sb.rpc(fn, args || {});
     if (error) {
-        admMsg(msgId, /not allowed/.test(error.message || '') ? 'Only the admin account can do that.' : 'Could not reach the server. Try again.', true);
+        admMsg(msgId, /not allowed/.test(error.message || '') ? "Your rank can't do that." : 'Could not reach the server. Try again.', true);
         return { error };
     }
     return { data };
 }
 function renderAdmin() {
     if (!isAdmin) {
+        return;
+    }
+    admPlayers();
+    if (staffRank < 2) {
         return;
     }
     // what counts as a global
@@ -14613,11 +14634,14 @@ function renderAdmin() {
             cat.appendChild(g);
         });
     }
-    admPlayers();
+    admRoles();
+    admLog();
     admBoard();
     admGifts();
-    admBackups();
     admDevInfo();
+    if (staffRank >= 3) {
+        admBackups();
+    }
 }
 $('admSave').onclick = async () => {
     const s = { p_min_tier: +$('admTier').value, p_top10: $('admTop10').checked, p_discord: $('admDiscord').checked, p_banner: $('admBanner').checked };
@@ -14650,11 +14674,11 @@ async function admPlayers() {
     rows.forEach(p => {
         const el = document.createElement('div');
         el.className = 'adm-row' + (p.banned ? ' banned' : '');
-        el.innerHTML = '<div><b>' + esc(p.display_name) + '</b>' + (p.banned ? ' <span class="adm-tag">Banned</span>' : '') +
+        el.innerHTML = '<div><b>' + esc(p.display_name) + '</b>' + (p.banned ? ' <span class="adm-tag">Banned</span>' : '') + admRoleTag(p.role) +
             '<small>Joined ' + new Date(p.joined).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) +
             ' · ' + formatNumber(p.submissions) + ' rolls sent · ' + formatNumber(p.globals) + ' globals' +
             (p.best_odds_log ? ' · best ' + rarityText(-p.best_odds_log) : '') + (p.banned && p.ban_reason ? ' · reason: ' + esc(p.ban_reason) : '') + '</small></div>' +
-            (p.display_name === cloudName ? '<small>You</small>' : '<button class="ghost">' + (p.banned ? 'Unban' : 'Ban') + '</button>');
+            (p.display_name === cloudName ? '<small>You</small>' : p.role ? '' : '<button class="ghost">' + (p.banned ? 'Unban' : 'Ban') + '</button>');
         const btn = el.querySelector('button');
         list.appendChild(el);
         if (!btn) {
@@ -14664,12 +14688,81 @@ async function admPlayers() {
             const reason = p.banned ? '' : $('admReason').value.trim();
             const res = await admCall('admin_ban', { p_name: p.display_name, p_reason: reason, p_banned: !p.banned }, 'admBanMsg');
             if (!res.error) {
-                admMsg('admBanMsg', res.data === 'is_admin' ? "The admin account can't be banned." : res.data === 'ok' ? (p.banned ? p.display_name + ' is unbanned.' : p.display_name + ' is banned and hidden from the board.') : 'Player not found.', res.data !== 'ok');
+                admMsg('admBanMsg', res.data === 'is_staff' ? "Staff can't be banned. Take their role away first." : res.data === 'ok' ? (p.banned ? p.display_name + ' is unbanned.' : p.display_name + ' is banned and hidden from the board.') : 'Player not found.', res.data !== 'ok');
                 admPlayers();
-                admBoard();
+                if (staffRank >= 2) {
+                    admBoard();
+                    admLog();
+                }
                 globalLoad();
             }
         };
+    });
+}
+const ROLE_NAME = { owner: 'Owner', admin: 'Admin', mod: 'Mod' };
+const admRoleTag = role => role ? ' <span class="adm-tag role">' + ROLE_NAME[role] + '</span>' : '';
+// promote: the owner can make admins and mods, admins can only make mods
+async function admRoles() {
+    const list = $('admRoleList');
+    list.innerHTML = '<p class="adm-note">Loading…</p>';
+    const r = await admCall('admin_players', { p_query: $('admRoleFind').value.trim() }, 'admRoleMsg');
+    if (r.error) {
+        list.innerHTML = '';
+        return;
+    }
+    const rows = r.data || [];
+    list.innerHTML = rows.length ? '' : '<p class="adm-note">No players match.</p>';
+    rows.forEach(p => {
+        const el = document.createElement('div');
+        el.className = 'adm-row';
+        const mine = p.display_name === cloudName;
+        const fixed = mine || p.role === 'owner' || (staffRank < 3 && p.role === 'admin');
+        el.innerHTML = '<div><b>' + esc(p.display_name) + '</b>' + admRoleTag(p.role) + (p.banned ? ' <span class="adm-tag">Banned</span>' : '') + '</div>' +
+            (mine ? '<small>You</small>' : fixed ? '' : '<div class="btn-row">' + '<button class="ghost" data-r="mod">' + (p.role === 'mod' ? 'Remove mod' : 'Mod') + '</button>' +
+                (staffRank >= 3 ? '<button class="ghost" data-r="admin">' + (p.role === 'admin' ? 'Remove admin' : 'Admin') + '</button>' : '') + '</div>');
+        el.querySelectorAll('button').forEach(btn => btn.onclick = async () => {
+            const role = p.role === btn.dataset.r ? null : btn.dataset.r;
+            const res = await admCall('admin_promote', { p_name: p.display_name, p_role: role }, 'admRoleMsg');
+            if (res.error) {
+                return;
+            }
+            admMsg('admRoleMsg', res.data === 'ok' ? p.display_name + (role ? ' is now ' + (role === 'admin' ? 'an admin.' : 'a mod.') : ' is a player again.') :
+                res.data === 'banned' ? 'Unban ' + p.display_name + ' first.' : res.data === 'not_allowed' ? "Your rank can't change that player's role." : 'Player not found.', res.data !== 'ok');
+            admRoles();
+            admPlayers();
+            admLog();
+        });
+        list.appendChild(el);
+    });
+}
+$('admRoleFindBtn').onclick = admRoles;
+$('admRoleFind').onkeydown = e => {
+    if (e.key === 'Enter') {
+        admRoles();
+    }
+};
+const LOG_TEXT = {
+    ban: l => 'banned ' + esc(l.target) + (l.detail ? ' · reason: ' + esc(l.detail) : ''),
+    unban: l => 'unbanned ' + esc(l.target),
+    gift: l => {
+        const m = /^(\d+) × (\w+)$/.exec(l.detail || '');
+        return 'gave ' + (m ? m[1] + ' × ' + esc(CAT[m[2]] ? CAT[m[2]].name : m[2]) : esc(l.detail || 'a gift')) + ' to ' + esc(l.target);
+    },
+    role: l => 'made ' + esc(l.target) + ' ' + (l.detail === 'admin' ? 'an admin' : l.detail === 'mod' ? 'a mod' : 'a player again')
+};
+async function admLog() {
+    const list = $('admLogList');
+    const r = await admCall('admin_log', {}, 'admLogMsg');
+    if (r.error) {
+        return;
+    }
+    const rows = r.data || [];
+    list.innerHTML = rows.length ? '' : '<p class="adm-note">Nothing yet.</p>';
+    rows.forEach(l => {
+        const el = document.createElement('div');
+        el.className = 'adm-row';
+        el.innerHTML = '<div><b>' + esc(l.by_name || 'Someone') + '</b> ' + (LOG_TEXT[l.action] ? LOG_TEXT[l.action](l) : esc(l.action)) +
+            '<small>' + admWhen(l.at) + '</small></div>';
         list.appendChild(el);
     });
 }
@@ -14725,6 +14818,7 @@ $('admGive').onclick = async () => {
         if (r.data === 'ok') {
             $('admNote').value = '';
             admGifts();
+            admLog();
         }
     }
 };
@@ -14750,7 +14844,6 @@ async function admGifts() {
 }
 
 // backups
-const admWhen = at => new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 const ADM_KIND = { manual: 'Made by you', daily: 'Nightly', before: 'Made automatically' };
 async function admBackups() {
     const r = await admCall('admin_backups', {}, 'admBackupMsg');
