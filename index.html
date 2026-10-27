@@ -67,7 +67,7 @@
 <div class="page-head"><div><h1>Roll</h1><p class="sub">One element per roll, with a chance to chain into more.</p></div><button class="ghost" data-go="menu">Back</button></div>
 <div class="roll-layout">
 <section class="roll-panel">
-<div class="roll-results" id="rollResults"><div class="roll-result-column"><div class="reel" id="reel"><div class="reel-symbol" id="reelSymbol">?</div></div><div class="result-card"><h2 class="result-name" id="resultName">No roll yet</h2><div class="rarity" id="resultRarity">Press Roll or the space bar</div><div id="resultExtra" class="sub"></div></div></div></div>
+<div class="roll-results" id="rollResults"><div class="roll-result-column"><div class="reel" id="reel"><div class="reel-symbol" id="reelSymbol">?</div></div><div class="result-card"><h2 class="result-name" id="resultName">No roll yet</h2><div class="rarity" id="resultRarity">Press Roll to start</div><div id="resultExtra" class="sub"></div></div></div></div>
 <div class="roll-controls"><button class="primary" id="rollBtn">Roll</button><button class="ghost" id="autoRollBtn" aria-pressed="false" disabled>Autoroll locked</button></div>
 <div class="qstorm-bar" id="qStormBar" aria-live="polite" hidden></div>
 <div id="autoHint"></div>
@@ -129,7 +129,7 @@
 </details>
 <details class="set-group" data-group="graphics"><summary>Graphics and effects</summary>
 <div class="setting"><h3>Flashing</h3><div class="body"><p>Tone down bright flashes, flickers and colour inversions in rare-roll effects and cutscenes. Turn this on if flashing lights bother you.</p><label class="check"><input type="checkbox" id="calmSetting">Reduce flashing</label></div></div>
-<div class="setting"><h3>Detail</h3><div class="body"><p>Draw the scanner and cutscenes at a lower resolution, with fewer particles. Turn this on if they stutter on your device.</p><label class="check"><input type="checkbox" id="lowSetting">Lower detail</label></div></div>
+<div class="setting"><h3>Detail</h3><div class="body"><p>Draw the scanner, effects and cutscenes at a lower resolution, with fewer particles. It switches on by itself if they stutter on your device.</p><label class="check"><input type="checkbox" id="lowSetting">Lower detail</label></div></div>
 <div class="setting"><h3>Cutscenes and effects</h3><div class="body"><p>Watch again any cutscene or rarity effect you've seen. More appear here as you find them. <span id="vwCount"></span></p>
 <label class="check"><input type="checkbox" id="cutsSetting">Play cutscenes when I find their elements</label>
 <h4 class="vw-h">Cutscenes</h4><div class="vw-grid" id="vwCuts"></div>
@@ -336,5 +336,5 @@
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=73a0685e18"></script>
+<script src="game.js?v=abf64dec18"></script>
 </body></html>

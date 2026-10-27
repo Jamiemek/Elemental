@@ -184,6 +184,7 @@ async function awayProcess() {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
     }
+    rollsMemo = null;
     renderQStorm();
     rollHistory = hist.reverse().concat(rollHistory).slice(0, HISTORY_MAX);
     try {

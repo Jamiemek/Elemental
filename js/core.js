@@ -134,8 +134,16 @@ let clearCleared = { rolls: 0, formulas: 0 };
 try {
     clearCleared = Object.assign(clearCleared, JSON.parse(localStorage.getItem('elementalCleared') || '{}'));
 } catch (e) { }
+// running total: adding it all up every roll was slow on big saves
+let rollsMemo = null;
 function totalRolls() {
-    return collection.reduce((n, c) => n + (c.count || 1), 0) + (clearCleared.rolls || 0);
+    const m = rollsMemo;
+    if (m && m.c === collection && m.k === clearCleared.rolls) {
+        return m.n;
+    }
+    const n = collection.reduce((s, c) => s + (c.count || 1), 0) + (clearCleared.rolls || 0);
+    rollsMemo = { c: collection, k: clearCleared.rolls, n };
+    return n;
 }
 let rolling = false;
 let autoRolling = false;
@@ -152,8 +160,17 @@ function save() {
         netVer++;
     }
     if (!saveTimer) {
-        saveTimer = setTimeout(flushSave, 1500);
+        save.at = Date.now();
+        saveTimer = setTimeout(saveQuiet, 1500);
     }
+}
+// on a big save the write is a visible hitch, so it waits for a gap between rolls (10 seconds at most)
+function saveQuiet() {
+    if (rolling && Date.now() - save.at < 10000) {
+        saveTimer = setTimeout(saveQuiet, 400);
+        return;
+    }
+    flushSave();
 }
 function flushSave() {
     if (!saveTimer || save.frozen) {
@@ -181,6 +198,9 @@ function findFormula(f) {
 addEventListener('pagehide', flushSave);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flushSave());
 function addRecord(r) {
+    if (rollsMemo && rollsMemo.c === collection) {
+        rollsMemo.n++;
+    }
     // base odds/score stay, ions only mark the best
     const ion = r.ion || 0;
     const base = ion ? Object.assign({}, r, { log: r.baseLog, score: r.baseScore, rarity: rarityText(r.baseLog) }) : r;

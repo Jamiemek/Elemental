@@ -324,3 +324,13 @@ async function quarkSend() {
 }
 quarkWatch();
 setInterval(quarkWatch, 2000);
+function errSend() {
+    if (!sb || !CLOUD.enabled) {
+        return;
+    }
+    errLog.filter(x => !x.sent).forEach(x => {
+        x.sent = true;
+        sb.rpc('report_error', { p_msg: x.m, p_where: x.w, p_ver: APP_VERSION, p_agent: navigator.userAgent.slice(0, 200) });
+    });
+}
+setInterval(errSend, 20000);

@@ -28,8 +28,9 @@ function planClear(minScore) {
             need[n.req.k] = (need[n.req.k] || 0) + n.req.n;
         }
     });
+    const ix = payIndex();
     Object.keys(need).forEach(k => {
-        const list = collection.filter(c => c.elements.length > 1 && c.elements.some(e => e[0] === k) && avail(c) > 0);
+        const list = (ix.has.get(k) || []).filter(c => avail(c) > 0);
         let have = list.filter(c => keep.has(c)).reduce((s, c) => s + avail(c), 0);
         list.filter(c => !keep.has(c)).sort((a, b) => avail(b) - avail(a)).forEach(c => {
             if (have < need[k]) {
@@ -41,9 +42,16 @@ function planClear(minScore) {
     // every found element stays found
     const covered = new Set();
     keep.forEach(c => c && c.elements.forEach(e => covered.add(e[0])));
+    const top = new Map();
+    collection.forEach(c => c.elements.forEach(e => {
+        const b = top.get(e[0]);
+        if (!b || c.score > b.score) {
+            top.set(e[0], c);
+        }
+    }));
     discoveredSymbols().forEach(s => {
         if (!covered.has(s)) {
-            const best = collection.filter(c => c.elements.some(e => e[0] === s)).sort((a, b) => b.score - a.score)[0];
+            const best = top.get(s);
             if (best) {
                 keep.add(best);
                 best.elements.forEach(e => covered.add(e[0]));

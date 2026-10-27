@@ -212,10 +212,15 @@ function fxParticles(cv, o) {
     const t0 = performance.now();
     let last = t0;
     const st = plan.map(e => ({ e, fired: false, acc: 0 }));
+    const fc = {};
     (function f(now) {
         if (tok !== fxRunId) {
             g.clearRect(0, 0, W, H);
             return;
+        }
+        if (frameCheck(fc, now)) {
+            cv.width = W;
+            cv.height = H;
         }
         const t = now - t0;
         const dt = Math.min(0.05, (now - last) / 1000);

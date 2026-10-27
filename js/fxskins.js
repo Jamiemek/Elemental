@@ -40,11 +40,16 @@ function fxScene(k, dur, draw, o) {
         g.scale(dpr, dpr);
     }
     const t0 = performance.now();
+    const fc = {};
     (function f(now) {
         if (k.tok !== fxRunId) {
             return;
         }
         const t = now - t0;
+        if (!px && frameCheck(fc, now)) {
+            cv.width = W;
+            cv.height = H;
+        }
         if (px) {
             g.clearRect(0, 0, buf.width, buf.height);
             draw(g, t, buf.width, buf.height);
@@ -986,6 +991,26 @@ function astralGlow(g, x, y, r, col, a) {
     g.globalCompositeOperation = 'source-over';
     g.globalAlpha = 1;
 }
+// soft glows drawn at quarter size and stretched: same look, far cheaper
+function astralSoft(g, W, H, paint) {
+    const c = astralSoft.cv || (astralSoft.cv = document.createElement('canvas'));
+    const w = Math.ceil(W / 4);
+    const h = Math.ceil(H / 4);
+    if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+    }
+    const s = c.getContext('2d');
+    s.setTransform(1, 0, 0, 1, 0, 0);
+    s.clearRect(0, 0, w, h);
+    s.setTransform(0.25, 0, 0, 0.25, 0, 0);
+    paint(s);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.imageSmoothingEnabled = true;
+    g.drawImage(c, 0, 0, W, H);
+    g.restore();
+}
 function astralFx(tier, k) {
     const { T, vd, total, cx, cy } = k;
     const c = T.c;
@@ -1346,12 +1371,12 @@ function astralFx(tier, k) {
             const a = Math.min(1, fxK(t, 0, 800)) * (t > vd ? fxEnv(t, vd, vd + 8000, 1, 2000) : 1);
             astralNight(g, cx, cy, W, H, a * 0.95, 0.3);
             sky(g, t, a);
-            clouds.forEach(cl => {
+            astralSoft(g, W, H, s => clouds.forEach(cl => {
                 const grow = 0.4 + fxK(t, 0, vd) * 0.6 + (t > vd ? fxK(t, vd, vd + 3000) * 0.5 : 0);
                 const x = cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20;
                 const y = cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14;
-                astralGlow(g, x, y, cl.r * Math.min(W, H) * grow * 1.6, cl.c, a * 0.32 * (1 - fxK(t, vd + 800, vd + 2600) * 0.6));
-            });
+                astralGlow(s, x, y, cl.r * Math.min(W, H) * grow * 1.6, cl.c, a * 0.32 * (1 - fxK(t, vd + 800, vd + 2600) * 0.6));
+            }));
             let pulse = 0;
             hb.forEach(ms => {
                 pulse = Math.max(pulse, fxEnv(t, ms, ms + 400, 40, 340));
@@ -1411,10 +1436,11 @@ function astralFx(tier, k) {
             const R = Math.min(W, H) * 0.55 * (0.35 + 0.65 * fxK(t, 0, vd)) * (1 + (t > vd ? fxK(t, vd, vd + 4000) * 0.35 : 0));
             const spin = t / 1800 + fxK(t, 0, vd) * 2;
             g.globalCompositeOperation = 'lighter';
-            clouds.forEach(cl => {
+            astralSoft(g, W, H, s => clouds.forEach(cl => {
                 const an = cl.a - spin * 0.4;
-                astralGlow(g, cx + Math.cos(an) * cl.r * R * 1.4, cy + Math.sin(an) * cl.r * R * 0.8, cl.s * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.8), cl.c, a * 0.3);
-            });
+                astralGlow(s, cx + Math.cos(an) * cl.r * R * 1.4, cy + Math.sin(an) * cl.r * R * 0.8, cl.s * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.8), cl.c, a * 0.3);
+            }));
+            g.globalCompositeOperation = 'lighter';
             stars.forEach(s => {
                 const ang = s.arm * 2.094 + s.d * 4.2 + s.j - spin * (1.2 - s.d * 0.6);
                 const r = s.d * R;
@@ -1477,7 +1503,7 @@ function astralFx(tier, k) {
             const a = Math.min(1, fxK(t, 0, 1400)) * (t > vd ? fxEnv(t, vd, vd + 10000, 1, 2400) : 1);
             astralNight(g, cx, cy, W, H, a, t < vd ? 1 : 0.3);
             g.globalCompositeOperation = 'lighter';
-            clouds.forEach(cl => astralGlow(g, cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20, cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14, cl.r * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.6 + fxK(t, vd, vd + 3000) * 0.5), cl.c, a * (0.18 + fxK(t, vd, vd + 1500) * 0.14)));
+            astralSoft(g, W, H, s => clouds.forEach(cl => astralGlow(s, cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20, cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14, cl.r * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.6 + fxK(t, vd, vd + 3000) * 0.5), cl.c, a * (0.18 + fxK(t, vd, vd + 1500) * 0.14))));
             if (t > vd) {
                 // dawn coming up from below, and a sun with a turning corona
                 const d = fxEnv(t, vd, vd + 9800, 1800, 2400) * a;
@@ -1781,9 +1807,14 @@ function astralFx(tier, k) {
             const sg = sp.getContext('2d');
             sg.scale(dpr, dpr);
             const t0 = performance.now();
+            const fc = {};
             (function f(now) {
                 if (k.tok !== fxRunId || restored) {
                     return;
+                }
+                if (frameCheck(fc, now)) {
+                    sp.width = W0;
+                    sp.height = H0;
                 }
                 const t = now - t0;
                 sg.clearRect(0, 0, W0, H0);

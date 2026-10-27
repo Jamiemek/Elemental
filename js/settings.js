@@ -45,6 +45,10 @@ function assignAchievementRarities() {
     renderAchievements();
 }
 assignAchievementRarities();
+// only mention the space bar where there's a keyboard
+if (matchMedia('(any-pointer: fine)').matches) {
+    $('resultRarity').textContent = 'Press Roll or the space bar';
+}
 // space rolls, escape goes to the menu
 document.addEventListener('keydown', e => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
@@ -110,8 +114,39 @@ $('lowSetting').onchange = () => {
     lowDetail = $('lowSetting').checked;
     try {
         localStorage.setItem('elementalLowDetail', lowDetail ? '1' : '0');
+        // turned off by hand: don't switch it back on
+        if (!lowDetail) {
+            localStorage.setItem('elementalAutoLow', 'off');
+        }
     } catch (e) { }
 };
+// effects and cutscenes call this each frame; turns on lower detail if frames run slow
+function frameCheck(st, now) {
+    if (lowDetail) {
+        return false;
+    }
+    if (st.last) {
+        (st.d = st.d || []).push(now - st.last);
+    }
+    st.last = now;
+    if (!st.d || st.d.length < 40) {
+        return false;
+    }
+    const mid = st.d.sort((a, b) => a - b)[20];
+    st.d = [];
+    try {
+        if (mid <= 22 || localStorage.getItem('elementalAutoLow') === 'off') {
+            return false;
+        }
+        localStorage.setItem('elementalLowDetail', '1');
+        localStorage.setItem('elementalAutoLow', '1');
+    } catch (e) {
+        return false;
+    }
+    lowDetail = true;
+    $('lowSetting').checked = true;
+    return true;
+}
 let cutsOn = true;
 try {
     cutsOn = localStorage.getItem('elementalCutsOff') !== '1';
@@ -156,7 +191,8 @@ try {
 bondSummary();
 renderActiveCats();
 // tiers 10-13 only show once you've reached them
-const tierTop = () => collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
+// the best score decides the highest tier reached, and the top 10 is already kept
+const tierTop = () => Math.max(topFinds('score').length ? getRarityTier(topFinds('score')[0].score) : 0, 0, ...seenLoad().fx);
 function tierRowsSync() {
     const top = tierTop();
     document.querySelectorAll('.tier-table tbody tr').forEach((tr, i) => tr.hidden = i >= 9 && i + 1 > top);
@@ -213,6 +249,36 @@ function jokeIntroCheck() {
     }
 }
 setTimeout(jokeIntroCheck, 2500);
+// what's new, shown once to returning players after an update that has notes
+const NEWS = {
+    '2.1.3': [
+        'No more stutter at the end of a roll or when changing pages, however big your collection is.',
+        'Cutscenes and the biggest spawn effects run more smoothly on older phones, and Lower detail now switches on by itself if they struggle.',
+        'Your progress is now protected from being cleared by the browser.',
+        'If something goes wrong in the game, it now tells us, so it can be fixed sooner.'
+    ]
+};
+function newsCheck() {
+    let last = null;
+    try {
+        last = localStorage.getItem('elementalVersion');
+        localStorage.setItem('elementalVersion', APP_VERSION);
+    } catch (e) { }
+    if (last === APP_VERSION || !NEWS[APP_VERSION] || !totalRolls()) {
+        return;
+    }
+    const show = () => {
+        if (document.getElementById('dlg') || rolling || tutAt >= 0) {
+            setTimeout(show, 1500);
+            return;
+        }
+        const w = openDialog('<h2>What\'s new in ' + APP_VERSION + '</h2><ul>' + NEWS[APP_VERSION].map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+            '<div class="btn-row"><button class="primary" id="newsOk">Nice</button></div>');
+        w.querySelector('#newsOk').onclick = closeDialog;
+    };
+    setTimeout(show, 3000);
+}
+setTimeout(newsCheck, 0);
 // remember which settings groups are open
 document.querySelectorAll('.set-group').forEach(d => {
     try {

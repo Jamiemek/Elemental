@@ -1,3 +1,24 @@
+// the game's own errors are kept here and reported once the server can be reached
+const errLog = [];
+function errKeep(msg, where) {
+    msg = String(msg || '').slice(0, 300);
+    if (!msg || errLog.length >= 5 || errLog.some(x => x.m === msg && x.w === where)) {
+        return;
+    }
+    errLog.push({ m: msg, w: where, sent: false });
+}
+addEventListener('error', e => {
+    if (/game\.js|index\.html|\/$/.test(e.filename || '')) {
+        errKeep(e.message, (e.filename || '').split('/').pop().replace(/\?.*/, '') + ':' + e.lineno + ':' + e.colno);
+    }
+});
+addEventListener('unhandledrejection', e => {
+    const st = String(e.reason && e.reason.stack || '');
+    const at = st.match(/game\.js:(\d+:\d+)/);
+    if (at) {
+        errKeep(e.reason.message || e.reason, 'game.js:' + at[1]);
+    }
+});
 // a new SAVE_VERSION starts from a blank slate (old progress is kept as a backup)
 const SAVE_VERSION = '2';
 try {
@@ -1519,10 +1540,15 @@ function fxParticles(cv, o) {
     const t0 = performance.now();
     let last = t0;
     const st = plan.map(e => ({ e, fired: false, acc: 0 }));
+    const fc = {};
     (function f(now) {
         if (tok !== fxRunId) {
             g.clearRect(0, 0, W, H);
             return;
+        }
+        if (frameCheck(fc, now)) {
+            cv.width = W;
+            cv.height = H;
         }
         const t = now - t0;
         const dt = Math.min(0.05, (now - last) / 1000);
@@ -2915,11 +2941,16 @@ function fxScene(k, dur, draw, o) {
         g.scale(dpr, dpr);
     }
     const t0 = performance.now();
+    const fc = {};
     (function f(now) {
         if (k.tok !== fxRunId) {
             return;
         }
         const t = now - t0;
+        if (!px && frameCheck(fc, now)) {
+            cv.width = W;
+            cv.height = H;
+        }
         if (px) {
             g.clearRect(0, 0, buf.width, buf.height);
             draw(g, t, buf.width, buf.height);
@@ -3861,6 +3892,26 @@ function astralGlow(g, x, y, r, col, a) {
     g.globalCompositeOperation = 'source-over';
     g.globalAlpha = 1;
 }
+// soft glows drawn at quarter size and stretched: same look, far cheaper
+function astralSoft(g, W, H, paint) {
+    const c = astralSoft.cv || (astralSoft.cv = document.createElement('canvas'));
+    const w = Math.ceil(W / 4);
+    const h = Math.ceil(H / 4);
+    if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+    }
+    const s = c.getContext('2d');
+    s.setTransform(1, 0, 0, 1, 0, 0);
+    s.clearRect(0, 0, w, h);
+    s.setTransform(0.25, 0, 0, 0.25, 0, 0);
+    paint(s);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.imageSmoothingEnabled = true;
+    g.drawImage(c, 0, 0, W, H);
+    g.restore();
+}
 function astralFx(tier, k) {
     const { T, vd, total, cx, cy } = k;
     const c = T.c;
@@ -4221,12 +4272,12 @@ function astralFx(tier, k) {
             const a = Math.min(1, fxK(t, 0, 800)) * (t > vd ? fxEnv(t, vd, vd + 8000, 1, 2000) : 1);
             astralNight(g, cx, cy, W, H, a * 0.95, 0.3);
             sky(g, t, a);
-            clouds.forEach(cl => {
+            astralSoft(g, W, H, s => clouds.forEach(cl => {
                 const grow = 0.4 + fxK(t, 0, vd) * 0.6 + (t > vd ? fxK(t, vd, vd + 3000) * 0.5 : 0);
                 const x = cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20;
                 const y = cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14;
-                astralGlow(g, x, y, cl.r * Math.min(W, H) * grow * 1.6, cl.c, a * 0.32 * (1 - fxK(t, vd + 800, vd + 2600) * 0.6));
-            });
+                astralGlow(s, x, y, cl.r * Math.min(W, H) * grow * 1.6, cl.c, a * 0.32 * (1 - fxK(t, vd + 800, vd + 2600) * 0.6));
+            }));
             let pulse = 0;
             hb.forEach(ms => {
                 pulse = Math.max(pulse, fxEnv(t, ms, ms + 400, 40, 340));
@@ -4286,10 +4337,11 @@ function astralFx(tier, k) {
             const R = Math.min(W, H) * 0.55 * (0.35 + 0.65 * fxK(t, 0, vd)) * (1 + (t > vd ? fxK(t, vd, vd + 4000) * 0.35 : 0));
             const spin = t / 1800 + fxK(t, 0, vd) * 2;
             g.globalCompositeOperation = 'lighter';
-            clouds.forEach(cl => {
+            astralSoft(g, W, H, s => clouds.forEach(cl => {
                 const an = cl.a - spin * 0.4;
-                astralGlow(g, cx + Math.cos(an) * cl.r * R * 1.4, cy + Math.sin(an) * cl.r * R * 0.8, cl.s * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.8), cl.c, a * 0.3);
-            });
+                astralGlow(s, cx + Math.cos(an) * cl.r * R * 1.4, cy + Math.sin(an) * cl.r * R * 0.8, cl.s * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.8), cl.c, a * 0.3);
+            }));
+            g.globalCompositeOperation = 'lighter';
             stars.forEach(s => {
                 const ang = s.arm * 2.094 + s.d * 4.2 + s.j - spin * (1.2 - s.d * 0.6);
                 const r = s.d * R;
@@ -4352,7 +4404,7 @@ function astralFx(tier, k) {
             const a = Math.min(1, fxK(t, 0, 1400)) * (t > vd ? fxEnv(t, vd, vd + 10000, 1, 2400) : 1);
             astralNight(g, cx, cy, W, H, a, t < vd ? 1 : 0.3);
             g.globalCompositeOperation = 'lighter';
-            clouds.forEach(cl => astralGlow(g, cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20, cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14, cl.r * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.6 + fxK(t, vd, vd + 3000) * 0.5), cl.c, a * (0.18 + fxK(t, vd, vd + 1500) * 0.14)));
+            astralSoft(g, W, H, s => clouds.forEach(cl => astralGlow(s, cx + cl.x * W + Math.cos(cl.d + t / 3000) * 20, cy + cl.y * H + Math.sin(cl.d + t / 3000) * 14, cl.r * Math.min(W, H) * (0.6 + fxK(t, 0, vd) * 0.6 + fxK(t, vd, vd + 3000) * 0.5), cl.c, a * (0.18 + fxK(t, vd, vd + 1500) * 0.14))));
             if (t > vd) {
                 // dawn coming up from below, and a sun with a turning corona
                 const d = fxEnv(t, vd, vd + 9800, 1800, 2400) * a;
@@ -4656,9 +4708,14 @@ function astralFx(tier, k) {
             const sg = sp.getContext('2d');
             sg.scale(dpr, dpr);
             const t0 = performance.now();
+            const fc = {};
             (function f(now) {
                 if (k.tok !== fxRunId || restored) {
                     return;
+                }
+                if (frameCheck(fc, now)) {
+                    sp.width = W0;
+                    sp.height = H0;
                 }
                 const t = now - t0;
                 sg.clearRect(0, 0, W0, H0);
@@ -5908,8 +5965,16 @@ let clearCleared = { rolls: 0, formulas: 0 };
 try {
     clearCleared = Object.assign(clearCleared, JSON.parse(localStorage.getItem('elementalCleared') || '{}'));
 } catch (e) { }
+// running total: adding it all up every roll was slow on big saves
+let rollsMemo = null;
 function totalRolls() {
-    return collection.reduce((n, c) => n + (c.count || 1), 0) + (clearCleared.rolls || 0);
+    const m = rollsMemo;
+    if (m && m.c === collection && m.k === clearCleared.rolls) {
+        return m.n;
+    }
+    const n = collection.reduce((s, c) => s + (c.count || 1), 0) + (clearCleared.rolls || 0);
+    rollsMemo = { c: collection, k: clearCleared.rolls, n };
+    return n;
 }
 let rolling = false;
 let autoRolling = false;
@@ -5926,8 +5991,17 @@ function save() {
         netVer++;
     }
     if (!saveTimer) {
-        saveTimer = setTimeout(flushSave, 1500);
+        save.at = Date.now();
+        saveTimer = setTimeout(saveQuiet, 1500);
     }
+}
+// on a big save the write is a visible hitch, so it waits for a gap between rolls (10 seconds at most)
+function saveQuiet() {
+    if (rolling && Date.now() - save.at < 10000) {
+        saveTimer = setTimeout(saveQuiet, 400);
+        return;
+    }
+    flushSave();
 }
 function flushSave() {
     if (!saveTimer || save.frozen) {
@@ -5955,6 +6029,9 @@ function findFormula(f) {
 addEventListener('pagehide', flushSave);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flushSave());
 function addRecord(r) {
+    if (rollsMemo && rollsMemo.c === collection) {
+        rollsMemo.n++;
+    }
     // base odds/score stay, ions only mark the best
     const ion = r.ion || 0;
     const base = ion ? Object.assign({}, r, { log: r.baseLog, score: r.baseScore, rarity: rarityText(r.baseLog) }) : r;
@@ -6715,18 +6792,44 @@ function reqShort(q) {
     return q.k + '–?';
 }
 // collection records that can pay for a slot, most plentiful first
+// finds grouped by what bond slots ask for, kept up as finds come in (compounds only when asked)
+let payIdx = { ref: null };
+function payIndex(cp) {
+    const by = (m, k, c) => (m.get(k) || m.set(k, []).get(k)).push(c);
+    const norm = c => c.norm || (c.norm = normalizeFormula(c.formula));
+    if (payIdx.ref !== collection || payIdx.n > collection.length) {
+        payIdx = { ref: collection, n: 0, fam: new Map(), has: new Map(), cp: null };
+    }
+    for (let i = payIdx.n; i < collection.length; i++) {
+        const c = collection[i];
+        if (!c.elements) {
+            continue;
+        }
+        if (c.elements.length === 1) {
+            by(payIdx.fam, familyOf(c.elements[0][0]), c);
+        } else {
+            new Set(c.elements.map(e => e[0])).forEach(sym => by(payIdx.has, sym, c));
+        }
+        if (payIdx.cp) {
+            by(payIdx.cp, norm(c), c);
+        }
+    }
+    payIdx.n = collection.length;
+    if (cp && !payIdx.cp) {
+        payIdx.cp = new Map();
+        collection.forEach(c => c.elements && by(payIdx.cp, norm(c), c));
+    }
+    return payIdx;
+}
 function eligible(q) {
     const avail = c => (c.count || 1) - (c.spent || 0);
-    const single = c => c.elements && c.elements.length === 1;
     let list;
     if (q.t === 'el') {
-        list = collection.filter(c => c.formula === q.k);
-    } else if (q.t === 'cp') {
-        list = collection.filter(c => normalizeFormula(c.formula) === q.k);
-    } else if (q.t === 'fam') {
-        list = collection.filter(c => single(c) && familyOf(c.elements[0][0]) === q.k);
+        const c = findFormula(q.k);
+        list = c ? [c] : [];
     } else {
-        list = collection.filter(c => c.elements && c.elements.length > 1 && c.elements.some(e => e[0] === q.k));
+        const ix = payIndex(q.t === 'cp');
+        list = (q.t === 'cp' ? ix.cp : q.t === 'fam' ? ix.fam : ix.has).get(q.k) || [];
     }
     return list.map(c => ({ c, n: avail(c) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
 }
@@ -8561,7 +8664,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.2';
+const APP_VERSION = '2.1.3';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -9529,6 +9632,10 @@ function assignAchievementRarities() {
     renderAchievements();
 }
 assignAchievementRarities();
+// only mention the space bar where there's a keyboard
+if (matchMedia('(any-pointer: fine)').matches) {
+    $('resultRarity').textContent = 'Press Roll or the space bar';
+}
 // space rolls, escape goes to the menu
 document.addEventListener('keydown', e => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
@@ -9594,8 +9701,39 @@ $('lowSetting').onchange = () => {
     lowDetail = $('lowSetting').checked;
     try {
         localStorage.setItem('elementalLowDetail', lowDetail ? '1' : '0');
+        // turned off by hand: don't switch it back on
+        if (!lowDetail) {
+            localStorage.setItem('elementalAutoLow', 'off');
+        }
     } catch (e) { }
 };
+// effects and cutscenes call this each frame; turns on lower detail if frames run slow
+function frameCheck(st, now) {
+    if (lowDetail) {
+        return false;
+    }
+    if (st.last) {
+        (st.d = st.d || []).push(now - st.last);
+    }
+    st.last = now;
+    if (!st.d || st.d.length < 40) {
+        return false;
+    }
+    const mid = st.d.sort((a, b) => a - b)[20];
+    st.d = [];
+    try {
+        if (mid <= 22 || localStorage.getItem('elementalAutoLow') === 'off') {
+            return false;
+        }
+        localStorage.setItem('elementalLowDetail', '1');
+        localStorage.setItem('elementalAutoLow', '1');
+    } catch (e) {
+        return false;
+    }
+    lowDetail = true;
+    $('lowSetting').checked = true;
+    return true;
+}
 let cutsOn = true;
 try {
     cutsOn = localStorage.getItem('elementalCutsOff') !== '1';
@@ -9640,7 +9778,8 @@ try {
 bondSummary();
 renderActiveCats();
 // tiers 10-13 only show once you've reached them
-const tierTop = () => collection.reduce((m, c) => Math.max(m, getRarityTier(c.score)), Math.max(0, ...seenLoad().fx));
+// the best score decides the highest tier reached, and the top 10 is already kept
+const tierTop = () => Math.max(topFinds('score').length ? getRarityTier(topFinds('score')[0].score) : 0, 0, ...seenLoad().fx);
 function tierRowsSync() {
     const top = tierTop();
     document.querySelectorAll('.tier-table tbody tr').forEach((tr, i) => tr.hidden = i >= 9 && i + 1 > top);
@@ -9697,6 +9836,36 @@ function jokeIntroCheck() {
     }
 }
 setTimeout(jokeIntroCheck, 2500);
+// what's new, shown once to returning players after an update that has notes
+const NEWS = {
+    '2.1.3': [
+        'No more stutter at the end of a roll or when changing pages, however big your collection is.',
+        'Cutscenes and the biggest spawn effects run more smoothly on older phones, and Lower detail now switches on by itself if they struggle.',
+        'Your progress is now protected from being cleared by the browser.',
+        'If something goes wrong in the game, it now tells us, so it can be fixed sooner.'
+    ]
+};
+function newsCheck() {
+    let last = null;
+    try {
+        last = localStorage.getItem('elementalVersion');
+        localStorage.setItem('elementalVersion', APP_VERSION);
+    } catch (e) { }
+    if (last === APP_VERSION || !NEWS[APP_VERSION] || !totalRolls()) {
+        return;
+    }
+    const show = () => {
+        if (document.getElementById('dlg') || rolling || tutAt >= 0) {
+            setTimeout(show, 1500);
+            return;
+        }
+        const w = openDialog('<h2>What\'s new in ' + APP_VERSION + '</h2><ul>' + NEWS[APP_VERSION].map(x => '<li>' + x + '</li>').join('') + '</ul>' +
+            '<div class="btn-row"><button class="primary" id="newsOk">Nice</button></div>');
+        w.querySelector('#newsOk').onclick = closeDialog;
+    };
+    setTimeout(show, 3000);
+}
+setTimeout(newsCheck, 0);
 // remember which settings groups are open
 document.querySelectorAll('.set-group').forEach(d => {
     try {
@@ -9925,7 +10094,8 @@ function playCutscene(sym, reel, forms, idx, syms) {
         const margin = 38;
         const frameWidth = Math.max(200, VW - 2 * margin);
         const frameHeight = Math.max(200, VH - 2 * margin);
-        const dpr = lowDetail ? 1 : Math.min(2, devicePixelRatio || 1);
+        let dpr = lowDetail ? 1 : Math.min(2, devicePixelRatio || 1);
+        const fc = {};
         const r = reel.getBoundingClientRect();
         const overlay = document.createElement('div');
         const veil = document.createElement('div');
@@ -10032,6 +10202,11 @@ function playCutscene(sym, reel, forms, idx, syms) {
                 box.style.height = bh + 'px';
                 veil.style.opacity = k;
                 canvas.style.opacity = el < duration ? 1 : smoothstep(0, 0.55, k);
+            }
+            if (frameCheck(fc, now)) {
+                dpr = 1;
+                canvas.width = frameWidth;
+                canvas.height = frameHeight;
             }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, frameWidth, frameHeight);
@@ -13122,8 +13297,9 @@ function planClear(minScore) {
             need[n.req.k] = (need[n.req.k] || 0) + n.req.n;
         }
     });
+    const ix = payIndex();
     Object.keys(need).forEach(k => {
-        const list = collection.filter(c => c.elements.length > 1 && c.elements.some(e => e[0] === k) && avail(c) > 0);
+        const list = (ix.has.get(k) || []).filter(c => avail(c) > 0);
         let have = list.filter(c => keep.has(c)).reduce((s, c) => s + avail(c), 0);
         list.filter(c => !keep.has(c)).sort((a, b) => avail(b) - avail(a)).forEach(c => {
             if (have < need[k]) {
@@ -13135,9 +13311,16 @@ function planClear(minScore) {
     // every found element stays found
     const covered = new Set();
     keep.forEach(c => c && c.elements.forEach(e => covered.add(e[0])));
+    const top = new Map();
+    collection.forEach(c => c.elements.forEach(e => {
+        const b = top.get(e[0]);
+        if (!b || c.score > b.score) {
+            top.set(e[0], c);
+        }
+    }));
     discoveredSymbols().forEach(s => {
         if (!covered.has(s)) {
-            const best = collection.filter(c => c.elements.some(e => e[0] === s)).sort((a, b) => b.score - a.score)[0];
+            const best = top.get(s);
             if (best) {
                 keep.add(best);
                 best.elements.forEach(e => covered.add(e[0]));
@@ -13377,11 +13560,12 @@ function cloudHash(d) {
     }
     return (h >>> 0).toString(36) + ':' + s.length;
 }
+// read straight from the saved formulas: unpacking a big collection here took seconds
 function cloudSummary(d) {
     let col = [];
     let ach = [];
     try {
-        col = unpackCollection(JSON.parse(d.elementalCollection || '[]'));
+        col = JSON.parse(d.elementalCollection || '[]');
     } catch (e) { }
     try {
         ach = JSON.parse(d.elementalAchievements || '[]');
@@ -13392,8 +13576,12 @@ function cloudSummary(d) {
         rolls = JSON.parse(d.elementalCleared || '{}').rolls || 0;
     } catch (e) { }
     col.forEach(c => {
-        rolls += c.count || 1;
-        (c.elements || []).forEach(e => syms.add(e[0]));
+        const f = Array.isArray(c) ? c[0] : c && c.formula;
+        if (typeof f !== 'string') {
+            return;
+        }
+        rolls += (Array.isArray(c) ? +c[1] : +c.count) || 1;
+        f.replace(/[A-Z][a-z]?/g, s => syms.add(s));
     });
     return { rolls, found: syms.size, ach: ach.length, quarks: Math.floor(parseFloat(d.elementalQuarks) || 0) };
 }
@@ -13774,6 +13962,28 @@ async function cloudSignIn() {
         cloudFail(error);
     }
 }
+// signed-out players are asked once, early on, while there's little to lose by signing in
+function saveNudge() {
+    const n = totalRolls();
+    if (n >= 25 && !saveNudge.kept && navigator.storage && navigator.storage.persist) {
+        saveNudge.kept = true;
+        navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => { });
+    }
+    if (cloudUser || !sb || !CLOUD.enabled || rolling || tutAt >= 0 || $('dlg') || n < 25 || n > 400 || cloudGet('elementalNudged')) {
+        return;
+    }
+    cloudSet('elementalNudged', '1');
+    const w = openDialog('<h2>Keep your progress safe</h2><p>Right now your progress is only saved in this browser, so clearing its data would lose it. ' +
+        'Signing in keeps it safe and syncs it between your devices.</p><p>Rolls made before signing in don\'t carry over to an account, so it\'s best done early.</p>' +
+        '<div class="btn-row"><button class="primary" id="nudgeGo">Sign in</button><button class="ghost" id="nudgeNo">Not now</button></div>');
+    w.querySelector('#nudgeGo').onclick = () => {
+        closeDialog();
+        cloudSignIn.ok = true;
+        cloudSignIn();
+    };
+    w.querySelector('#nudgeNo').onclick = closeDialog;
+}
+setInterval(saveNudge, 15000);
 async function cloudSignOut() {
     if (!sb) {
         return;
@@ -14216,6 +14426,16 @@ async function quarkSend() {
 }
 quarkWatch();
 setInterval(quarkWatch, 2000);
+function errSend() {
+    if (!sb || !CLOUD.enabled) {
+        return;
+    }
+    errLog.filter(x => !x.sent).forEach(x => {
+        x.sent = true;
+        sb.rpc('report_error', { p_msg: x.m, p_where: x.w, p_ver: APP_VERSION, p_agent: navigator.userAgent.slice(0, 200) });
+    });
+}
+setInterval(errSend, 20000);
 // Admin tab: only shown to the admin account
 let isAdmin = false;
 async function adminCheck() {
@@ -14592,6 +14812,7 @@ async function awayProcess() {
             hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
         }
     }
+    rollsMemo = null;
     renderQStorm();
     rollHistory = hist.reverse().concat(rollHistory).slice(0, HISTORY_MAX);
     try {
@@ -14641,7 +14862,7 @@ const TUT = [
     { on: 'bonds', say: 'Those rolls are used up now, but the bonuses stay. The tree goes a long way out.' },
     { on: 'shop', way: 'Next, the catalyst shop.', at: '#shopTimer', say: 'The catalyst shop. Catalysts boost your luck, your speed and plenty more for a while. They cost quarks, which every roll earns, and the stock changes on a timer.' },
     { on: 'catinv', way: 'Now your inventory.', say: 'Catalysts you buy wait in your inventory until you use them. Yours is empty for now.' },
-    { on: 'settings', way: 'On to Settings.', at: '#accountBody', say: 'Signing in with Google is optional. It keeps your save in the cloud and puts you on the global top 10. You can do it now or any time.' },
+    { on: 'settings', way: 'On to Settings.', at: '#accountBody', say: 'Signing in with Google is optional. It keeps your save in the cloud and puts you on the global top 10. Rolls made before signing in don\'t carry over to an account, so now is the best time.' },
     { on: 'settings', say: 'Settings is also where you change the theme and sound, turn down flashing, and watch again any effect you\'ve seen.' },
     { on: 'game', way: 'Back to rolling.', at: '#qStormBar', storm: true, say: 'Every so often an event starts. Here\'s one on the house: a Quark Storm. Every roll earns extra quarks until it runs out.' },
     { on: 'game', say: 'That\'s all you need to get going. Expect the unexpected, there are many more secrets to uncover.' }

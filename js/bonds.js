@@ -401,18 +401,44 @@ function reqShort(q) {
     return q.k + '–?';
 }
 // collection records that can pay for a slot, most plentiful first
+// finds grouped by what bond slots ask for, kept up as finds come in (compounds only when asked)
+let payIdx = { ref: null };
+function payIndex(cp) {
+    const by = (m, k, c) => (m.get(k) || m.set(k, []).get(k)).push(c);
+    const norm = c => c.norm || (c.norm = normalizeFormula(c.formula));
+    if (payIdx.ref !== collection || payIdx.n > collection.length) {
+        payIdx = { ref: collection, n: 0, fam: new Map(), has: new Map(), cp: null };
+    }
+    for (let i = payIdx.n; i < collection.length; i++) {
+        const c = collection[i];
+        if (!c.elements) {
+            continue;
+        }
+        if (c.elements.length === 1) {
+            by(payIdx.fam, familyOf(c.elements[0][0]), c);
+        } else {
+            new Set(c.elements.map(e => e[0])).forEach(sym => by(payIdx.has, sym, c));
+        }
+        if (payIdx.cp) {
+            by(payIdx.cp, norm(c), c);
+        }
+    }
+    payIdx.n = collection.length;
+    if (cp && !payIdx.cp) {
+        payIdx.cp = new Map();
+        collection.forEach(c => c.elements && by(payIdx.cp, norm(c), c));
+    }
+    return payIdx;
+}
 function eligible(q) {
     const avail = c => (c.count || 1) - (c.spent || 0);
-    const single = c => c.elements && c.elements.length === 1;
     let list;
     if (q.t === 'el') {
-        list = collection.filter(c => c.formula === q.k);
-    } else if (q.t === 'cp') {
-        list = collection.filter(c => normalizeFormula(c.formula) === q.k);
-    } else if (q.t === 'fam') {
-        list = collection.filter(c => single(c) && familyOf(c.elements[0][0]) === q.k);
+        const c = findFormula(q.k);
+        list = c ? [c] : [];
     } else {
-        list = collection.filter(c => c.elements && c.elements.length > 1 && c.elements.some(e => e[0] === q.k));
+        const ix = payIndex(q.t === 'cp');
+        list = (q.t === 'cp' ? ix.cp : q.t === 'fam' ? ix.fam : ix.has).get(q.k) || [];
     }
     return list.map(c => ({ c, n: avail(c) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
 }

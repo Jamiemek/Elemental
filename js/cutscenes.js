@@ -82,7 +82,8 @@ function playCutscene(sym, reel, forms, idx, syms) {
         const margin = 38;
         const frameWidth = Math.max(200, VW - 2 * margin);
         const frameHeight = Math.max(200, VH - 2 * margin);
-        const dpr = lowDetail ? 1 : Math.min(2, devicePixelRatio || 1);
+        let dpr = lowDetail ? 1 : Math.min(2, devicePixelRatio || 1);
+        const fc = {};
         const r = reel.getBoundingClientRect();
         const overlay = document.createElement('div');
         const veil = document.createElement('div');
@@ -189,6 +190,11 @@ function playCutscene(sym, reel, forms, idx, syms) {
                 box.style.height = bh + 'px';
                 veil.style.opacity = k;
                 canvas.style.opacity = el < duration ? 1 : smoothstep(0, 0.55, k);
+            }
+            if (frameCheck(fc, now)) {
+                dpr = 1;
+                canvas.width = frameWidth;
+                canvas.height = frameHeight;
             }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, frameWidth, frameHeight);

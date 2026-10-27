@@ -14,7 +14,7 @@ const TUT = [
     { on: 'bonds', say: 'Those rolls are used up now, but the bonuses stay. The tree goes a long way out.' },
     { on: 'shop', way: 'Next, the catalyst shop.', at: '#shopTimer', say: 'The catalyst shop. Catalysts boost your luck, your speed and plenty more for a while. They cost quarks, which every roll earns, and the stock changes on a timer.' },
     { on: 'catinv', way: 'Now your inventory.', say: 'Catalysts you buy wait in your inventory until you use them. Yours is empty for now.' },
-    { on: 'settings', way: 'On to Settings.', at: '#accountBody', say: 'Signing in with Google is optional. It keeps your save in the cloud and puts you on the global top 10. You can do it now or any time.' },
+    { on: 'settings', way: 'On to Settings.', at: '#accountBody', say: 'Signing in with Google is optional. It keeps your save in the cloud and puts you on the global top 10. Rolls made before signing in don\'t carry over to an account, so now is the best time.' },
     { on: 'settings', say: 'Settings is also where you change the theme and sound, turn down flashing, and watch again any effect you\'ve seen.' },
     { on: 'game', way: 'Back to rolling.', at: '#qStormBar', storm: true, say: 'Every so often an event starts. Here\'s one on the house: a Quark Storm. Every roll earns extra quarks until it runs out.' },
     { on: 'game', say: 'That\'s all you need to get going. Expect the unexpected, there are many more secrets to uncover.' }

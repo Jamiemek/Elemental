@@ -51,11 +51,12 @@ function cloudHash(d) {
     }
     return (h >>> 0).toString(36) + ':' + s.length;
 }
+// read straight from the saved formulas: unpacking a big collection here took seconds
 function cloudSummary(d) {
     let col = [];
     let ach = [];
     try {
-        col = unpackCollection(JSON.parse(d.elementalCollection || '[]'));
+        col = JSON.parse(d.elementalCollection || '[]');
     } catch (e) { }
     try {
         ach = JSON.parse(d.elementalAchievements || '[]');
@@ -66,8 +67,12 @@ function cloudSummary(d) {
         rolls = JSON.parse(d.elementalCleared || '{}').rolls || 0;
     } catch (e) { }
     col.forEach(c => {
-        rolls += c.count || 1;
-        (c.elements || []).forEach(e => syms.add(e[0]));
+        const f = Array.isArray(c) ? c[0] : c && c.formula;
+        if (typeof f !== 'string') {
+            return;
+        }
+        rolls += (Array.isArray(c) ? +c[1] : +c.count) || 1;
+        f.replace(/[A-Z][a-z]?/g, s => syms.add(s));
     });
     return { rolls, found: syms.size, ach: ach.length, quarks: Math.floor(parseFloat(d.elementalQuarks) || 0) };
 }
@@ -448,6 +453,28 @@ async function cloudSignIn() {
         cloudFail(error);
     }
 }
+// signed-out players are asked once, early on, while there's little to lose by signing in
+function saveNudge() {
+    const n = totalRolls();
+    if (n >= 25 && !saveNudge.kept && navigator.storage && navigator.storage.persist) {
+        saveNudge.kept = true;
+        navigator.storage.persisted().then(p => p || navigator.storage.persist()).catch(() => { });
+    }
+    if (cloudUser || !sb || !CLOUD.enabled || rolling || tutAt >= 0 || $('dlg') || n < 25 || n > 400 || cloudGet('elementalNudged')) {
+        return;
+    }
+    cloudSet('elementalNudged', '1');
+    const w = openDialog('<h2>Keep your progress safe</h2><p>Right now your progress is only saved in this browser, so clearing its data would lose it. ' +
+        'Signing in keeps it safe and syncs it between your devices.</p><p>Rolls made before signing in don\'t carry over to an account, so it\'s best done early.</p>' +
+        '<div class="btn-row"><button class="primary" id="nudgeGo">Sign in</button><button class="ghost" id="nudgeNo">Not now</button></div>');
+    w.querySelector('#nudgeGo').onclick = () => {
+        closeDialog();
+        cloudSignIn.ok = true;
+        cloudSignIn();
+    };
+    w.querySelector('#nudgeNo').onclick = closeDialog;
+}
+setInterval(saveNudge, 15000);
 async function cloudSignOut() {
     if (!sb) {
         return;

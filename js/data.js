@@ -1,3 +1,24 @@
+// the game's own errors are kept here and reported once the server can be reached
+const errLog = [];
+function errKeep(msg, where) {
+    msg = String(msg || '').slice(0, 300);
+    if (!msg || errLog.length >= 5 || errLog.some(x => x.m === msg && x.w === where)) {
+        return;
+    }
+    errLog.push({ m: msg, w: where, sent: false });
+}
+addEventListener('error', e => {
+    if (/game\.js|index\.html|\/$/.test(e.filename || '')) {
+        errKeep(e.message, (e.filename || '').split('/').pop().replace(/\?.*/, '') + ':' + e.lineno + ':' + e.colno);
+    }
+});
+addEventListener('unhandledrejection', e => {
+    const st = String(e.reason && e.reason.stack || '');
+    const at = st.match(/game\.js:(\d+:\d+)/);
+    if (at) {
+        errKeep(e.reason.message || e.reason, 'game.js:' + at[1]);
+    }
+});
 // a new SAVE_VERSION starts from a blank slate (old progress is kept as a backup)
 const SAVE_VERSION = '2';
 try {
