@@ -1,0 +1,26 @@
+[
+ [
+  "<title>Elemental</title>",
+  "<title>Elemental (preview copy)</title>"
+ ],
+ [
+  "                const elements = scripted ? [elementBySymbol[scripted]] : twice ? rollTwice(make) : make();",
+  "                const forcedList = window.__forceList;\n                window.__forceList = null;\n                const forcedEl = window.__forceEl ? elementBySymbol[window.__forceEl] : null;\n                window.__forceEl = null;\n                const forced = forcedList || (forcedEl ? [forcedEl] : null);\n                const elements = forced ? forced.slice() : scripted ? [elementBySymbol[scripted]] : twice ? rollTwice(make) : make();"
+ ],
+ [
+  "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();",
+  "        const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && (window.__secretMode === 'always' || (window.__secretMode !== 'never' && Math.random() < secretChance()));"
+ ],
+ [
+  "    enabled: true,",
+  "    enabled: false, // the preview copy never touches real accounts or saves"
+ ],
+ [
+  "function rollIon() {\n    if (!bondBonus().ion) {",
+  "function rollIon() {\n    if (window.__forceIon) {\n        const v = window.__forceIon;\n        window.__forceIon = 0;\n        return v;\n    }\n    if (!bondBonus().ion) {"
+ ],
+ [
+  "const SAVE_VERSION = '2';\ntry {\n",
+  "const SAVE_VERSION = '2';\n// preview: Replay tutorial wipes the save before anything loads it\ntry {\n    if (sessionStorage.getItem('previewWipe')) {\n        sessionStorage.removeItem('previewWipe');\n        localStorage.clear();\n        localStorage.setItem('elementalSaveVersion', SAVE_VERSION);\n    }\n} catch (e) { }\ntry {\n"
+ ]
+]

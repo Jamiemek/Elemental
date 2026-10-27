@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elemental · Privacy</title>
+<style>
+:root {
+  --bench: #dde3df;
+  --ink: #17211e;
+  --ink-2: #46534f;
+  --night: #17211e;
+  --hazard: #f0c419;
+  --head: "Bahnschrift","DIN Alternate","DIN 1451 Std","Avenir Next Condensed","Franklin Gothic Medium","Arial Narrow",Arial,sans-serif;
+  --text: "Charter","Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bench: #121916; --ink: #e4ebe7; --ink-2: #a9b6b1; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bench); color: var(--ink); font-family: var(--text); line-height: 1.6; }
+header { background: var(--night); color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+header .mark { background: var(--hazard); color: var(--night); font-family: var(--head); font-weight: 700; padding: 4px 8px; }
+header a { color: #fff; font-family: var(--head); font-weight: 700; font-size: 20px; text-decoration: none; }
+main { max-width: 680px; margin: 0 auto; padding: 28px 16px 60px; }
+h1, h2 { font-family: var(--head); line-height: 1.2; }
+h1 { font-size: 34px; margin: 0 0 4px; }
+h2 { font-size: 20px; margin: 32px 0 6px; border-top: 3px solid var(--ink); padding-top: 14px; }
+.sub { color: var(--ink-2); margin: 0 0 8px; }
+a { color: inherit; }
+ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<header><span class="mark">El</span><a href="./">Elemental</a></header>
+<main>
+<h1>Privacy</h1>
+<p class="sub">Last updated 22 October 2026</p>
+<p>Elemental is a free browser game made by Jamiemek. This page explains what the game stores about you and why.</p>
+
+<h2>Playing without signing in</h2>
+<p>If you never sign in, nothing about you leaves your device. Your collection, settings and progress are saved in your browser's own storage on that device only. Clearing your browser data deletes them, unless you have exported a backup from Settings.</p>
+
+<h2>Signing in with Google</h2>
+<p>Signing in is optional. It lets your progress sync between devices and lets your rolls appear on the global leaderboard. When you sign in, Google shares your name, email address and profile picture link with the game. We use them only to recognise your account. Your email address is never shown to other players.</p>
+<p>For signed-in players, the game stores:</p>
+<ul>
+<li>your account ID and email address, from Google</li>
+<li>the display name you choose, which other players can see</li>
+<li>your saved game progress</li>
+<li>rare rolls you find, with your display name, so they can appear on the global top 10 and in announcements</li>
+<li>counts of your rolls and rare finds, used to spot cheating</li>
+</ul>
+<p>Rolls that reach the global top 10, and some very rare rolls, are announced in the game and may be posted to the Elemental Discord server, showing your display name and the roll.</p>
+
+<h2>Where it is stored</h2>
+<p>Signed-in data is stored with Supabase, the database service the game uses, and sign-in is handled by Google. We don't sell your data, show ads or share it with anyone else.</p>
+
+<h2>Deleting your data</h2>
+<p>You can sign out at any time and keep playing offline. To have your account and everything stored with it deleted, contact Jamiemek through <a href="https://github.com/Jamiemek/Elemental">the game's GitHub page</a>. Your data will be removed, and your entries taken off the leaderboard.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, this page will be updated and the date at the top will change.</p>
+</main>
+</body>
+</html>
