@@ -83,6 +83,9 @@ def preview(page):
     for old, new in json.loads(read('tools/preview/patches.json')):
         assert page.count(old) == 1, 'preview patch no longer fits: ' + old[:60]
         page = page.replace(old, new)
+    # its own saves, set up before anything on the page reads one
+    h = page.index('<head>') + len('<head>')
+    page = page[:h] + '\n' + read('tools/preview/storage.html') + page[h:]
     k = page.rindex('</body></html>')
     return page[:k] + read('tools/preview/panel.html') + page[k:]
 
