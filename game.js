@@ -7766,6 +7766,8 @@ let catSrc = loadJSON('elementalCatSrc', {});
 let upTier = null;
 let upPick = {};
 let upBusy = false;
+// locked kinds never go into an upgrade, by hand or by Merge all
+let upLocks = loadJSON('elementalUpLocks', {});
 function saveCats() {
     try {
         localStorage.setItem('elementalShop', JSON.stringify(shopState));
@@ -8410,6 +8412,18 @@ const upSay = (text, ok) => {
     $('upMsg').textContent = text;
     $('upMsg').classList.toggle('ok', !!ok);
 };
+const upUsable = id => upLocks[id] ? 0 : upFree(id);
+function upLock(id) {
+    if (upLocks[id]) {
+        delete upLocks[id];
+    } else {
+        upLocks[id] = 1;
+    }
+    delete upPick[id];
+    try {
+        localStorage.setItem('elementalUpLocks', JSON.stringify(upLocks));
+    } catch (e) { }
+}
 const upCount = () => Object.values(upPick).reduce((s, n) => s + n, 0);
 function renderUpgrade() {
     const box = $('catUp');
@@ -8422,26 +8436,28 @@ function renderUpgrade() {
     if (box.hidden) {
         return;
     }
-    const have = t => Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === t).reduce((s, id) => s + upFree(id), 0);
+    const have = t => Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === t).reduce((s, id) => s + upUsable(id), 0);
     if (upTier == null) {
         upTier = [0, 1, 2, 3, 4].find(t => have(t) >= UP_NEED) ?? 0;
     }
     $('upTiers').innerHTML = [0, 1, 2, 3, 4].map(t => `<button class="ghost${t === upTier ? ' sel' : ''}" data-t="${t}" style="--tc:${CAT_TIERS[t].col}">${CAT_TIERS[t].name}<small>${have(t)}</small></button>`).join('');
     const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === upTier && catInv[id] > 0).sort((a, b) => CAT[a].name.localeCompare(CAT[b].name));
     Object.keys(upPick).forEach(id => {
-        upPick[id] = Math.min(upPick[id], upFree(id));
+        upPick[id] = Math.min(upPick[id], upUsable(id));
         if (!upPick[id] || CAT[id].tier !== upTier) {
             delete upPick[id];
         }
     });
     const stuck = ids.some(id => upFree(id) < catInv[id]);
-    $('upList').innerHTML = (ids.length ? ids.map(id => `<div class="up-row" style="--tc:${CAT_TIERS[upTier].col}"><strong>${CAT[id].name}</strong><span class="muted">${upFree(id) < catInv[id] ? upFree(id) + ' of ' + catInv[id] + ' can go in' : '×' + catInv[id]}</span>
-<span class="up-step"><button class="ghost" data-d="-1" data-id="${id}" aria-label="One fewer">−</button><b>${upPick[id] || 0}</b><button class="ghost" data-d="1" data-id="${id}" aria-label="One more">+</button></span></div>`).join('') :
+    $('upList').innerHTML = (ids.length ? ids.map(id => `<div class="up-row${upLocks[id] ? ' locked' : ''}" style="--tc:${CAT_TIERS[upTier].col}"><strong>${CAT[id].name}</strong><span class="muted">${upFree(id) < catInv[id] ? upFree(id) + ' of ' + catInv[id] + ' can go in' : '×' + catInv[id]}</span>
+<button class="ghost up-lock" data-lock="${id}" aria-pressed="${upLocks[id] ? 'true' : 'false'}" title="${upLocks[id] ? 'Locked: tap to let it be upgraded again' : 'Lock it so it never goes into an upgrade'}"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10"/><path d="${upLocks[id] ? 'M8 11V7a4 4 0 0 1 8 0v4' : 'M8 11V7a4 4 0 0 1 7.5-2'}"/></svg>${upLocks[id] ? 'Locked' : 'Lock'}</button>
+<span class="up-step"><button class="ghost" data-d="-1" data-id="${id}" aria-label="One fewer"${upLocks[id] ? ' disabled' : ''}>−</button><b>${upPick[id] || 0}</b><button class="ghost" data-d="1" data-id="${id}" aria-label="One more"${upLocks[id] ? ' disabled' : ''}>+</button></span></div>`).join('') :
         `<p class="muted">You have no ${CAT_TIERS[upTier].name.toLowerCase()} catalysts.</p>`) +
         (stuck ? '<p class="muted up-note">Some of these came from before upgrades existed, so they can be used but not combined.</p>' : '');
     const n = upCount();
     $('upGo').textContent = `Combine ${n} / ${UP_NEED}`;
     $('upGo').disabled = n !== UP_NEED || upBusy;
+    $('upAll').disabled = upBusy || !upMergePlan().length;
 }
 $('upTiers').addEventListener('click', e => {
     const b = e.target.closest('[data-t]');
@@ -8453,24 +8469,30 @@ $('upTiers').addEventListener('click', e => {
     }
 });
 $('upList').addEventListener('click', e => {
+    const l = e.target.closest('[data-lock]');
+    if (l) {
+        upLock(l.dataset.lock);
+        renderUpgrade();
+        return;
+    }
     const b = e.target.closest('[data-d]');
     if (!b) {
         return;
     }
     const id = b.dataset.id;
     const next = (upPick[id] || 0) + +b.dataset.d;
-    if (next >= 0 && next <= upFree(id) && (+b.dataset.d < 0 || upCount() < UP_NEED)) {
+    if (next >= 0 && next <= upUsable(id) && (+b.dataset.d < 0 || upCount() < UP_NEED)) {
         upPick[id] = next;
         renderUpgrade();
     }
 });
 // most-owned first
 $('upFill').onclick = () => {
-    const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === upTier).sort((a, b) => upFree(b) - upFree(a));
+    const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === upTier).sort((a, b) => upUsable(b) - upUsable(a));
     upPick = {};
     let left = UP_NEED;
     ids.forEach(id => {
-        const n = Math.min(left, upFree(id));
+        const n = Math.min(left, upUsable(id));
         if (n > 0) {
             upPick[id] = n;
             left -= n;
@@ -8484,17 +8506,40 @@ $('upEmpty').onclick = () => {
     upSay('');
     renderUpgrade();
 };
+// what an upgrade from tier t can make, picked the same way the server does
+function upRandom(t, jokes) {
+    const pool = CATALYSTS.filter(c => c.tier === t + 1 && (!c.joke || jokes) && c.id !== 'insidejoke' && c.id !== 'colliderkey');
+    return pool[Math.floor(Math.random() * pool.length)].id;
+}
+// takes one upgrade's catalysts out of the inventory; signed in, the sources sent are the ones at the front
+function upSpend(group, checked) {
+    const n = {};
+    group.forEach(id => n[id] = (n[id] || 0) + 1);
+    Object.keys(n).forEach(id => {
+        if (checked) {
+            srcTake(id, n[id]);
+        } else {
+            srcSpend(id, n[id]);
+        }
+        catInv[id] -= n[id];
+        if (!catInv[id]) {
+            delete catInv[id];
+        }
+    });
+}
+const upGroupOf = pick => Object.keys(pick).flatMap(id => Array(pick[id]).fill(id));
 $('upGo').onclick = async () => {
     const t = upTier;
     if (upBusy || upCount() !== UP_NEED || t >= UP_TOP) {
         return;
     }
     const jokes = !!(bondBonus().jokecat && jokesOn());
-    const ids = Object.keys(upPick);
+    const group = upGroupOf(upPick);
+    const checked = upChecked();
     let out;
-    if (upChecked()) {
-        const inputs = [];
-        ids.forEach(id => (catSrc[id] || []).slice(0, upPick[id]).forEach(src => inputs.push({ id, src })));
+    if (checked) {
+        const at = {};
+        const inputs = group.map(id => ({ id, src: catSrc[id][at[id] = (at[id] ?? -1) + 1] }));
         upBusy = true;
         upSay('Combining…');
         renderUpgrade();
@@ -8506,23 +8551,79 @@ $('upGo').onclick = async () => {
             return;
         }
         out = data;
-        ids.forEach(id => srcTake(id, upPick[id]));
     } else {
-        const pool = CATALYSTS.filter(c => c.tier === t + 1 && (!c.joke || jokes) && c.id !== 'insidejoke' && c.id !== 'colliderkey');
-        out = { id: pool[Math.floor(Math.random() * pool.length)].id, src: null };
+        out = { id: upRandom(t, jokes), src: null };
     }
-    ids.forEach(id => {
-        catInv[id] -= upPick[id];
-        if (!catInv[id]) {
-            delete catInv[id];
-        }
-    });
+    upSpend(group, checked);
     catInv[out.id] = (catInv[out.id] || 0) + 1;
     srcAdd(out.id, out.src);
     saveCats();
     upPick = {};
     invSel = out.id;
     upSay(`${UP_NEED} ${CAT_TIERS[t].name.toLowerCase()} catalysts became ${CAT[out.id].name} (${CAT_TIERS[t + 1].name}).`, true);
+    renderCatInv();
+};
+// Merge all: every unlocked tier in groups of ten, most-owned first, then the same again with what that made
+function upMergePlan(t) {
+    if (t == null) {
+        return [0, 1, 2, 3, 4].flatMap(x => upMergePlan(x));
+    }
+    const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === t).sort((a, b) => upUsable(b) - upUsable(a));
+    const all = ids.flatMap(id => Array(upUsable(id)).fill(id));
+    const groups = [];
+    for (let i = 0; i + UP_NEED <= all.length; i += UP_NEED) {
+        groups.push(all.slice(i, i + UP_NEED));
+    }
+    return groups;
+}
+$('upAll').onclick = async () => {
+    const first = upMergePlan().length * UP_NEED;
+    if (upBusy || !first) {
+        return;
+    }
+    if (!confirm(`Merge everything you can, all the way up to Mythic?\n\nThis uses at least ${first.toLocaleString('en-US')} catalysts, and anything they make is merged again if there are enough. Locked catalysts are left alone.\n\nIt can't be undone.`)) {
+        return;
+    }
+    const jokes = !!(bondBonus().jokecat && jokesOn());
+    const checked = upChecked();
+    const made = [];
+    let stop = '';
+    upBusy = true;
+    upPick = {};
+    for (let t = 0; t < UP_TOP && !stop; t++) {
+        const groups = upMergePlan(t);
+        for (let i = 0; i < groups.length && !stop; i += 100) {
+            const part = groups.slice(i, i + 100);
+            upSay(`Merging ${CAT_TIERS[t].name.toLowerCase()} catalysts…`);
+            renderUpgrade();
+            let outs;
+            if (checked) {
+                const at = {};
+                const payload = part.map(g => g.map(id => ({ id, src: catSrc[id][at[id] = (at[id] ?? -1) + 1] })));
+                const { data, error } = await sb.rpc('ac_upgrade_many', { p_groups: payload, p_jokes: jokes });
+                if (error || !data) {
+                    stop = "Couldn't reach the server, so it stopped there.";
+                    break;
+                }
+                outs = (data.done || []).filter(o => CAT[o.id]);
+                if (data.error) {
+                    stop = "The server wouldn't accept some of them, so it stopped there.";
+                }
+            } else {
+                outs = part.map(() => ({ id: upRandom(t, jokes), src: null }));
+            }
+            outs.forEach((o, k) => {
+                upSpend(part[k], checked);
+                catInv[o.id] = (catInv[o.id] || 0) + 1;
+                srcAdd(o.id, o.src);
+                made.push(o.id);
+            });
+            saveCats();
+        }
+    }
+    upBusy = false;
+    const byTier = [1, 2, 3, 4, 5].map(t => [t, made.filter(id => CAT[id].tier === t).length]).filter(x => x[1]);
+    upSay((made.length ? `Made ${made.length.toLocaleString('en-US')}: ` + byTier.map(([t, n]) => n.toLocaleString('en-US') + ' ' + CAT_TIERS[t].name).join(', ') + '.' : 'Nothing was merged.') + (stop ? ' ' + stop : ''), made.length && !stop);
     renderCatInv();
 };
 // tick timers once a second
@@ -13708,7 +13809,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;

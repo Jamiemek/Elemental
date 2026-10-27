@@ -3195,3 +3195,41 @@ html.fx-on body {
   margin-top: 8px;
   font-size: 14px;
 }
+.up-all {
+  margin-bottom: 16px;
+}
+.up-lock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 14px;
+}
+.up-lock svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.up-lock[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--bench);
+}
+.up-row.locked strong {
+  opacity: .6;
+}
+.up-step .ghost:disabled {
+  opacity: .35;
+  cursor: default;
+}
+@media (max-width:600px) {
+  .up-row strong {
+    flex-basis: 100%;
+  }
+  .up-row .up-step {
+    margin-left: auto;
+  }
+}

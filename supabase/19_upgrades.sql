@@ -59,6 +59,29 @@ end $$;
 revoke all on function public.ac_upgrade(jsonb, boolean) from public, anon;
 grant execute on function public.ac_upgrade(jsonb, boolean) to authenticated;
 
+-- many at once, for Merge all: each group of ten in turn, stopping at the first one that isn't accepted
+create or replace function public.ac_upgrade_many(p_groups jsonb, p_jokes boolean)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  g jsonb;
+  r jsonb;
+  done jsonb := '[]'::jsonb;
+begin
+  if jsonb_typeof(p_groups) is distinct from 'array' or jsonb_array_length(p_groups) > 100 then
+    return jsonb_build_object('done', done, 'error', 'groups');
+  end if;
+  for g in select * from jsonb_array_elements(p_groups) loop
+    r := public.ac_upgrade(g, p_jokes);
+    if r ? 'error' then
+      return jsonb_build_object('done', done, 'error', r->>'error');
+    end if;
+    done := done || jsonb_build_array(r);
+  end loop;
+  return jsonb_build_object('done', done);
+end $$;
+revoke all on function public.ac_upgrade_many(jsonb, boolean) from public, anon;
+grant execute on function public.ac_upgrade_many(jsonb, boolean) to authenticated;
+
 -- an upgraded catalyst's source is its upgrade
 create or replace function public.ac_src_ok(uid uuid, src text, want text) returns boolean
 language plpgsql set search_path = '' as $$

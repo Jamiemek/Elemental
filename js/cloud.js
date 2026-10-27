@@ -5,7 +5,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;
