@@ -67,18 +67,18 @@
 <div class="page-head"><div><h1>Roll</h1><p class="sub">One element per roll, with a chance to chain into more.</p></div><button class="ghost" data-go="menu">Back</button></div>
 <div class="roll-layout">
 <section class="roll-panel">
+<nav class="roll-nav" aria-label="Pages">
+<button class="ghost" data-go="inventory" title="Collection" aria-label="Collection"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span class="rn-label">Collection</span></button>
+<button class="ghost" data-go="shop" title="Shop" aria-label="Shop"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg><span class="rn-label">Shop</span></button>
+<button class="ghost" data-go="catinv" title="Inventory" aria-label="Inventory"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg><span class="rn-label">Inventory</span></button>
+<button class="ghost" data-go="upgrade" id="rollUpBtn" title="Upgrade" aria-label="Upgrade" hidden><svg viewBox="0 0 24 24"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg><span class="rn-label">Upgrade</span></button>
+<button class="ghost roll-bonds" data-go="bonds" id="rollBondsBtn" title="Bonds" aria-label="Bonds"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8M8.5 6h7"/></svg><span class="rn-label">Bonds</span></button>
+</nav>
 <div class="roll-results" id="rollResults"><div class="roll-result-column"><div class="reel" id="reel"><div class="reel-symbol" id="reelSymbol">?</div></div><div class="result-card"><h2 class="result-name" id="resultName">No roll yet</h2><div class="rarity" id="resultRarity">Press Roll to start</div><div id="resultExtra" class="sub"></div></div></div></div>
 <div class="roll-controls"><button class="primary" id="rollBtn">Roll</button><button class="ghost" id="autoRollBtn" aria-pressed="false" disabled>Autoroll locked</button></div>
 <div class="qstorm-bar" id="qStormBar" aria-live="polite" hidden></div>
 <div id="autoHint"></div>
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
-<nav class="roll-nav" aria-label="Pages">
-<button class="ghost" data-go="inventory" title="Collection" aria-label="Collection"><span class="rn-label">Collection</span><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
-<button class="ghost" data-go="shop" title="Shop" aria-label="Shop"><span class="rn-label">Shop</span><svg viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg></button>
-<button class="ghost" data-go="catinv" title="Inventory" aria-label="Inventory"><span class="rn-label">Inventory</span><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></svg></button>
-<button class="ghost" data-go="upgrade" id="rollUpBtn" title="Upgrade" aria-label="Upgrade" hidden><span class="rn-label">Upgrade</span><svg viewBox="0 0 24 24"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
-<button class="ghost roll-bonds" data-go="bonds" id="rollBondsBtn" title="Bonds" aria-label="Bonds"><span class="rn-label">Bonds</span><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8M8.5 6h7"/></svg></button>
-</nav>
 </section>
 <aside class="roll-side">
 <div id="rollCats" class="roll-cats"></div>
