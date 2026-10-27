@@ -8664,7 +8664,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.6';
+const APP_VERSION = '2.1.7';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -14617,6 +14617,7 @@ function renderAdmin() {
     admBoard();
     admGifts();
     admBackups();
+    admDevInfo();
 }
 $('admSave').onclick = async () => {
     const s = { p_min_tier: +$('admTier').value, p_top10: $('admTop10').checked, p_discord: $('admDiscord').checked, p_banner: $('admBanner').checked };
@@ -14866,6 +14867,120 @@ function admResetAsk(i) {
     w.querySelector('#arYes').onclick = () => admResetAsk(i + 1);
 }
 $('admReset').onclick = () => admResetAsk(0);
+
+// the dev copy: stored on the server for admins only, kept on this device until a newer one is uploaded
+async function devPack(text) {
+    if (!window.CompressionStream) {
+        return 'raw:' + text;
+    }
+    const buf = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 32768) {
+        bin += String.fromCharCode.apply(null, buf.subarray(i, i + 32768));
+    }
+    return 'gz:' + btoa(bin);
+}
+async function devUnpack(d) {
+    if (d.startsWith('raw:')) {
+        return d.slice(4);
+    }
+    const bin = atob(d.slice(3));
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+        buf[i] = bin.charCodeAt(i);
+    }
+    return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+async function admDevInfo() {
+    const r = await admCall('admin_dev_info', {}, 'admDevMsg');
+    if (r.error) {
+        return false;
+    }
+    $('admDevInfo').textContent = r.data ? 'Uploaded ' + admWhen(r.data.at) + ' · ' + fmtBytes(r.data.size || 0) : 'No dev copy uploaded yet.';
+    return r.data;
+}
+// kept in the browser's cache rather than localStorage, which the saves need the room in
+async function devKept() {
+    try {
+        const r = await (await caches.open('elemental-dev')).match('dev-copy');
+        return r ? await r.json() : null;
+    } catch (e) {
+        return null;
+    }
+}
+async function devKeep(copy) {
+    try {
+        await (await caches.open('elemental-dev')).put('dev-copy', new Response(JSON.stringify(copy)));
+    } catch (e) { }
+}
+$('admDevOpen').onclick = async () => {
+    admMsg('admDevMsg', 'Opening…');
+    const info = await admDevInfo();
+    if (info === false) {
+        return;
+    }
+    if (!info) {
+        admMsg('admDevMsg', 'Upload a dev copy first.');
+        return;
+    }
+    let kept = await devKept();
+    if (!kept || kept.ver !== info.ver) {
+        admMsg('admDevMsg', 'Downloading the new version…');
+        const r = await admCall('admin_dev_get', {}, 'admDevMsg');
+        if (r.error || !r.data) {
+            return;
+        }
+        kept = r.data;
+        devKeep(kept);
+    }
+    if (kept.data.startsWith('gz:') && !window.DecompressionStream) {
+        admMsg('admDevMsg', 'This browser is too old to open it. Try updating it.', true);
+        return;
+    }
+    devShow(await devUnpack(kept.data));
+    admMsg('admDevMsg', '');
+};
+// full screen over the game, with a way back
+function devShow(html) {
+    const wrap = document.createElement('div');
+    wrap.id = 'devCopy';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000';
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'width:100%;height:100%;border:0;display:block';
+    frame.srcdoc = html;
+    const shut = document.createElement('button');
+    shut.className = 'primary';
+    shut.textContent = 'Close';
+    // bottom left, as the testing tools sit bottom right
+    shut.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:100000;padding:5px 12px;font-size:12px;opacity:.85';
+    shut.onclick = () => {
+        wrap.remove();
+        document.body.style.overflow = '';
+    };
+    wrap.appendChild(frame);
+    wrap.appendChild(shut);
+    document.body.appendChild(wrap);
+    document.body.style.overflow = 'hidden';
+}
+$('admDevUp').onclick = () => $('admDevPick').click();
+$('admDevPick').onchange = async () => {
+    const f = $('admDevPick').files[0];
+    $('admDevPick').value = '';
+    if (!f) {
+        return;
+    }
+    const text = await f.text();
+    if (!text.includes('devcopy:') || !text.includes('(preview copy)')) {
+        admMsg('admDevMsg', "That file isn't a dev copy of Elemental.", true);
+        return;
+    }
+    admMsg('admDevMsg', 'Uploading…');
+    const r = await admCall('admin_dev_put', { p_data: await devPack(text), p_size: text.length }, 'admDevMsg');
+    if (!r.error) {
+        admMsg('admDevMsg', 'Uploaded. Open it to try it out.');
+        admDevInfo();
+    }
+};
 const AWAY_MAX = 24 * 3600;
 const awayMax = () => AWAY_MAX + bondBonus().away * 3600;
 const AWAY_SLOWER = 10;
