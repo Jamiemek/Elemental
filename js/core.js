@@ -252,6 +252,12 @@ function go(screen) {
     if (screen === 'catinv') {
         renderCatInv();
     }
+    if (screen === 'upgrade') {
+        renderUpgrade();
+    }
+    if (screen === 'game') {
+        upNavSync();
+    }
     if (screen === 'settings' && typeof renderStorage === 'function') {
         jokeUiSync();
         tierRowsSync();

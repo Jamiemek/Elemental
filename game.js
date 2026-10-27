@@ -6085,6 +6085,12 @@ function go(screen) {
     if (screen === 'catinv') {
         renderCatInv();
     }
+    if (screen === 'upgrade') {
+        renderUpgrade();
+    }
+    if (screen === 'game') {
+        upNavSync();
+    }
     if (screen === 'settings' && typeof renderStorage === 'function') {
         jokeUiSync();
         tierRowsSync();
@@ -8396,13 +8402,23 @@ const UP_TOP = 5;
 // signed in, the server checks each catalyst going in, so only ones with a source can go
 const upChecked = () => !!(acKeys && sb && cloudUser);
 const upFree = id => Math.min(catInv[id] || 0, upChecked() ? (catSrc[id] || []).length : Infinity);
+// the Upgrade buttons on the roll page and in the inventory only show once it's unlocked
+function upNavSync() {
+    ['rollUpBtn', 'invUpBtn'].forEach(k => $(k).hidden = !bondBonus().upgrade);
+}
+const upSay = (text, ok) => {
+    $('upMsg').textContent = text;
+    $('upMsg').classList.toggle('ok', !!ok);
+};
 const upCount = () => Object.values(upPick).reduce((s, n) => s + n, 0);
 function renderUpgrade() {
     const box = $('catUp');
     if (!box) {
         return;
     }
+    upNavSync();
     box.hidden = !bondBonus().upgrade;
+    $('upLocked').hidden = !box.hidden;
     if (box.hidden) {
         return;
     }
@@ -8419,7 +8435,7 @@ function renderUpgrade() {
         }
     });
     const stuck = ids.some(id => upFree(id) < catInv[id]);
-    $('upList').innerHTML = (ids.length ? ids.map(id => `<div class="up-row" style="--tc:${CAT_TIERS[upTier].col}"><strong>${CAT[id].name}</strong><span class="muted">${upFree(id)} free</span>
+    $('upList').innerHTML = (ids.length ? ids.map(id => `<div class="up-row" style="--tc:${CAT_TIERS[upTier].col}"><strong>${CAT[id].name}</strong><span class="muted">${upFree(id) < catInv[id] ? upFree(id) + ' of ' + catInv[id] + ' can go in' : '×' + catInv[id]}</span>
 <span class="up-step"><button class="ghost" data-d="-1" data-id="${id}" aria-label="One fewer">−</button><b>${upPick[id] || 0}</b><button class="ghost" data-d="1" data-id="${id}" aria-label="One more">+</button></span></div>`).join('') :
         `<p class="muted">You have no ${CAT_TIERS[upTier].name.toLowerCase()} catalysts.</p>`) +
         (stuck ? '<p class="muted up-note">Some of these came from before upgrades existed, so they can be used but not combined.</p>' : '');
@@ -8432,7 +8448,7 @@ $('upTiers').addEventListener('click', e => {
     if (b) {
         upTier = +b.dataset.t;
         upPick = {};
-        $('upMsg').textContent = '';
+        upSay('');
         renderUpgrade();
     }
 });
@@ -8460,12 +8476,12 @@ $('upFill').onclick = () => {
             left -= n;
         }
     });
-    $('upMsg').textContent = left ? `You need ${left} more ${CAT_TIERS[upTier].name.toLowerCase()} catalyst${left === 1 ? '' : 's'}.` : '';
+    upSay(left ? `You need ${left} more ${CAT_TIERS[upTier].name.toLowerCase()} catalyst${left === 1 ? '' : 's'}.` : '');
     renderUpgrade();
 };
 $('upEmpty').onclick = () => {
     upPick = {};
-    $('upMsg').textContent = '';
+    upSay('');
     renderUpgrade();
 };
 $('upGo').onclick = async () => {
@@ -8480,12 +8496,12 @@ $('upGo').onclick = async () => {
         const inputs = [];
         ids.forEach(id => (catSrc[id] || []).slice(0, upPick[id]).forEach(src => inputs.push({ id, src })));
         upBusy = true;
-        $('upMsg').textContent = 'Combining…';
+        upSay('Combining…');
         renderUpgrade();
         const { data, error } = await sb.rpc('ac_upgrade', { p_in: inputs, p_jokes: jokes });
         upBusy = false;
         if (error || !data || data.error || !CAT[data.id]) {
-            $('upMsg').textContent = error ? "Couldn't reach the server, so nothing was used. Try again." : "The server wouldn't accept those catalysts, so nothing was used.";
+            upSay(error ? "Couldn't reach the server, so nothing was used. Try again." : "The server wouldn't accept those catalysts, so nothing was used.");
             renderUpgrade();
             return;
         }
@@ -8506,7 +8522,7 @@ $('upGo').onclick = async () => {
     saveCats();
     upPick = {};
     invSel = out.id;
-    $('upMsg').textContent = `${UP_NEED} ${CAT_TIERS[t].name.toLowerCase()} catalysts became ${CAT[out.id].name} (${CAT_TIERS[t + 1].name}).`;
+    upSay(`${UP_NEED} ${CAT_TIERS[t].name.toLowerCase()} catalysts became ${CAT[out.id].name} (${CAT_TIERS[t + 1].name}).`, true);
     renderCatInv();
 };
 // tick timers once a second

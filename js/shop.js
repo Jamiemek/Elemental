@@ -761,6 +761,10 @@ const UP_TOP = 5;
 // signed in, the server checks each catalyst going in, so only ones with a source can go
 const upChecked = () => !!(acKeys && sb && cloudUser);
 const upFree = id => Math.min(catInv[id] || 0, upChecked() ? (catSrc[id] || []).length : Infinity);
+// the Upgrade buttons on the roll page and in the inventory only show once it's unlocked
+function upNavSync() {
+    ['rollUpBtn', 'invUpBtn'].forEach(k => $(k).hidden = !bondBonus().upgrade);
+}
 const upSay = (text, ok) => {
     $('upMsg').textContent = text;
     $('upMsg').classList.toggle('ok', !!ok);
@@ -771,7 +775,9 @@ function renderUpgrade() {
     if (!box) {
         return;
     }
+    upNavSync();
     box.hidden = !bondBonus().upgrade;
+    $('upLocked').hidden = !box.hidden;
     if (box.hidden) {
         return;
     }
