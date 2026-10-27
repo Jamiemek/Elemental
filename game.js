@@ -13606,6 +13606,8 @@ function cloudApplyData(d, at) {
     cloudSet('elementalCloudAt', at);
     cloudSet('elementalCloudHash', cloudHash(cloudSnapshot()));
     cloudSet('elementalCloudFresh', '1');
+    // a save loaded from the account isn't a jump in quarks
+    cloudSet('elementalQSeen', JSON.stringify(parseFloat(d.elementalQuarks) || 0));
     location.reload();
 }
 // who last wrote the save
@@ -14169,7 +14171,51 @@ function cloudAfterProfile() {
     acFetch().then(globalFlushPending);
     giftsClaim();
     adminCheck();
+    quarkSend();
 }
+// quarks going up by more than a big roll gives in one go get flagged to the admins
+const QUARK_JUMP = 300000;
+let quarkSeen = null;
+try {
+    quarkSeen = JSON.parse(localStorage.getItem('elementalQSeen'));
+} catch (e) { }
+function quarkWatch() {
+    if (typeof quarkSeen !== 'number' || !Number.isFinite(quarkSeen)) {
+        quarkSeen = quarks;
+    }
+    if (quarks - quarkSeen > QUARK_JUMP) {
+        let list = [];
+        try {
+            list = JSON.parse(localStorage.getItem('elementalQFlags') || '[]');
+        } catch (e) { }
+        list.push([Math.floor(quarkSeen), Math.floor(quarks)]);
+        try {
+            localStorage.setItem('elementalQFlags', JSON.stringify(list.slice(-10)));
+        } catch (e) { }
+        quarkSend();
+    }
+    if (quarks !== quarkSeen) {
+        quarkSeen = quarks;
+        try {
+            localStorage.setItem('elementalQSeen', JSON.stringify(quarkSeen));
+        } catch (e) { }
+    }
+}
+async function quarkSend() {
+    if (!sb || !cloudUser || !cloudName) {
+        return;
+    }
+    let list = [];
+    try {
+        list = JSON.parse(localStorage.getItem('elementalQFlags') || '[]');
+        localStorage.removeItem('elementalQFlags');
+    } catch (e) { }
+    for (const [b, a] of list) {
+        await sb.rpc('report_quarks', { p_before: b, p_after: a });
+    }
+}
+quarkWatch();
+setInterval(quarkWatch, 2000);
 // Admin tab: only shown to the admin account
 let isAdmin = false;
 async function adminCheck() {

@@ -280,6 +280,8 @@ function cloudApplyData(d, at) {
     cloudSet('elementalCloudAt', at);
     cloudSet('elementalCloudHash', cloudHash(cloudSnapshot()));
     cloudSet('elementalCloudFresh', '1');
+    // a save loaded from the account isn't a jump in quarks
+    cloudSet('elementalQSeen', JSON.stringify(parseFloat(d.elementalQuarks) || 0));
     location.reload();
 }
 // who last wrote the save
