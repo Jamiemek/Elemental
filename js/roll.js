@@ -383,7 +383,11 @@ if (autoWanted) {
     autoLoop();
 }
 $('resetBtn').addEventListener('click', () => {
-    if (confirm('Reset all discoveries and collection progress? This cannot be undone.')) {
+    const w = openDialog('<h2>Reset all progress?</h2><p>All discoveries and collection progress on this device are cleared. This can\'t be undone.</p>' +
+        '<div class="btn-row"><button class="ghost danger" id="rsYes">Reset</button><button class="primary" id="rsNo">Cancel</button></div>');
+    w.querySelector('#rsNo').onclick = closeDialog;
+    w.querySelector('#rsYes').onclick = () => {
+        closeDialog();
         autoRolling = false;
         autoWanted = false;
         try {
@@ -440,8 +444,8 @@ $('resetBtn').addEventListener('click', () => {
         renderAchievements();
         $('rollResults').style.gridTemplateColumns = '';
         $('rollResults').innerHTML = INITIAL_RESULT;
-        alert('Progress reset.');
-    }
+        openDialog('<h2>Progress reset</h2><div class="btn-row"><button class="primary" onclick="closeDialog()">OK</button></div>');
+    };
 });
 renderInventory();
 renderPeriodic();

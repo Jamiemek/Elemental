@@ -720,10 +720,23 @@ $('invDetail').addEventListener('click', e => {
     }
     const id = invSel;
     const have = catInv[id];
-    const n = b.dataset.use === 'all' ? have : b.dataset.use === 'pick' ? parseInt(prompt(`How many ${CAT[id].name} to use? You have ${have}.`, '1'), 10) : 1;
-    if (!n || n < 1) {
+    if (b.dataset.use === 'pick') {
+        const w = openDialog(`<h2>Use how many?</h2><p>You have ${have.toLocaleString('en-US')} ${esc(CAT[id].name)}.</p><input id="useN" class="adm-input" type="number" min="1" max="${have}" value="1" inputmode="numeric">` +
+            '<div class="btn-row"><button class="primary" id="useGo">Use</button><button class="ghost" id="useNo">Cancel</button></div>');
+        w.querySelector('#useNo').onclick = closeDialog;
+        w.querySelector('#useGo').onclick = () => {
+            const n = Math.floor(+w.querySelector('#useN').value);
+            closeDialog();
+            if (n >= 1) {
+                invUse(id, n);
+            }
+        };
+        w.querySelector('#useN').select();
         return;
     }
+    invUse(id, b.dataset.use === 'all' ? have : 1);
+});
+function invUse(id, n) {
     const msg = useCatalyst(id, n);
     renderCatInv();
     const m = $('invMsg');
@@ -732,7 +745,7 @@ $('invDetail').addEventListener('click', e => {
         m.classList.toggle('ok', !msg);
     }
     renderRollStats();
-});
+}
 function catCancelClick(e) {
     const b = e.target.closest('.cat-clear');
     if (!b) {
@@ -744,16 +757,23 @@ function catCancelClick(e) {
         return;
     }
     const c = CAT[a.id];
-    if (!confirm(`Cancel ${c.name}?\n\nIt stops working straight away with ${catLeft(a)} left. You will not get it back.`)) {
-        return;
-    }
-    if (!confirm(`Are you sure? This can't be undone.`)) {
-        return;
-    }
-    clearCatalyst(t);
-    renderActiveCats();
-    renderRollStats();
-    renderCatInv();
+    const w = openDialog(`<h2>Cancel ${esc(c.name)}?</h2><p>It stops working straight away with ${catLeft(a)} left. You won't get it back.</p>` +
+        '<div class="btn-row"><button class="ghost danger" id="ccYes">Cancel it</button><button class="primary" id="ccNo">Keep it</button></div>');
+    w.querySelector('#ccNo').onclick = closeDialog;
+    w.querySelector('#ccYes').onclick = () => {
+        const w2 = openDialog('<h2>Are you sure?</h2><p>This can\'t be undone.</p>' +
+            '<div class="btn-row"><button class="ghost danger" id="ccSure">Yes, cancel it</button><button class="primary" id="ccNo2">Keep it</button></div>');
+        w2.querySelector('#ccNo2').onclick = closeDialog;
+        w2.querySelector('#ccSure').onclick = () => {
+            closeDialog();
+            if (catActive[t] && catActive[t].id === c.id) {
+                clearCatalyst(t);
+            }
+            renderActiveCats();
+            renderRollStats();
+            renderCatInv();
+        };
+    };
 }
 $('catClear').addEventListener('click', catCancelClick);
 $('catActive').addEventListener('click', catCancelClick);
@@ -816,7 +836,7 @@ function renderUpgrade() {
     const n = upCount();
     $('upGo').textContent = `Combine ${n} / ${UP_NEED}`;
     $('upGo').disabled = n !== UP_NEED || upBusy;
-    $('upAll').disabled = upBusy || !upMergePlan().length;
+    $('upAll').disabled = upBusy;
 }
 $('upTiers').addEventListener('click', e => {
     const b = e.target.closest('[data-t]');
@@ -935,14 +955,25 @@ function upMergePlan(t) {
     }
     return groups;
 }
-$('upAll').onclick = async () => {
+// the game's own dialog rather than confirm(), which some browsers block inside the dev copy's frame
+$('upAll').onclick = () => {
     const first = upMergePlan().length * UP_NEED;
-    if (upBusy || !first) {
+    if (upBusy) {
         return;
     }
-    if (!confirm(`Merge everything you can, all the way up to Mythic?\n\nThis uses at least ${first.toLocaleString('en-US')} catalysts, and anything they make is merged again if there are enough. Locked catalysts are left alone.\n\nIt can't be undone.`)) {
+    if (!first) {
+        upSay('Nothing to merge yet: it takes 10 unlocked catalysts of the same tier.');
         return;
     }
+    const w = openDialog(`<h2>Merge all to max?</h2><p>This uses at least <b>${first.toLocaleString('en-US')} catalysts</b>, and anything they make is merged again if there are enough, up to Mythic. Locked catalysts are left alone.</p><p>It can't be undone.</p>` +
+        '<div class="btn-row"><button class="primary" id="upAllGo">Merge all</button><button class="ghost" id="upAllNo">Cancel</button></div>');
+    w.querySelector('#upAllNo').onclick = closeDialog;
+    w.querySelector('#upAllGo').onclick = () => {
+        closeDialog();
+        upMergeAll();
+    };
+};
+async function upMergeAll() {
     const jokes = !!(bondBonus().jokecat && jokesOn());
     const checked = upChecked();
     // what the run made that wasn't merged again, and how many of the player's own catalysts went in
@@ -993,7 +1024,7 @@ $('upAll').onclick = async () => {
     const byTier = [1, 2, 3, 4, 5].map(t => [t, Object.keys(kept).filter(id => CAT[id].tier === t).reduce((s, id) => s + kept[id], 0)]).filter(x => x[1]);
     upSay((used ? `Merged ${used.toLocaleString('en-US')} catalysts into ` + byTier.map(([t, n]) => n.toLocaleString('en-US') + ' ' + CAT_TIERS[t].name).join(', ') + '.' : 'Nothing was merged.') + (stop ? ' ' + stop : ''), used && !stop);
     renderCatInv();
-};
+}
 // tick timers once a second
 setInterval(() => {
     const before = Object.keys(catActive).length;
