@@ -13515,7 +13515,8 @@ const CLOUD = {
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
 const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics'];
-const CLOUD_EVERY = 45000;
+// while playing; it also goes up on leaving, signing out and after a verified global
+const CLOUD_EVERY = 15 * 60000;
 let sb = null;
 let cloudUser = null;
 let cloudName = null;
@@ -13549,6 +13550,12 @@ function cloudSnapshot() {
             d[k] = v;
         }
     });
+    // the cloud keeps the last 100 rolls, this device keeps more
+    if (d.elementalHistory) {
+        try {
+            d.elementalHistory = JSON.stringify(JSON.parse(d.elementalHistory).slice(0, 100));
+        } catch (e) { }
+    }
     return d;
 }
 function cloudHash(d) {
@@ -13619,7 +13626,9 @@ async function cloudInit() {
     try {
         await cloudLoadLib();
         sb = window.supabase.createClient(CLOUD.url, CLOUD.key, {
-            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' }
+            auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
+            // a save sent as the page closes is allowed to finish (browsers cap these at 64 KB)
+            global: { fetch: (u, o) => fetch(u, document.visibilityState === 'hidden' && o && typeof o.body === 'string' && o.body.length < 60000 ? Object.assign({}, o, { keepalive: true }) : o) }
         });
     } catch (e) {
         cloudState = 'offline';
@@ -13738,6 +13747,12 @@ async function cloudSync() {
     const { data: row, error: err2 } = await sb.from('saves').select('data, updated_at').eq('user_id', cloudUser.id).maybeSingle();
     if (err2 || !row) {
         cloudFail(err2);
+        return;
+    }
+    // the save that went up as this page last closed: nothing to merge
+    if (cloudHash(row.data || {}) === hash) {
+        cloudBusy = false;
+        cloudDone(row.updated_at, hash);
         return;
     }
     if (!localChanged || cloudSummary(local).rolls === 0) {
@@ -13918,6 +13933,7 @@ function cloudTick() {
     }
 }
 setInterval(cloudTick, CLOUD_EVERY);
+addEventListener('pagehide', () => cloudUser && cloudTick());
 document.addEventListener('visibilitychange', () => {
     if (!cloudUser) {
         return;
@@ -14209,6 +14225,10 @@ async function globalSubmit(p) {
         return;
     }
     globalSetPending(globalPending().filter(x => !(x.f === p.f && (x.ion || 0) === (p.ion || 0))));
+    // a verified global goes straight to the cloud
+    if (data.ok && (data.added || data.global)) {
+        cloudTick();
+    }
     if (data.ok && data.added) {
         showAchievementToast({ kicker: 'Global top 10', name: withIon(p.f, p.ion) + ' · ' + globalName(p.f), flavor: 'You are now #' + data.rank_score + ' in the world.' });
         globalLoad();

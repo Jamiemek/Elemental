@@ -107,6 +107,10 @@ async function globalSubmit(p) {
         return;
     }
     globalSetPending(globalPending().filter(x => !(x.f === p.f && (x.ion || 0) === (p.ion || 0))));
+    // a verified global goes straight to the cloud
+    if (data.ok && (data.added || data.global)) {
+        cloudTick();
+    }
     if (data.ok && data.added) {
         showAchievementToast({ kicker: 'Global top 10', name: withIon(p.f, p.ion) + ' · ' + globalName(p.f), flavor: 'You are now #' + data.rank_score + ' in the world.' });
         globalLoad();
