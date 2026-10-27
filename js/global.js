@@ -24,7 +24,7 @@ async function globalLoad() {
     const real = jokesOn() && !jokeHide ? '' : '_real';
     const [b, s] = await Promise.all([
         sb.from('global_top_score' + real).select('id, formula, ion, odds_log, score, found_at, display_name'),
-        sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled').maybeSingle()
+        sb.from('game_settings').select('min_tier, announce_top10, discord_enabled, banner_enabled, reset_at').maybeSingle()
     ]);
     globalLoading = false;
     if (b.error) {
@@ -34,6 +34,7 @@ async function globalLoad() {
     }
     if (s && !s.error && s.data) {
         globalSettings = s.data;
+        resetCheck(s.data.reset_at);
     }
     renderGlobal();
     globalFlushPending();
@@ -254,6 +255,10 @@ function bannerAdd(a) {
     if (!a || !globalSettings.banner_enabled || (cloudName && a.display_name === cloudName) || jokeHidden(a.formula)) {
         return;
     }
+    // old news, such as a backup being put back, isn't shown
+    if (a.at && trustedNow() - Date.parse(a.at) > 300000) {
+        return;
+    }
     if (bannerQueue.length < 5) {
         bannerQueue.push(a);
     }
@@ -317,6 +322,44 @@ document.addEventListener('visibilitychange', () => {
         rtStop();
     }
 });
+// when everyone is reset, every game that hears about it starts again from nothing
+// progress only: settings, the account link and the dice stay
+const RESET_KEYS = CLOUD_KEYS.concat(['elementalEvent', 'elementalQStorm', 'elementalQSeen', 'elementalQFlags', 'elementalJokeIntro', 'elementalAutoOn', 'elementalAutoState', 'elementalBonds2',
+    'elementalCloudAt', 'elementalCloudHash', 'elementalCloudFresh', 'elementalCloudNotice', 'cloudReplacedBackup', 'globalPending', 'awayLastSeen']);
+function resetCheck(at) {
+    let seen = null;
+    try {
+        seen = localStorage.getItem('elementalResetSeen');
+        // first time this game has looked: whatever has happened already doesn't apply to it
+        if (seen == null) {
+            localStorage.setItem('elementalResetSeen', at || '0');
+            return;
+        }
+    } catch (e) {
+        return;
+    }
+    if (!at || (seen !== '0' && Date.parse(seen) >= Date.parse(at))) {
+        return;
+    }
+    try {
+        RESET_KEYS.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem('elementalResetSeen', at);
+        localStorage.setItem('elementalResetNote', '1');
+    } catch (e) { }
+    save.frozen = true;
+    location.reload();
+}
+setTimeout(() => {
+    try {
+        if (localStorage.getItem('elementalResetNote')) {
+            localStorage.removeItem('elementalResetNote');
+            const w = openDialog('<h2>A fresh start</h2><p>Elemental has been reset for everyone, so every player starts again from the beginning. Good luck.</p><div class="btn-row"><button class="primary" id="resetOk">Let\'s go</button></div>');
+            w.querySelector('#resetOk').onclick = closeDialog;
+        }
+    } catch (e) { }
+}, 1200);
+// a long session still hears about a reset
+setInterval(() => document.visibilityState === 'visible' && globalLoad(), 15 * 60000);
 // Everything that needs a signed-in player with a name
 function cloudAfterProfile() {
     renderGlobal();

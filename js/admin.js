@@ -58,6 +58,7 @@ function renderAdmin() {
     admPlayers();
     admBoard();
     admGifts();
+    admBackups();
 }
 $('admSave').onclick = async () => {
     const s = { p_min_tier: +$('admTier').value, p_top10: $('admTop10').checked, p_discord: $('admDiscord').checked, p_banner: $('admBanner').checked };
@@ -188,3 +189,122 @@ async function admGifts() {
         list.appendChild(el);
     });
 }
+
+// backups
+const admWhen = at => new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+const ADM_KIND = { manual: 'Made by you', daily: 'Nightly', before: 'Made automatically' };
+async function admBackups() {
+    const r = await admCall('admin_backups', {}, 'admBackupMsg');
+    if (r.error) {
+        return;
+    }
+    admBackupRows(r.data || []);
+}
+function admBackupRows(rows) {
+    const list = $('admBackupList');
+    list.innerHTML = rows.length ? '' : '<p class="adm-note">No backups yet.</p>';
+    rows.forEach(b => {
+        const el = document.createElement('div');
+        el.className = 'adm-row';
+        const kind = ADM_KIND[b.kind] || b.kind;
+        el.innerHTML = '<div><b>' + admWhen(b.at) + '</b> · ' + esc(b.label || kind) + '<small>' + (b.label && b.label !== kind ? kind + ' · ' : '') +
+            (b.players || 0) + ' players · ' + fmtBytes(b.size || 0) + '</small></div><div class="btn-row"><button class="ghost" data-a="get">Download</button><button class="ghost" data-a="back">Go back to this</button></div>';
+        el.querySelector('[data-a=get]').onclick = () => admDownload(b);
+        el.querySelector('[data-a=back]').onclick = () => admGoBack('the backup from ' + admWhen(b.at), { p_id: b.id, p_data: null });
+        list.appendChild(el);
+    });
+}
+$('admBackup').onclick = async () => {
+    admMsg('admBackupMsg', 'Backing up…');
+    const r = await admCall('admin_backup', { p_label: 'Made by you' }, 'admBackupMsg');
+    if (!r.error) {
+        admMsg('admBackupMsg', 'Backed up.');
+        admBackupRows(r.data || []);
+    }
+};
+async function admDownload(b) {
+    admMsg('admBackupMsg', 'Getting the backup…');
+    const r = await admCall('admin_backup_get', { p_id: b.id }, 'admBackupMsg');
+    if (r.error || !r.data) {
+        return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(r.data)], { type: 'application/json' }));
+    a.download = 'elemental-backup-' + new Date(b.at).toISOString().slice(0, 16).replace(/[T:]/g, '-') + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    admMsg('admBackupMsg', 'Downloaded. Keep it somewhere safe.');
+}
+$('admBackupFile').onclick = () => $('admBackupPick').click();
+$('admBackupPick').onchange = async () => {
+    const f = $('admBackupPick').files[0];
+    $('admBackupPick').value = '';
+    if (!f) {
+        return;
+    }
+    let d = null;
+    try {
+        d = JSON.parse(await f.text());
+    } catch (e) { }
+    if (!d || d.v !== 1 || !d.tables) {
+        admMsg('admBackupMsg', "That file isn't an Elemental backup.", true);
+        return;
+    }
+    admGoBack('the downloaded backup from ' + admWhen(d.at), { p_id: null, p_data: d });
+};
+// asks twice, the second time by typing
+function admGoBack(what, args) {
+    const w = openDialog('<h2>Go back?</h2><p>Everyone\'s saves, names, the global board, announcements and gifts go back to <b>' + esc(what) + '</b>. ' +
+        'Anything since then is replaced. Players\' own games add back what they have when they next sync.</p>' +
+        '<div class="btn-row"><button class="primary" id="gbYes">Continue</button><button class="ghost" id="gbNo">Cancel</button></div>');
+    w.querySelector('#gbNo').onclick = closeDialog;
+    w.querySelector('#gbYes').onclick = () => admTyped('Type RESTORE to go back to ' + esc(what) + '. A backup of how things are now is made first.', 'RESTORE', async () => {
+        admMsg('admBackupMsg', 'Going back…');
+        const r = await admCall('admin_restore', Object.assign({ p_confirm: 'RESTORE' }, args), 'admBackupMsg');
+        if (!r.error) {
+            admMsg('admBackupMsg', 'Done. Everything is back to ' + what + '.');
+            admBackupRows(r.data || []);
+            globalLoad();
+        }
+    });
+}
+function admTyped(text, word, then) {
+    const w = openDialog('<h2>Are you sure?</h2><p>' + text + '</p><input id="admType" class="adm-input" autocomplete="off" autocapitalize="characters" spellcheck="false">' +
+        '<div class="btn-row"><button class="primary danger" id="atGo" disabled>Confirm</button><button class="ghost" id="atNo">Cancel</button></div>');
+    const input = w.querySelector('#admType');
+    const go = w.querySelector('#atGo');
+    input.oninput = () => go.disabled = input.value.trim() !== word;
+    w.querySelector('#atNo').onclick = closeDialog;
+    go.onclick = () => {
+        closeDialog();
+        then();
+    };
+    input.focus();
+}
+// four times over, the last by typing it out
+const ADM_RESET_ASK = [
+    'This clears every player\'s progress: every save, the whole global board, all announcements and gifts. Do you want to carry on?',
+    'Every player will start again from nothing the next time their game loads. This affects everyone who has ever played. Still carry on?',
+    'A backup is made first, so this can be undone from the backups list, but players will see their progress wiped until then. Are you really sure?'
+];
+function admResetAsk(i) {
+    if (i >= ADM_RESET_ASK.length) {
+        admTyped('Last check. Type RESET EVERYTHING to clear all community progress.', 'RESET EVERYTHING', async () => {
+            admMsg('admResetMsg', 'Resetting…');
+            const r = await admCall('admin_reset', { p_confirm: 'RESET EVERYTHING' }, 'admResetMsg');
+            if (!r.error) {
+                admMsg('admResetMsg', 'Everyone has been reset. A backup from just before is in the list above.');
+                admBackupRows(r.data || []);
+                globalLoad();
+            }
+        });
+        return;
+    }
+    const w = openDialog('<h2>Are you sure? (' + (i + 1) + ' of 4)</h2><p>' + ADM_RESET_ASK[i] + '</p>' +
+        '<div class="btn-row"><button class="ghost danger" id="arYes">Yes, carry on</button><button class="primary" id="arNo">Cancel</button></div>');
+    w.querySelector('#arNo').onclick = closeDialog;
+    w.querySelector('#arYes').onclick = () => admResetAsk(i + 1);
+}
+$('admReset').onclick = () => admResetAsk(0);

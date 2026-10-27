@@ -320,6 +320,18 @@
 <p class="adm-msg" id="admGiftMsg"></p>
 <div id="admGiftList" class="adm-list"></div></div></div>
 </details>
+<details class="set-group" data-group="adm-backups"><summary>Backups</summary>
+<div class="setting"><h3>Backups</h3><div class="body">
+<p>A backup holds everyone's saves, names, the global board, announcements and gifts. One is made every night, and one before any going back or reset. Download one every so often, so there's a copy kept off the server too.</p>
+<div class="btn-row"><button class="ghost" id="admBackup">Back up now</button><button class="ghost" id="admBackupFile">Go back to a downloaded file</button></div>
+<input type="file" id="admBackupPick" accept=".json,application/json" hidden>
+<p class="adm-msg" id="admBackupMsg"></p>
+<div id="admBackupList" class="adm-list"></div></div></div>
+<div class="setting"><h3>Reset everything</h3><div class="body">
+<p>Clears every player's progress: saves, the global board, announcements and gifts. Names, accounts and bans stay. A backup is made first, so it can be undone from the list above.</p>
+<button class="ghost danger" id="admReset">Reset all community progress</button>
+<p class="adm-msg" id="admResetMsg"></p></div></div>
+</details>
 </section>
 </main>
 
@@ -336,5 +348,5 @@
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=afc03b9125"></script>
+<script src="game.js?v=bf51ef4b69"></script>
 </body></html>

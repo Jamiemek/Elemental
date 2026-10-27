@@ -159,6 +159,14 @@ async function cloudOnSession(session) {
     renderGlobal();
 }
 function cloudFail(error) {
+    // turned away for being from before a reset: catch up with it, then save again
+    if (error && /\breset\b/.test(error.message || '')) {
+        cloudBusy = false;
+        cloudState = 'synced';
+        renderAccount();
+        globalLoad().then(() => setTimeout(cloudTick, 2000));
+        return;
+    }
     // the server takes one save every 10 seconds: just try again shortly
     if (error && /too soon/.test(error.message || '')) {
         cloudBusy = false;
@@ -316,7 +324,8 @@ function cloudApplyData(d, at) {
 const cloudDevice = acDev;
 let cloudTouched = Date.now();
 ['pointerdown', 'keydown'].forEach(e => addEventListener(e, () => cloudTouched = Date.now(), true));
-const cloudStamp = (d, quiet) => Object.assign({ dev: cloudDevice, at: quiet ? 0 : (trustedNow() || Date.now()) }, d);
+// r: the last reset this game knows about, so the server can turn away saves from before one
+const cloudStamp = (d, quiet) => Object.assign({ dev: cloudDevice, at: quiet ? 0 : (trustedNow() || Date.now()), r: cloudGet('elementalResetSeen') || undefined }, d);
 const cloudElsewhere = d => !!d.dev && d.dev !== cloudDevice && (trustedNow() || Date.now()) - (d.at || 0) < 150000;
 // finds and bonds from both, spendable stuff from whichever rolled more
 function cloudMerge(a, b) {
