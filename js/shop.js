@@ -88,14 +88,14 @@ function catEffect(c) {
         return '+1 bonus roll on every roll, up to the maximum of 3';
     }
     if (f.linked) {
-        return 'Each roll chains at least once';
+        return "Each roll chains at least once. Can't run alongside single-roll luck";
     }
     if (f.rollLuck) {
-        return `+${f.rollLuck.toLocaleString('en-US')}% luck` + (f.rollLuck >= 10000 ? ', which guarantees Uranium' : '');
+        return `+${f.rollLuck.toLocaleString('en-US')}% luck` + (f.rollLuck >= 10000 ? ', which guarantees Uranium' : '') + ". Can't run alongside Linked Reaction or Family Magnet";
     }
     const more = {
         event: `Events are ${f.event}% more likely to start`, restock: 'Restocks the shop straight away', lens: `+${f.lens}% quarks from rolls that chain`,
-        extend: `Adds ${f.extend} minutes to every active timed catalyst`, rod: 'The next Quark Storm lasts 50% longer', magnet: "Chained elements come from the first element's family",
+        extend: `Adds ${f.extend} minutes to every active timed catalyst`, rod: 'The next Quark Storm lasts 50% longer', magnet: "Chained elements come from the first element's family. Can't run alongside single-roll luck",
         joke: `+${f.joke}% chance of joke elements`, grant: 'Your next catalyst purchase costs half', heavy: `Each chained element adds +${f.heavy}% quarks`,
         chain3: 'Chain chance at its best (1 in 5)', logger: 'The next event lasts twice as long', laugh: 'Finds containing a joke element earn three times the quarks',
         start: 'Starts a ' + (f.start === 'storm' ? 'Quark Storm' : f.start === 'collider' ? 'Supercollider' : 'Black Hole') + ' now (not while another event is running)',
@@ -241,6 +241,15 @@ function catArea(c) {
     const k = Object.keys(c.fx).find(x => CAT_AREAS[x]);
     return k ? CAT_AREAS[k] : null;
 }
+// Linked Reaction and Family Magnet don't mix with single-roll luck, as together they all but guarantee a top tier find
+const shapesChain = c => !!(c.fx.linked || c.fx.magnet);
+function luckClash(c) {
+    if (!shapesChain(c) && !c.fx.rollLuck) {
+        return null;
+    }
+    const x = activeList().find(x => x.c && x.c.id !== c.id && x.a.rolls > 0 && (c.fx.rollLuck ? shapesChain(x.c) : x.c.fx.rollLuck));
+    return x ? `${x.c.name} is running (${catLeft(x.a)} left), and ${c.fx.rollLuck ? 'single-roll luck' : c.name} can't run alongside ${c.fx.rollLuck ? x.c.name : 'single-roll luck'}. Use it once that ends.` : null;
+}
 function useCatalyst(id, n) {
     const c = CAT[id];
     const have = catInv[id] || 0;
@@ -261,6 +270,10 @@ function useCatalyst(id, n) {
     const clash = area && activeList().find(x => x.c && x.c.id !== id && catArea(x.c) === area);
     if (clash) {
         return `${clash.c.name} is already boosting ${area} (${catLeft(clash.a)} left). Only one catalyst can boost ${area} at a time.`;
+    }
+    const mix = luckClash(c);
+    if (mix) {
+        return mix;
     }
     if (c.rolls) {
         catActive[catSlot(c)] = { id, rolls: (cur ? cur.rolls : 0) + c.rolls * n, src: (cur && cur.src || []).concat(srcTake(id, n)), h: cur ? cur.h : undefined };
@@ -655,7 +668,8 @@ function renderCatInv() {
         const c = CAT[invSel];
         const T = CAT_TIERS[c.tier];
         const a = catActive[catSlot(c)];
-        const status = c.instant ? '' : a && a.id === invSel ? `<p class="ip-status on">Running: ${catLeft(a)} left. Using more adds to it.</p>` : a ? `<p class="ip-status off">${CAT[a.id].name} is running for ${T.name.toLowerCase()} catalysts (${catLeft(a)} left), so this one can't be used until it ends.</p>` : '';
+        const status = c.instant ? '' : a && a.id === invSel ? `<p class="ip-status on">Running: ${catLeft(a)} left. Using more adds to it.</p>` : a ? `<p class="ip-status off">${CAT[a.id].name} is running for ${T.name.toLowerCase()} catalysts (${catLeft(a)} left), so this one can't be used until it ends.</p>` :
+            luckClash(c) ? `<p class="ip-status off">${luckClash(c)}</p>` : '';
         const n = catInv[invSel];
         d.innerHTML = `<div class="inv-preview" style="--tc:${T.col}"><span class="ip-mark">${catMark(c)}</span><span class="ip-tier">${T.name}</span></div>
 <div class="ip-use">${c.fx.bond ? '<button class="primary" data-use="bonds">Open the bonds tree</button>' : `<button class="primary" data-use="1">Use</button>`}${n > 1 && !c.fx.bond ? '<button class="ghost" data-use="pick">Use…</button><button class="ghost" data-use="all">Use all</button>' : ''}</div>
