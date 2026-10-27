@@ -13668,6 +13668,14 @@ async function cloudOnSession(session) {
     renderGlobal();
 }
 function cloudFail(error) {
+    // the server takes one save every 10 seconds: just try again shortly
+    if (error && /too soon/.test(error.message || '')) {
+        cloudBusy = false;
+        cloudState = 'synced';
+        renderAccount();
+        setTimeout(cloudTick, 12000);
+        return;
+    }
     cloudBusy = false;
     cloudState = 'error';
     cloudError = navigator.onLine === false ? 'You are offline' : 'Could not reach the server';
@@ -14318,8 +14326,48 @@ function rtStart() {
         return;
     }
     rtChannel = sb.channel('globals')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, p => bannerAdd(p.new))
-        .subscribe();
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, p => {
+            rtLast = Math.max(rtLast, p.new.id || 0);
+            bannerAdd(p.new);
+        })
+        .subscribe(status => {
+            // the free plan allows 200 live connections: past that, check for news every few minutes instead
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                rtStop();
+                rtPollStart();
+            }
+        });
+}
+let rtLast = 0;
+let rtPoll = 0;
+let rtPolls = 0;
+function rtPollStart() {
+    if (rtPoll) {
+        return;
+    }
+    rtCheck();
+    rtPoll = setInterval(() => {
+        rtCheck();
+        // every 10 minutes, see if a live slot has come free
+        if (++rtPolls % 10 === 0) {
+            rtStart();
+        }
+    }, 180000);
+}
+async function rtCheck() {
+    if (!sb || rtChannel || document.visibilityState !== 'visible') {
+        return;
+    }
+    const { data } = await sb.from('announcements').select('*').gt('id', rtLast).order('id', { ascending: false }).limit(5);
+    if (!data || !data.length) {
+        return;
+    }
+    // the first look only finds out where things are up to
+    const first = !rtLast;
+    rtLast = Math.max(rtLast, data[0].id);
+    if (!first) {
+        data.reverse().forEach(bannerAdd);
+    }
 }
 function rtStop() {
     if (sb && rtChannel) {

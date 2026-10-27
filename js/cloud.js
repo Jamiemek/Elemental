@@ -159,6 +159,14 @@ async function cloudOnSession(session) {
     renderGlobal();
 }
 function cloudFail(error) {
+    // the server takes one save every 10 seconds: just try again shortly
+    if (error && /too soon/.test(error.message || '')) {
+        cloudBusy = false;
+        cloudState = 'synced';
+        renderAccount();
+        setTimeout(cloudTick, 12000);
+        return;
+    }
     cloudBusy = false;
     cloudState = 'error';
     cloudError = navigator.onLine === false ? 'You are offline' : 'Could not reach the server';
