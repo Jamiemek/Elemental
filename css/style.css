@@ -3233,3 +3233,10 @@ html.fx-on body {
     margin-left: auto;
   }
 }
+/* disabled buttons look the same whatever the theme or page skin does to their colours */
+:root .ghost:disabled,
+:root .primary:disabled {
+  background: transparent;
+  color: #8b9893;
+  border: 2px dashed #8b9893;
+}

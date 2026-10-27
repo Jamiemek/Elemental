@@ -8478,6 +8478,7 @@ function renderUpgrade() {
     $('upGo').textContent = `Combine ${n} / ${UP_NEED}`;
     $('upGo').disabled = n !== UP_NEED || upBusy;
     $('upAll').disabled = upBusy;
+    $('upAll').textContent = `Merge all ${CAT_TIERS[upTier].name}`;
 }
 $('upTiers').addEventListener('click', e => {
     const b = e.target.closest('[data-t]');
@@ -8583,11 +8584,8 @@ $('upGo').onclick = async () => {
     upSay(`${UP_NEED} ${CAT_TIERS[t].name.toLowerCase()} catalysts became ${CAT[out.id].name} (${CAT_TIERS[t + 1].name}).`, true);
     renderCatInv();
 };
-// Merge all: every unlocked tier in groups of ten, most-owned first, then the same again with what that made
+// Merge all: the open tier only, in groups of ten, most-owned first
 function upMergePlan(t) {
-    if (t == null) {
-        return [0, 1, 2, 3, 4].flatMap(x => upMergePlan(x));
-    }
     const ids = Object.keys(catInv).filter(id => CAT[id] && CAT[id].tier === t).sort((a, b) => upUsable(b) - upUsable(a));
     const all = ids.flatMap(id => Array(upUsable(id)).fill(id));
     const groups = [];
@@ -8598,72 +8596,65 @@ function upMergePlan(t) {
 }
 // the game's own dialog rather than confirm(), which some browsers block inside the dev copy's frame
 $('upAll').onclick = () => {
-    const first = upMergePlan().length * UP_NEED;
+    const t = upTier;
+    const groups = upMergePlan(t).length;
+    const name = CAT_TIERS[t].name.toLowerCase();
     if (upBusy) {
         return;
     }
-    if (!first) {
-        upSay('Nothing to merge yet: it takes 10 unlocked catalysts of the same tier.');
+    if (!groups) {
+        upSay(`Nothing to merge yet: it takes 10 unlocked ${name} catalysts.`);
         return;
     }
-    const w = openDialog(`<h2>Merge all to max?</h2><p>This uses at least <b>${first.toLocaleString('en-US')} catalysts</b>, and anything they make is merged again if there are enough, up to Mythic. Locked catalysts are left alone.</p><p>It can't be undone.</p>` +
+    const w = openDialog(`<h2>Merge all ${name} catalysts?</h2><p>This puts <b>${(groups * UP_NEED).toLocaleString('en-US')} ${name} catalysts</b> in, ten at a time, and makes <b>${groups.toLocaleString('en-US')} ${CAT_TIERS[t + 1].name.toLowerCase()}</b>. Locked ones are left alone.</p><p>It can't be undone.</p>` +
         '<div class="btn-row"><button class="primary" id="upAllGo">Merge all</button><button class="ghost" id="upAllNo">Cancel</button></div>');
     w.querySelector('#upAllNo').onclick = closeDialog;
     w.querySelector('#upAllGo').onclick = () => {
         closeDialog();
-        upMergeAll();
+        upMergeAll(t);
     };
 };
-async function upMergeAll() {
+async function upMergeAll(t) {
     const jokes = !!(bondBonus().jokecat && jokesOn());
     const checked = upChecked();
-    // what the run made that wasn't merged again, and how many of the player's own catalysts went in
-    const kept = {};
-    let used = 0;
+    const groups = upMergePlan(t);
+    const made = {};
+    let done = 0;
     let stop = '';
     upBusy = true;
     upPick = {};
-    for (let t = 0; t < UP_TOP && !stop; t++) {
-        const groups = upMergePlan(t);
-        for (let i = 0; i < groups.length && !stop; i += 100) {
-            const part = groups.slice(i, i + 100);
-            upSay(`Merging ${CAT_TIERS[t].name.toLowerCase()} catalysts…`);
-            renderUpgrade();
-            let outs;
-            if (checked) {
-                const at = {};
-                const payload = part.map(g => g.map(id => ({ id, src: catSrc[id][at[id] = (at[id] ?? -1) + 1] })));
-                const { data, error } = await sb.rpc('ac_upgrade_many', { p_groups: payload, p_jokes: jokes });
-                if (error || !data) {
-                    stop = "Couldn't reach the server, so it stopped there.";
-                    break;
-                }
-                outs = (data.done || []).filter(o => CAT[o.id]);
-                if (data.error) {
-                    stop = "The server wouldn't accept some of them, so it stopped there.";
-                }
-            } else {
-                outs = part.map(() => ({ id: upRandom(t, jokes), src: null }));
+    for (let i = 0; i < groups.length && !stop; i += 100) {
+        const part = groups.slice(i, i + 100);
+        upSay(`Merging ${CAT_TIERS[t].name.toLowerCase()} catalysts…`);
+        renderUpgrade();
+        let outs;
+        if (checked) {
+            const at = {};
+            const payload = part.map(g => g.map(id => ({ id, src: catSrc[id][at[id] = (at[id] ?? -1) + 1] })));
+            const { data, error } = await sb.rpc('ac_upgrade_many', { p_groups: payload, p_jokes: jokes });
+            if (error || !data) {
+                stop = "Couldn't reach the server, so it stopped there.";
+                break;
             }
-            outs.forEach((o, k) => {
-                part[k].forEach(id => {
-                    if (kept[id] > 0) {
-                        kept[id]--;
-                    } else {
-                        used++;
-                    }
-                });
-                upSpend(part[k], checked);
-                catInv[o.id] = (catInv[o.id] || 0) + 1;
-                srcAdd(o.id, o.src);
-                kept[o.id] = (kept[o.id] || 0) + 1;
-            });
-            saveCats();
+            outs = (data.done || []).filter(o => CAT[o.id]);
+            if (data.error) {
+                stop = "The server wouldn't accept some of them, so it stopped there.";
+            }
+        } else {
+            outs = part.map(() => ({ id: upRandom(t, jokes), src: null }));
         }
+        outs.forEach((o, k) => {
+            upSpend(part[k], checked);
+            catInv[o.id] = (catInv[o.id] || 0) + 1;
+            srcAdd(o.id, o.src);
+            made[o.id] = (made[o.id] || 0) + 1;
+            done++;
+        });
+        saveCats();
     }
     upBusy = false;
-    const byTier = [1, 2, 3, 4, 5].map(t => [t, Object.keys(kept).filter(id => CAT[id].tier === t).reduce((s, id) => s + kept[id], 0)]).filter(x => x[1]);
-    upSay((used ? `Merged ${used.toLocaleString('en-US')} catalysts into ` + byTier.map(([t, n]) => n.toLocaleString('en-US') + ' ' + CAT_TIERS[t].name).join(', ') + '.' : 'Nothing was merged.') + (stop ? ' ' + stop : ''), used && !stop);
+    const list = Object.keys(made).sort((a, b) => made[b] - made[a]).map(id => made[id] + ' × ' + CAT[id].name).join(', ');
+    upSay((done ? `Merged ${(done * UP_NEED).toLocaleString('en-US')} ${CAT_TIERS[t].name.toLowerCase()} catalysts into ${list}.` : 'Nothing was merged.') + (stop ? ' ' + stop : ''), done && !stop);
     renderCatInv();
 }
 // tick timers once a second
