@@ -102,7 +102,9 @@ async function doRoll(preset, opts) {
                     }
                 }
                 // inside joke
-                if (!first && ch.jokeNew && jokesOn()) {
+                // a coin from the dice, so the server can see it came up
+                const heads = (press != null && acKeys ? acDraw(acKeys.d, press, 4, 0, k) : Math.random()) < 0.5;
+                if (!first && ch.jokeNew && heads && jokesOn()) {
                     const jf = jokesFound();
                     if (JOKES.some(j => !jf.has(j[0]))) {
                         only = { k: 'j', l: rollPool().filter(e => isJoke(e[0]) && !jf.has(e[0])).map(e => e[0]) };

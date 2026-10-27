@@ -7638,7 +7638,7 @@ const CATALYSTS = [
     { id: 'lanth', name: 'Lanthanide Catalyst', tier: 2, min: 20, fx: { fam: 'lanth', pct: 150 }, price: 510 },
     { id: 'actin', name: 'Actinide Catalyst', tier: 2, min: 20, fx: { fam: 'actin', pct: 150 }, price: 810 },
     { id: 'ignition', name: 'Ignition', tier: 2, min: 20, fx: { luck: 75 }, price: 690 },
-    { id: 'linked', name: 'Linked Reaction', tier: 2, rolls: 10, fx: { linked: true }, price: 390 },
+    { id: 'linked', name: 'Linked Reaction', tier: 5, rolls: 10, fx: { linked: true }, price: 56000 },
     { id: 'surge', name: 'Quark Surge', tier: 2, min: 20, fx: { quark: 100 }, price: 900 },
     { id: 'superheavy', name: 'Superheavy Catalyst', tier: 3, min: 30, fx: { fam: 'unknown', pct: 200 }, price: 2400 },
     { id: 'blaze', name: 'Blaze', tier: 3, min: 30, fx: { luck: 150 }, price: 3600 },
@@ -7658,7 +7658,7 @@ const CATALYSTS = [
     { id: 'qlens', name: 'Quark Lens', tier: 0, min: 15, fx: { lens: 50 }, price: 20 },
     { id: 'stabiliser', name: 'Stabiliser', tier: 1, instant: true, fx: { extend: 10 }, price: 100 },
     { id: 'rod', name: 'Lightning Rod', tier: 1, instant: true, fx: { rod: true }, price: 110 },
-    { id: 'magnet', name: 'Family Magnet', tier: 1, rolls: 20, fx: { magnet: true }, price: 88 },
+    { id: 'magnet', name: 'Family Magnet', tier: 3, rolls: 20, fx: { magnet: true }, price: 3200 },
     { id: 'leveller', name: 'Leveller', tier: 1, min: 15, fx: { level: true }, price: 110 },
     { id: 'reagent', name: 'Practical Reagent', tier: 1, min: 15, joke: true, fx: { joke: 100 }, price: 120 },
     { id: 'grant', name: 'Grant Funding', tier: 2, instant: true, fx: { grant: true }, price: 600 },
@@ -7713,7 +7713,7 @@ function catEffect(c) {
         chain3: 'Chain chance at its best (1 in 5)', logger: 'The next event lasts twice as long', laugh: 'Finds containing a joke element earn three times the quarks',
         start: 'Starts a ' + (f.start === 'storm' ? 'Quark Storm' : f.start === 'collider' ? 'Supercollider' : 'Black Hole') + ' now (not while another event is running)',
         gag: 'Joke elements are five times as likely, and ten times once you roll one while it lasts', twice: 'Each roll is rolled twice and keeps the rarer',
-        jokeNew: "The roll gives a joke element you haven't found yet", level: 'Elements your luck has made rarer go back to their odds at 0% luck',
+        jokeNew: "Half the time, the roll gives a joke element you haven't found yet", level: 'Elements your luck has made rarer go back to their odds at 0% luck',
         bond: 'Fills any open bond slot for free. On the bonds tree, open slots light up red while you have one: tap a slot to use it'
     };
     const k = Object.keys(f).find(x => more[x]);
@@ -8678,7 +8678,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.9';
+const APP_VERSION = '2.1.9.1';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -9225,7 +9225,9 @@ async function doRoll(preset, opts) {
                     }
                 }
                 // inside joke
-                if (!first && ch.jokeNew && jokesOn()) {
+                // a coin from the dice, so the server can see it came up
+                const heads = (press != null && acKeys ? acDraw(acKeys.d, press, 4, 0, k) : Math.random()) < 0.5;
+                if (!first && ch.jokeNew && heads && jokesOn()) {
                     const jf = jokesFound();
                     if (JOKES.some(j => !jf.has(j[0]))) {
                         only = { k: 'j', l: rollPool().filter(e => isJoke(e[0]) && !jf.has(e[0])).map(e => e[0]) };
