@@ -8640,12 +8640,12 @@ function quarksFor(score, mult) {
     return base * QUARK_RATE * mult;
 }
 const oddsSum = elements => elements.reduce((sum, e) => sum + elementBySymbol[e[0]][2], 0);
-// score: odds summed, with a bonus per extra element once they get big
+// score: odds summed, with a bonus per extra element that grows from x0.2 to x3 at 1.5 billion
 function rollScore(elements) {
     return scoreFrom(oddsSum(elements), elements.length);
 }
 function scoreFrom(s, n) {
-    return s * (1 + (n - 1) * Math.min(2, 0.2 + 1.8 * Math.pow(Math.log(1 + s / 1e6) / Math.log(301), 2)));
+    return s * (1 + (n - 1) * Math.min(3, 0.2 + 2.8 * Math.pow(Math.log(1 + s / 1e6) / Math.log(1501), 2)));
 }
 function fmtScore(n) {
     return Math.round(n).toLocaleString('en-US');
