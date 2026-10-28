@@ -322,6 +322,9 @@ p {
 .periodic.compact .element-tile {
   aspect-ratio: 1/.86;
 }
+.periodic.fit .element-tile {
+  aspect-ratio: auto;
+}
 .element-tile.discovered,
 .periodic.full .element-tile {
   cursor: pointer;

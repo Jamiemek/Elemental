@@ -69,6 +69,28 @@ const FAMILY_NAMES = {
 function familyOf(sym) {
     return isJoke(sym) ? 'joke' : FAMILY[sym] || 'transition';
 }
+// Columns and rows in whole pixels: shared out as fractions, tiles land between pixels and the gaps look uneven
+function ptFit(el) {
+    const w = Math.max(el.parentElement.clientWidth, el.classList.contains('full') ? 780 : 0);
+    if (!w) {
+        return;
+    }
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+    const col = Math.floor((w - 17 * gap) / 18);
+    const row = el.classList.contains('compact') ? Math.round(col * .86) : col;
+    el.style.gridTemplateColumns = `repeat(18, ${col}px)`;
+    el.style.gridTemplateRows = `repeat(7, ${row}px) 12px repeat(2, ${row}px)`;
+    el.classList.add('fit');
+    // the text above can leave the table starting part way into a pixel, so nudge it onto a whole one
+    el.style.transform = '';
+    const y = el.getBoundingClientRect().top + scrollY;
+    el.style.transform = Math.round(y) !== y ? `translateY(${Math.round(y) - y}px)` : '';
+}
+const ptFitAll = () => document.querySelectorAll('.periodic-wrap').forEach(w => ptFit(w.firstElementChild));
+const ptWatch = new ResizeObserver(list => list.forEach(e => ptFit(e.target.firstElementChild)));
+document.querySelectorAll('.periodic-wrap').forEach(w => ptWatch.observe(w));
+// fonts arriving late change the height of the text above
+document.fonts && document.fonts.ready.then(ptFitAll);
 function buildTable(root, mode, list = ELEMENTS) {
     if (!root) {
         return;
