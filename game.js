@@ -9738,12 +9738,13 @@ async function doRoll(preset, opts) {
     } finally {
         stopRollTicks();
         rolling = false;
-        $('rollBtn').disabled = false;
+        // while autoroll runs, it does the rolling
+        $('rollBtn').disabled = autoActive();
         $('rollBtn').textContent = 'Roll again';
     }
 }
 // Rolling by hand without autoroll asks for a quick check every 10 minutes, so an auto clicker can't stand in for autoroll.
-// Leaving autoroll running is meant to be idle, so it never asks then
+// Autoroll is meant to be idle, so it never asks then, and the Roll button is off while it runs
 const ACT_EVERY = 10 * 60000;
 let actAt = Date.now();
 try {
@@ -9757,12 +9758,10 @@ function actReset() {
 }
 const autoActive = () => autoWanted && activeBuffStats().autoUnlocked;
 function rollByHand() {
-    if (rolling) {
+    if (rolling || autoActive()) {
         return;
     }
-    if (autoActive()) {
-        actReset();
-    } else if (Date.now() - actAt >= ACT_EVERY) {
+    if (Date.now() - actAt >= ACT_EVERY) {
         actCheck();
         return;
     }
@@ -9848,6 +9847,9 @@ function updateAutoBtn() {
     }
     b.disabled = disabled;
     b.textContent = label;
+    if (!rolling) {
+        $('rollBtn').disabled = autoActive();
+    }
     b.setAttribute('aria-pressed', autoWanted && s.autoUnlocked ? 'true' : 'false');
     b.classList.toggle('auto-on', autoWanted && s.autoUnlocked);
     document.querySelectorAll('.js-auto').forEach(el => {
