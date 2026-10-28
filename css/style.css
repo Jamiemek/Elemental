@@ -2505,6 +2505,14 @@ html.fx-on body {
   font-size: 14px;
   padding: 6px 10px;
 }
+.ip-del {
+  display: flex;
+  gap: 8px;
+}
+.ip-del .ghost {
+  font-size: 13px;
+  padding: 4px 10px;
+}
 .ip-desc {
   padding: 14px 16px;
   background: var(--panel);
@@ -2639,6 +2647,9 @@ html.fx-on body {
   }
   .ip-use {
     flex-wrap: wrap;
+    align-self: start;
+  }
+  .ip-del {
     align-self: start;
   }
   .ip-desc {

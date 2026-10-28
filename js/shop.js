@@ -693,6 +693,7 @@ function renderCatInv() {
         const n = catInv[invSel];
         d.innerHTML = `<div class="inv-preview" style="--tc:${T.col}"><span class="ip-mark">${catMark(c)}</span><span class="ip-tier">${T.name}</span></div>
 <div class="ip-use">${c.fx.bond ? '<button class="primary" data-use="bonds">Open the bonds tree</button>' : `<button class="primary" data-use="1">Use</button>`}${n > 1 && !c.fx.bond ? '<button class="ghost" data-use="pick">Use…</button><button class="ghost" data-use="all">Use all</button>' : ''}</div>
+<div class="ip-del"><button class="ghost danger" data-del="1">Delete</button>${n > 1 ? '<button class="ghost danger" data-del="all">Delete all</button>' : ''}</div>
 <p class="shop-msg" id="invMsg" aria-live="polite"></p>
 <div class="ip-desc" style="--tc:${T.col}"><h2>${c.name}</h2>${tierChip(c.tier)}<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${n.toLocaleString('en-US')}</dd></div>${c.rolls || c.instant ? '' : `<div><dt>Using all</dt><dd>${fmtClock(c.min * 60 * n)}</dd></div>`}</dl>${status}</div>`;
     }
@@ -710,6 +711,22 @@ $('catInv').addEventListener('click', e => {
     }
 });
 $('invDetail').addEventListener('click', e => {
+    const del = e.target.closest('[data-del]');
+    if (del && invSel) {
+        const id = invSel;
+        if (del.dataset.del === 'all') {
+            const w = openDialog(`<h2>Delete all?</h2><p>All ${catInv[id].toLocaleString('en-US')} ${esc(CAT[id].name)} will be thrown away. This can't be undone.</p>` +
+                '<div class="btn-row"><button class="ghost danger" id="delGo">Delete all</button><button class="primary" id="delNo">Cancel</button></div>');
+            w.querySelector('#delNo').onclick = closeDialog;
+            w.querySelector('#delGo').onclick = () => {
+                closeDialog();
+                invDelete(id, catInv[id] || 0);
+            };
+        } else {
+            invDelete(id, 1);
+        }
+        return;
+    }
     const b = e.target.closest('[data-use]');
     if (!b || !invSel) {
         return;
@@ -745,6 +762,25 @@ function invUse(id, n) {
         m.classList.toggle('ok', !msg);
     }
     renderRollStats();
+}
+// throwing catalysts away: the unchecked ones go first, like using them, so the checked ones can still be upgraded
+function invDelete(id, n) {
+    n = Math.min(n, catInv[id] || 0);
+    if (n < 1) {
+        return;
+    }
+    srcSpend(id, n);
+    catInv[id] -= n;
+    if (!catInv[id]) {
+        delete catInv[id];
+    }
+    saveCats();
+    renderCatInv();
+    const m = $('invMsg');
+    if (m) {
+        m.textContent = `${n > 1 ? n.toLocaleString('en-US') + ' × ' : ''}${CAT[id].name} deleted.`;
+        m.classList.add('ok');
+    }
 }
 function catCancelClick(e) {
     const b = e.target.closest('.cat-clear');
