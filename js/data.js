@@ -160,6 +160,11 @@ ELEMENTS.forEach(e => e[2] = e[0] === 'U' ? 12000000 : Math.max(2, Math.round(e[
 ['Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og', 'U'].forEach((sym, i, list) => {
     ELEMENTS.find(e => e[0] === sym)[2] = Math.round(740643 * Math.pow(12000000 / 740643, i / (list.length - 1)));
 });
+// most superheavies sit just inside tier 6, so a tier 7 or 8 find on its own stays special
+Object.entries({
+    Bh: 1020000, Hs: 1067677, Mt: 1117582, Ds: 1169820, Rg: 1224500, Cn: 1281735, Nh: 1341646, Fl: 1404358, Mc: 1470000,
+    Lv: 3100000, Ts: 5996666, Og: 11600000
+}).forEach(([sym, odds]) => ELEMENTS.find(e => e[0] === sym)[2] = odds);
 const elementBySymbol = Object.fromEntries(ELEMENTS.map(e => [e[0], e]));
 const JOKES = [
     ['Um', 'Ummium', 35000000, 'The element of surprise', [1, 1]],
