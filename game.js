@@ -6311,7 +6311,7 @@ function acParams(b, more) {
             F[k] = b.fam[k];
         }
     });
-    return Object.assign({ L: b.luck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0 }, more);
+    return Object.assign({ L: b.oddsLuck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0 }, more);
 }
 // the event behind a press, if it's one that changes rolls
 function acEvent() {
@@ -8734,6 +8734,8 @@ $('shopCourier').addEventListener('click', () => {
 });
 // held still for the length of one roll
 let buffHold = null;
+// top-tier finds stay rare at full power
+const LUCK_CEILING = 450;
 function activeBuffStats() {
     if (buffHold) {
         return buffHold;
@@ -8785,9 +8787,11 @@ function computeBuffs() {
     });
     const bd = bondBonus();
     const cb = catBonus();
+    const own = (luck + bd.add) * bd.mult;
     const denom = Math.max(CHAIN_MAX, BASE_CHAIN - (BASE_CHAIN - CHAIN_MAX) / 8 * Math.min(8, chainSteps + bd.chain));
     return {
-        found, luck: (luck + bd.add) * bd.mult + cb.luck, speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? CHAIN_MAX : Math.max(CHAIN_MAX, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
+        // oddsLuck is what the odds use: catalysts can't take it past LUCK_CEILING (your own luck can)
+        found, luck: own + cb.luck, oddsLuck: Math.min(own + cb.luck, Math.max(own, LUCK_CEILING)), speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? CHAIN_MAX : Math.max(CHAIN_MAX, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
         // reagent/punchline add, running gag multiplies
         jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), level: cb.level, exp: catNextExpiry()
     };
@@ -8797,7 +8801,7 @@ function weightTable(extraLuck, only) {
     if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.pool.length === rollPool().length) {
         return weightCache;
     }
-    const luck = b.luck + (extraLuck || 0);
+    const luck = b.oddsLuck + (extraLuck || 0);
     let total = 0;
     let total0 = 0;
     const pool = rollPool();
@@ -9024,7 +9028,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.9.8';
+const APP_VERSION = '2.1.9.9';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;

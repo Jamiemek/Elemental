@@ -94,7 +94,7 @@ function acParams(b, more) {
             F[k] = b.fam[k];
         }
     });
-    return Object.assign({ L: b.luck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0 }, more);
+    return Object.assign({ L: b.oddsLuck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0 }, more);
 }
 // the event behind a press, if it's one that changes rolls
 function acEvent() {
