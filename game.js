@@ -14402,14 +14402,17 @@ function cloudTick() {
 }
 setInterval(cloudTick, CLOUD_EVERY);
 addEventListener('pagehide', () => cloudUser && cloudTick());
+// when the game went off screen, so a quick look elsewhere doesn't check the cloud again
+let cloudHiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
     if (!cloudUser) {
         return;
     }
     if (document.visibilityState === 'hidden') {
+        cloudHiddenAt = Date.now();
         cloudTick();
-    } else if (!cloudBusy) {
-        // back on this device: pick up anything played elsewhere
+    } else if (!cloudBusy && Date.now() - cloudHiddenAt > 3 * 60000) {
+        // back after a while: pick up anything played elsewhere
         cloudSync();
     }
 });
@@ -14772,13 +14775,15 @@ function renderGlobal() {
         home.textContent = mineAt >= 0 ? 'You are #' + (mineAt + 1) : top[0] ? 'Top score ' + fmtScore(top[0].score) : '';
     }
 }
+// the open Global screen: new globals come in through the banner and refresh it then, so this only
+// catches top 10 changes that aren't announced (every minute if the live connection isn't up)
 setInterval(() => {
-    if ($('global').classList.contains('active') && document.visibilityState === 'visible') {
+    if ($('global').classList.contains('active') && document.visibilityState === 'visible' && (!rtChannel || Date.now() - globalBoard.at >= 5 * 60000)) {
         globalLoad();
     }
 }, 60000);
-// the banner: other players' globals, live. The connection is only open while
-// the game is on screen, so idle tabs don't use up the server's live connections.
+// the banner: other players' globals, live. The connection closes a couple of minutes after
+// the game goes off screen, so idle tabs don't use up the server's live connections.
 let rtChannel = null;
 const bannerQueue = [];
 let bannerBusy = false;
@@ -14790,6 +14795,9 @@ function rtStart() {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, p => {
             rtLast = Math.max(rtLast, p.new.id || 0);
             bannerAdd(p.new);
+            if ($('global').classList.contains('active')) {
+                globalLoad();
+            }
         })
         .subscribe(status => {
             // the free plan allows 200 live connections: past that, check for news every few minutes instead
@@ -14871,10 +14879,12 @@ function bannerNext() {
     }, 5500);
 }
 // gifts from the admin, handed over when you sign in or come back to the game
+let giftsAt = 0;
 async function giftsClaim() {
     if (!sb || !cloudUser || !cloudName) {
         return;
     }
+    giftsAt = Date.now();
     const { data, error } = await sb.rpc('claim_gifts');
     if (error || !Array.isArray(data) || !data.length) {
         return;
@@ -14900,12 +14910,18 @@ async function giftsClaim() {
     showAchievementToast({ kicker: 'Gift received', name: got.join(', '), flavor: note || 'Added to your catalyst inventory.' });
     cloudTick();
 }
+// a quick look at another tab or app keeps the live connection, and gifts are asked for at most every 10 minutes
+let rtStopTimer = 0;
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+        clearTimeout(rtStopTimer);
         rtStart();
-        giftsClaim();
+        if (Date.now() - giftsAt > 10 * 60000) {
+            giftsClaim();
+        }
     } else {
-        rtStop();
+        clearTimeout(rtStopTimer);
+        rtStopTimer = setTimeout(rtStop, 2 * 60000);
     }
 });
 // when everyone is reset, every game that hears about it starts again from nothing
@@ -14945,7 +14961,7 @@ setTimeout(() => {
     } catch (e) { }
 }, 1200);
 // a long session still hears about a reset
-setInterval(() => document.visibilityState === 'visible' && globalLoad(), 15 * 60000);
+setInterval(() => document.visibilityState === 'visible' && globalLoad(), 3 * 3600000);
 // Everything that needs a signed-in player with a name
 function cloudAfterProfile() {
     renderGlobal();

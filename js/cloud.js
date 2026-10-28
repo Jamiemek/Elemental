@@ -442,14 +442,17 @@ function cloudTick() {
 }
 setInterval(cloudTick, CLOUD_EVERY);
 addEventListener('pagehide', () => cloudUser && cloudTick());
+// when the game went off screen, so a quick look elsewhere doesn't check the cloud again
+let cloudHiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
     if (!cloudUser) {
         return;
     }
     if (document.visibilityState === 'hidden') {
+        cloudHiddenAt = Date.now();
         cloudTick();
-    } else if (!cloudBusy) {
-        // back on this device: pick up anything played elsewhere
+    } else if (!cloudBusy && Date.now() - cloudHiddenAt > 3 * 60000) {
+        // back after a while: pick up anything played elsewhere
         cloudSync();
     }
 });
