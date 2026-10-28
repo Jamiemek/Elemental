@@ -294,7 +294,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.9.10';
+const APP_VERSION = '2.1.9.11';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
