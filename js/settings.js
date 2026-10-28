@@ -64,7 +64,7 @@ document.addEventListener('keydown', e => {
         e.preventDefault();
         document.activeElement.blur();
         if ($('game').classList.contains('active')) {
-            doRoll();
+            rollByHand();
         } else {
             go('game');
         }

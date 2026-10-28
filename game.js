@@ -9742,7 +9742,60 @@ async function doRoll(preset, opts) {
         $('rollBtn').textContent = 'Roll again';
     }
 }
-$('rollBtn').addEventListener('click', doRoll);
+// Rolling by hand without autoroll asks for a quick check every 10 minutes, so an auto clicker can't stand in for autoroll.
+// Leaving autoroll running is meant to be idle, so it never asks then
+const ACT_EVERY = 10 * 60000;
+let actAt = Date.now();
+try {
+    actAt = +localStorage.getItem('elementalActCheck') || actAt;
+} catch (e) { }
+function actReset() {
+    actAt = Date.now();
+    try {
+        localStorage.setItem('elementalActCheck', actAt);
+    } catch (e) { }
+}
+const autoActive = () => autoWanted && activeBuffStats().autoUnlocked;
+function rollByHand() {
+    if (rolling) {
+        return;
+    }
+    if (autoActive()) {
+        actReset();
+    } else if (Date.now() - actAt >= ACT_EVERY) {
+        actCheck();
+        return;
+    }
+    doRoll();
+}
+function actCheck() {
+    const order = [1, 2, 3];
+    for (let i = 2; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+    }
+    const w = openDialog('<h2>Still there?</h2><p>Press 1, 2 and 3 in order to keep rolling.</p>' +
+        '<div class="btn-row act-nums">' + order.map(n => '<button class="ghost" data-n="' + n + '">' + n + '</button>').join('') + '</div><p class="dlg-note" id="actNote"></p>');
+    let next = 1;
+    w.querySelector('.act-nums').onclick = e => {
+        const b = e.target.closest('[data-n]');
+        if (!b) {
+            return;
+        }
+        if (+b.dataset.n !== next) {
+            // a wrong press starts it again with the numbers moved round
+            actCheck();
+            $('actNote').textContent = 'Not quite. Start again from 1.';
+            return;
+        }
+        b.disabled = true;
+        if (++next > 3) {
+            closeDialog();
+            actReset();
+        }
+    };
+}
+$('rollBtn').addEventListener('click', rollByHand);
 function fmtDur(s) {
     s = Math.max(0, Math.ceil(s));
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -9839,6 +9892,8 @@ $('autoRollBtn').addEventListener('click', () => {
     }
     autoWanted = !autoWanted;
     saveAutoState();
+    // time spent on autoroll doesn't count towards the next check
+    actReset();
     // first roll after switching on comes after one break, like every other
     autoFrom = 0;
     updateAutoBtn();
@@ -10017,7 +10072,7 @@ document.addEventListener('keydown', e => {
         e.preventDefault();
         document.activeElement.blur();
         if ($('game').classList.contains('active')) {
-            doRoll();
+            rollByHand();
         } else {
             go('game');
         }

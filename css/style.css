@@ -3272,3 +3272,9 @@ html.fx-on body {
     height: 13px;
   }
 }
+/* the activity check: three big number buttons */
+.dlg .act-nums button {
+  flex: 1;
+  font-size: 28px;
+  padding: 14px 0;
+}
