@@ -791,7 +791,7 @@ select {
 }
 .ach-row {
   display: grid;
-  grid-template-columns: 22px 120px minmax(0,1fr) 110px 120px;
+  grid-template-columns: 22px 120px minmax(0,1fr) 110px;
   gap: 16px;
   align-items: start;
   padding: 12px 14px;
@@ -845,27 +845,6 @@ select {
   height: 11px;
   background: var(--sw,#8a9893);
 }
-.ach-reward {
-  display: flex;
-  justify-content: flex-end;
-}
-.ach-claim {
-  padding: 5px 12px;
-  font-size: 15px;
-  background: var(--hazard);
-}
-.ach-claim:hover {
-  background: var(--ink);
-  color: var(--hazard);
-}
-.ach-claimed {
-  font-family: var(--head);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--ink-2);
-  padding: 5px 0;
-}
-
 .rarity-common {
   --sw: #8a9893;
 }
@@ -1030,42 +1009,6 @@ a.link-btn:hover {
 }
 .home-links a:hover {
   color: var(--ink);
-}
-/* while you were away */
-.away-big {
-  font-size: 18px;
-  color: var(--ink)!important;
-  margin-bottom: 4px!important;
-}
-.away-clock {
-  font-family: var(--head);
-  font-weight: 700;
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-.away-best {
-  margin: 0 0 18px;
-  padding: 12px 14px;
-  border: 2px solid var(--ink);
-}
-.away-best dt {
-  font-size: 14px;
-  color: var(--ink-2);
-}
-.away-best dd {
-  margin: 0 0 8px;
-  font-family: var(--head);
-  font-weight: 700;
-  font-size: 22px;
-}
-.away-best dd:last-child {
-  margin-bottom: 0;
-}
-.away-best dd span {
-  font-size: 16px;
-  color: var(--ink-2);
-  margin-left: 6px;
 }
 /* cutscene and effect viewer */
 .setting>.body {
@@ -1854,10 +1797,6 @@ html.fx-on body {
     grid-column: 2/-1;
     margin-top: 0;
   }
-  .ach-reward {
-    grid-column: 2/-1;
-    justify-content: flex-start;
-  }
   .rank-row {
     grid-template-columns: 30px minmax(0,1fr) auto;
     gap: 10px;
@@ -2342,14 +2281,6 @@ html.fx-on body {
   opacity: .7;
   font-size: 12px;
 }
-.away-storm {
-  margin: 12px 0 0;
-  padding: 8px 12px;
-  border-left: 3px solid var(--hazard);
-}
-.away-storm b {
-  color: var(--ink);
-}
 .qstorm-bar.ev-collider {
   border-color: #5fd4ff;
   background: linear-gradient(90deg,rgba(95,212,255,.18),rgba(255,111,174,.14),rgba(95,212,255,.18)) 0 0/200% 100% repeat-x,var(--readout);
@@ -2373,12 +2304,6 @@ html.fx-on body {
   font-weight: 500;
   opacity: .85;
   font-size: 13px;
-}
-.away-storm.ev-collider {
-  border-left-color: #5fd4ff;
-}
-.away-storm.ev-hole {
-  border-left-color: #ff9a3c;
 }
 @keyframes qsDrift {
   to {
