@@ -791,7 +791,7 @@ select {
 }
 .ach-row {
   display: grid;
-  grid-template-columns: 22px 120px minmax(0,1fr) 110px;
+  grid-template-columns: 22px 120px minmax(0,1fr) 110px 120px;
   gap: 16px;
   align-items: start;
   padding: 12px 14px;
@@ -845,6 +845,27 @@ select {
   height: 11px;
   background: var(--sw,#8a9893);
 }
+.ach-reward {
+  display: flex;
+  justify-content: flex-end;
+}
+.ach-claim {
+  padding: 5px 12px;
+  font-size: 15px;
+  background: var(--hazard);
+}
+.ach-claim:hover {
+  background: var(--ink);
+  color: var(--hazard);
+}
+.ach-claimed {
+  font-family: var(--head);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-2);
+  padding: 5px 0;
+}
+
 .rarity-common {
   --sw: #8a9893;
 }
@@ -1832,6 +1853,10 @@ html.fx-on body {
   .ach-rarity {
     grid-column: 2/-1;
     margin-top: 0;
+  }
+  .ach-reward {
+    grid-column: 2/-1;
+    justify-content: flex-start;
   }
   .rank-row {
     grid-template-columns: 30px minmax(0,1fr) auto;
