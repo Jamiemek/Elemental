@@ -5,7 +5,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;
@@ -382,6 +382,8 @@ function cloudMerge(a, b) {
     const union = (x, y) => [...new Set([].concat(Array.isArray(x) ? x : [], Array.isArray(y) ? y : []))];
     const [aa, ab] = both('elementalAchievements', []);
     out.elementalAchievements = JSON.stringify(union(aa, ab));
+    const [ca2, cb2] = both('elementalClaimed', []);
+    out.elementalClaimed = JSON.stringify(union(ca2, cb2));
     const [na, nb] = both('elementalNetwork', {});
     out.elementalNetwork = JSON.stringify(Object.assign({}, na, nb));
     const [sa, sb2] = both('elementalSeen', {});

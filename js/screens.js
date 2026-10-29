@@ -309,3 +309,9 @@ function renderElemCompounds() {
 $('elemBack').addEventListener('click', () => go(elemReturn || 'inventory'));
 $('achievementSearch').addEventListener('input', renderAchievements);
 $('achievementFilter').addEventListener('change', renderAchievements);
+$('achievementGrid').addEventListener('click', e => {
+    const b = e.target.closest('[data-claim]');
+    if (b) {
+        claimAchievement(b.dataset.claim);
+    }
+});

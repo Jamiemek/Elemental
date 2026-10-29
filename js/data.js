@@ -516,3 +516,12 @@ try {
 } catch (e) {
     unlockedAchievements = [];
 }
+// achievements whose reward has been taken
+let claimedAchievements = [];
+try {
+    claimedAchievements = JSON.parse(localStorage.getItem('elementalClaimed') || '[]');
+} catch (e) {
+    claimedAchievements = [];
+}
+// Bonding Agents given for claiming an achievement
+const ACH_REWARD = { Common: 1, Uncommon: 2, Rare: 3, Epic: 5, Legendary: 10 };

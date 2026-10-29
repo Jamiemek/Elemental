@@ -492,8 +492,10 @@ $('resetBtn').addEventListener('click', () => {
         renderHistory();
         updateAutoBtn();
         unlockedAchievements = [];
+        claimedAchievements = [];
         try {
             localStorage.removeItem('elementalAchievements');
+            localStorage.removeItem('elementalClaimed');
         } catch (e) { }
         syncEffectSettings();
         renderInventory();

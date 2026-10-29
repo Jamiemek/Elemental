@@ -20,6 +20,25 @@ function checkAchievements(record) {
         renderAchievements();
     }
 }
+function claimAchievement(formula) {
+    const a = ACHIEVEMENTS.find(x => x.formula === formula);
+    if (!a || !unlockedAchievements.includes(formula) || claimedAchievements.includes(formula)) {
+        return;
+    }
+    const n = ACH_REWARD[a.rarity] || 1;
+    claimedAchievements.push(formula);
+    catInv.bondagent = (catInv.bondagent || 0) + n;
+    try {
+        localStorage.setItem('elementalClaimed', JSON.stringify(claimedAchievements));
+    } catch (e) { }
+    saveCats();
+    showAchievementToast({ kicker: 'Reward claimed', name: '+' + n + ' Bonding Agent' + (n > 1 ? 's' : ''), flavor: a.name + ' is done. Find them in your catalyst inventory.' });
+    renderAchievements();
+    if ($('catinv') && $('catinv').classList.contains('active')) {
+        renderCatInv();
+    }
+    cloudTick();
+}
 function renderAchievements() {
     const root = $('achievementGrid');
     if (!root) {
@@ -48,7 +67,13 @@ function renderAchievements() {
         const unlocked = unlockedAchievements.includes(a.formula);
         const row = document.createElement('div');
         row.className = 'ach-row ' + (unlocked ? 'found' : 'missing');
-        row.innerHTML = `<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked ? a.formula : '???'}</span><div class="ach-main"><div class="ach-name">${unlocked ? a.name : 'Not found yet'}</div><div class="ach-flavor">${unlocked ? a.flavor : 'Roll this formula to see what it is.'}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span>`;
+        const claimed = claimedAchievements.includes(a.formula);
+        const reward = ACH_REWARD[a.rarity] || 1;
+        let claim = '';
+        if (unlocked) {
+            claim = claimed ? '<span class="ach-claimed">Claimed</span>' : `<button class="ghost ach-claim" data-claim="${a.formula}">Claim +${reward}</button>`;
+        }
+        row.innerHTML = `<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked ? a.formula : '???'}</span><div class="ach-main"><div class="ach-name">${unlocked ? a.name : 'Not found yet'}</div><div class="ach-flavor">${unlocked ? a.flavor : 'Roll this formula to see what it is.'}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span><div class="ach-reward">${claim}</div>`;
         root.appendChild(row);
     });
 }
