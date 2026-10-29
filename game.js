@@ -15975,5 +15975,4 @@ function tutInit() {
     tutShow(+v || 0);
 }
 cloudInit();
-awayProcess();
 tutInit();
