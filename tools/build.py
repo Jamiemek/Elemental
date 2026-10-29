@@ -37,7 +37,7 @@ JS_FILES = [
     'cloud.js',      # accounts and cloud saves
     'global.js',     # global top 10, banner, gifts
     'admin.js',      # admin tab
-    'away.js',       # while you were away
+    'clock.js',      # the server clock
     'tutorial.js',   # first time tutorial
     'main.js',       # starts the game
 ]
