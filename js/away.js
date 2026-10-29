@@ -12,7 +12,15 @@ async function clockSync() {
         return false;
     }
     const t0 = performance.now();
-    const { data, error } = await sb.rpc('server_time');
+    // don't wait forever on a slow connection
+    const wait = new Promise(resolve => setTimeout(() => resolve({}), 6000));
+    let res;
+    try {
+        res = await Promise.race([sb.rpc('server_time'), wait]);
+    } catch (e) {
+        return false;
+    }
+    const { data, error } = res;
     const t1 = performance.now();
     const ms = typeof data === 'string' ? Date.parse(data) : NaN;
     if (error || !Number.isFinite(ms)) {
@@ -87,10 +95,15 @@ async function awayProcess() {
     await awayWaitForCloud();
     // away rolls need the dice to count for the global board
     if (cloudUser) {
-        await Promise.race([acFetch(), new Promise(r => setTimeout(r, 6000))]);
+        await Promise.race([Promise.resolve(acFetch()).catch(() => { }), new Promise(r => setTimeout(r, 6000))]);
     }
-    const clockOk = await clockSync();
-    clockTried = true;
+    // the shop waits for this check, so mark it done even when it fails
+    let clockOk = false;
+    try {
+        clockOk = await clockSync();
+    } finally {
+        clockTried = true;
+    }
     if (!clockOk) {
         // the time can't be checked, so this session can't be trusted as time away later either
         try {

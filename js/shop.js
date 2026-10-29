@@ -619,7 +619,7 @@ function renderShop() {
     cr.hidden = !catInv.courier;
     cr.textContent = 'Use Courier (' + (catInv.courier || 0) + ')';
     const canHold = bondBonus().hold;
-    $('shopTimer').textContent = fmtClock(shopNextIn() / 1000);
+    $('shopTimer').textContent = fmtClock(Math.max(0, shopNextIn()) / 1000);
     $('shopStock').innerHTML = shopState.stock.map((s, i) => {
         const c = CAT[s.id];
         const p = shopPrice(c);
