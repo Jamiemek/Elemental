@@ -516,6 +516,15 @@ try {
 } catch (e) {
     unlockedAchievements = [];
 }
+// achievements whose reward has been taken
+let claimedAchievements = [];
+try {
+    claimedAchievements = JSON.parse(localStorage.getItem('elementalClaimed') || '[]');
+} catch (e) {
+    claimedAchievements = [];
+}
+// Bonding Agents given for claiming an achievement
+const ACH_REWARD = { Common: 1, Uncommon: 2, Rare: 3, Epic: 5, Legendary: 10 };
 let toastTimer;
 const EFFECT_DEFAULTS = {
     1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true
@@ -5858,6 +5867,25 @@ function checkAchievements(record) {
         renderAchievements();
     }
 }
+function claimAchievement(formula) {
+    const a = ACHIEVEMENTS.find(x => x.formula === formula);
+    if (!a || !unlockedAchievements.includes(formula) || claimedAchievements.includes(formula)) {
+        return;
+    }
+    const n = ACH_REWARD[a.rarity] || 1;
+    claimedAchievements.push(formula);
+    catInv.bondagent = (catInv.bondagent || 0) + n;
+    try {
+        localStorage.setItem('elementalClaimed', JSON.stringify(claimedAchievements));
+    } catch (e) { }
+    saveCats();
+    showAchievementToast({ kicker: 'Reward claimed', name: '+' + n + ' Bonding Agent' + (n > 1 ? 's' : ''), flavor: a.name + ' is done. Find them in your catalyst inventory.' });
+    renderAchievements();
+    if ($('catinv') && $('catinv').classList.contains('active')) {
+        renderCatInv();
+    }
+    cloudTick();
+}
 function renderAchievements() {
     const root = $('achievementGrid');
     if (!root) {
@@ -5886,7 +5914,13 @@ function renderAchievements() {
         const unlocked = unlockedAchievements.includes(a.formula);
         const row = document.createElement('div');
         row.className = 'ach-row ' + (unlocked ? 'found' : 'missing');
-        row.innerHTML = `<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked ? a.formula : '???'}</span><div class="ach-main"><div class="ach-name">${unlocked ? a.name : 'Not found yet'}</div><div class="ach-flavor">${unlocked ? a.flavor : 'Roll this formula to see what it is.'}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span>`;
+        const claimed = claimedAchievements.includes(a.formula);
+        const reward = ACH_REWARD[a.rarity] || 1;
+        let claim = '';
+        if (unlocked) {
+            claim = claimed ? '<span class="ach-claimed">Claimed</span>' : `<button class="ghost ach-claim" data-claim="${a.formula}">Claim +${reward}</button>`;
+        }
+        row.innerHTML = `<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked ? a.formula : '???'}</span><div class="ach-main"><div class="ach-name">${unlocked ? a.name : 'Not found yet'}</div><div class="ach-flavor">${unlocked ? a.flavor : 'Roll this formula to see what it is.'}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span><div class="ach-reward">${claim}</div>`;
         root.appendChild(row);
     });
 }
@@ -9506,6 +9540,12 @@ function renderElemCompounds() {
 $('elemBack').addEventListener('click', () => go(elemReturn || 'inventory'));
 $('achievementSearch').addEventListener('input', renderAchievements);
 $('achievementFilter').addEventListener('change', renderAchievements);
+$('achievementGrid').addEventListener('click', e => {
+    const b = e.target.closest('[data-claim]');
+    if (b) {
+        claimAchievement(b.dataset.claim);
+    }
+});
 // shrink an element's font so text fits in room pixels
 function fitText(el, text, room, base) {
     const cs = getComputedStyle(el);
@@ -10000,8 +10040,10 @@ $('resetBtn').addEventListener('click', () => {
         renderHistory();
         updateAutoBtn();
         unlockedAchievements = [];
+        claimedAchievements = [];
         try {
             localStorage.removeItem('elementalAchievements');
+            localStorage.removeItem('elementalClaimed');
         } catch (e) { }
         syncEffectSettings();
         renderInventory();
@@ -13973,7 +14015,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;
@@ -14350,6 +14392,8 @@ function cloudMerge(a, b) {
     const union = (x, y) => [...new Set([].concat(Array.isArray(x) ? x : [], Array.isArray(y) ? y : []))];
     const [aa, ab] = both('elementalAchievements', []);
     out.elementalAchievements = JSON.stringify(union(aa, ab));
+    const [ca2, cb2] = both('elementalClaimed', []);
+    out.elementalClaimed = JSON.stringify(union(ca2, cb2));
     const [na, nb] = both('elementalNetwork', {});
     out.elementalNetwork = JSON.stringify(Object.assign({}, na, nb));
     const [sa, sb2] = both('elementalSeen', {});
