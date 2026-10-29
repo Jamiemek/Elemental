@@ -8240,7 +8240,7 @@ function buyStock(i) {
     }
     const c = CAT[s.id];
     const p = shopPrice(c);
-    if (!Number.isFinite(quarks) || quarks < 0 || quarks < p) {
+    if (quarks < p) {
         return;
     }
     addQuarks(-p);
@@ -8304,7 +8304,7 @@ function renderShop() {
         const c = CAT[s.id];
         const p = shopPrice(c);
         const hold = canHold && !s.sold ? `<button class="ghost cat-hold${s.held ? ' on' : ''}" data-i="${i}">${s.held ? 'Held' : 'Hold'}</button>` : '';
-        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || !Number.isFinite(quarks) || quarks < 0 || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
+        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
     }).join('');
     $('shopSlotsNote').textContent = `${shopState.stock.length} of ${Math.max(5, shopSlots())} stock slots open`;
     renderActiveCats();
@@ -10459,7 +10459,7 @@ function renderCosmetics() {
     const card = c => {
         let btn;
         if (!cosOwned(c.id)) {
-            btn = `<button class="primary cos-buy" data-id="${c.id}"${!Number.isFinite(quarks) || quarks < 0 || quarks < c.price ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
+            btn = `<button class="primary cos-buy" data-id="${c.id}"${quarks < c.price ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
         } else if (cosState[c.kind] === c.id) {
             btn = `<button class="ghost cos-use on" data-id="${c.id}">In use · take off</button>`;
         } else {
@@ -10484,7 +10484,7 @@ $('cosGrid').addEventListener('click', e => {
         if (!cosUnlocked(c.id) || cosOwned(c.id)) {
             return;
         }
-        if (!Number.isFinite(quarks) || quarks < 0 || quarks < c.price) {
+        if (quarks < c.price) {
             msg.textContent = 'Not enough quarks.';
             return;
         }
@@ -15975,4 +15975,5 @@ function tutInit() {
     tutShow(+v || 0);
 }
 cloudInit();
+awayProcess();
 tutInit();
