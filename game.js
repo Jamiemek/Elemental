@@ -516,15 +516,6 @@ try {
 } catch (e) {
     unlockedAchievements = [];
 }
-// achievements whose reward has been taken
-let claimedAchievements = [];
-try {
-    claimedAchievements = JSON.parse(localStorage.getItem('elementalClaimed') || '[]');
-} catch (e) {
-    claimedAchievements = [];
-}
-// Bonding Agents given for claiming an achievement
-const ACH_REWARD = { Common: 1, Uncommon: 2, Rare: 3, Epic: 5, Legendary: 10 };
 let toastTimer;
 const EFFECT_DEFAULTS = {
     1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true
@@ -5867,25 +5858,6 @@ function checkAchievements(record) {
         renderAchievements();
     }
 }
-function claimAchievement(formula) {
-    const a = ACHIEVEMENTS.find(x => x.formula === formula);
-    if (!a || !unlockedAchievements.includes(formula) || claimedAchievements.includes(formula)) {
-        return;
-    }
-    const n = ACH_REWARD[a.rarity] || 1;
-    claimedAchievements.push(formula);
-    catInv.bondagent = (catInv.bondagent || 0) + n;
-    try {
-        localStorage.setItem('elementalClaimed', JSON.stringify(claimedAchievements));
-    } catch (e) { }
-    saveCats();
-    showAchievementToast({ kicker: 'Reward claimed', name: '+' + n + ' Bonding Agent' + (n > 1 ? 's' : ''), flavor: a.name + ' is done. Find them in your catalyst inventory.' });
-    renderAchievements();
-    if ($('catinv') && $('catinv').classList.contains('active')) {
-        renderCatInv();
-    }
-    cloudTick();
-}
 function renderAchievements() {
     const root = $('achievementGrid');
     if (!root) {
@@ -5914,13 +5886,7 @@ function renderAchievements() {
         const unlocked = unlockedAchievements.includes(a.formula);
         const row = document.createElement('div');
         row.className = 'ach-row ' + (unlocked ? 'found' : 'missing');
-        const claimed = claimedAchievements.includes(a.formula);
-        const reward = ACH_REWARD[a.rarity] || 1;
-        let claim = '';
-        if (unlocked) {
-            claim = claimed ? '<span class="ach-claimed">Claimed</span>' : `<button class="ghost ach-claim" data-claim="${a.formula}">Claim +${reward}</button>`;
-        }
-        row.innerHTML = `<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked ? a.formula : '???'}</span><div class="ach-main"><div class="ach-name">${unlocked ? a.name : 'Not found yet'}</div><div class="ach-flavor">${unlocked ? a.flavor : 'Roll this formula to see what it is.'}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span><div class="ach-reward">${claim}</div>`;
+        row.innerHTML = `<span class="ach-mark" aria-hidden="true"></span><span class="ach-formula">${unlocked ? a.formula : '???'}</span><div class="ach-main"><div class="ach-name">${unlocked ? a.name : 'Not found yet'}</div><div class="ach-flavor">${unlocked ? a.flavor : 'Roll this formula to see what it is.'}</div></div><span class="ach-rarity rarity-${a.rarity.toLowerCase()}">${a.rarity}</span>`;
         root.appendChild(row);
     });
 }
@@ -6970,7 +6936,7 @@ function pityPrice(n) {
     pityMemo.price.set(key, price);
     return price;
 }
-const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && quarks >= pityPrice(n);
+const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && canAfford(pityPrice(n));
 const agentReady = n => catInv.bondagent > 0 && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req);
 function useAgent(n) {
     srcSpend('bondagent', 1);
@@ -7002,13 +6968,13 @@ function pityAsk(n) {
 }
 // joke element bonuses, no luck or speed ones
 const JOKE_BONUS = {
-    Um: ['event', 25], Zz: ['away', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
+    Um: ['event', 25], Zz: ['quark', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
     Ha: ['price', 5], Ad: ['refresh', 2], Pi: ['quark', 3.14], Nu: ['alone', 50], Xx: ['secret', 5], Uo: ['jokerate', 100], Zo: ['cos', 'warp'], Gg: ['cos', 'gameover']
 };
 const jokeBonusText = sym => {
     const [k, v] = JOKE_BONUS[sym];
     return {
-        event: `Events are ${v}% more likely`, away: `Away rolls cover ${v} more hours`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
+        event: `Events are ${v}% more likely`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
         cdur: `Catalysts last ${v}% longer`, storm: `Quark Storms pay ${v}% more`, dup: `${v}% chance a bought catalyst arrives as two`, evlen: `Events last ${v}% longer`,
         price: `Shop prices ${v}% lower`, refresh: `The shop restocks ${v} minutes sooner`, alone: `Rolls with no chain earn ${v}% more quarks`, secret: `Secret effects are ${v}% more likely`,
         jokerate: 'Joke catalysts appear twice as often in the shop', cos: v === 'warp' ? 'Unlocks the Warp scanner' : 'Unlocks the Game Over page and the Final Element badge'
@@ -7023,7 +6989,7 @@ function netBonus() {
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
         quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, upgrade: false, cos: [],
-        away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
+        evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
     };
     let jokeLines = 0;
     net().edges.forEach(e => {
@@ -8240,7 +8206,10 @@ function buyStock(i) {
     }
     const c = CAT[s.id];
     const p = shopPrice(c);
-    if (quarks < p) {
+    if (!canAfford(p)) {
+        if (!Number.isFinite(quarks)) {
+            $('shopMsg').textContent = BAD_QUARKS;
+        }
         return;
     }
     addQuarks(-p);
@@ -8266,7 +8235,7 @@ function buyAll() {
     const before = quarks;
     let n = 0;
     for (;;) {
-        const left = shopState.stock.map((s, i) => [i, s]).filter(([, s]) => !s.sold && shopPrice(CAT[s.id]) <= quarks);
+        const left = shopState.stock.map((s, i) => [i, s]).filter(([, s]) => !s.sold && canAfford(shopPrice(CAT[s.id])));
         if (!left.length) {
             break;
         }
@@ -8274,7 +8243,7 @@ function buyAll() {
         buyStock(left[0][0]);
         n++;
     }
-    $('shopMsg').textContent = n ? `Bought ${n} catalyst${n > 1 ? 's' : ''} for ${Math.round(before - quarks).toLocaleString('en-US')} quarks.` : "You can't afford anything here right now.";
+    $('shopMsg').textContent = n ? `Bought ${n} catalyst${n > 1 ? 's' : ''} for ${Math.round(before - quarks).toLocaleString('en-US')} quarks.` : Number.isFinite(quarks) ? "You can't afford anything here right now." : BAD_QUARKS;
 }
 function holdStock(i) {
     const s = shopState.stock[i];
@@ -8294,17 +8263,17 @@ function renderShop() {
         return;
     }
     shopCheck();
-    $('shopBuyAll').disabled = !shopState.stock.some(s => !s.sold && shopPrice(CAT[s.id]) <= quarks);
+    $('shopBuyAll').disabled = !shopState.stock.some(s => !s.sold && canAfford(shopPrice(CAT[s.id])));
     const cr = $('shopCourier');
     cr.hidden = !catInv.courier;
     cr.textContent = 'Use Courier (' + (catInv.courier || 0) + ')';
     const canHold = bondBonus().hold;
-    $('shopTimer').textContent = fmtClock(shopNextIn() / 1000);
+    $('shopTimer').textContent = fmtClock(Math.max(0, shopNextIn()) / 1000);
     $('shopStock').innerHTML = shopState.stock.map((s, i) => {
         const c = CAT[s.id];
         const p = shopPrice(c);
         const hold = canHold && !s.sold ? `<button class="ghost cat-hold${s.held ? ' on' : ''}" data-i="${i}">${s.held ? 'Held' : 'Hold'}</button>` : '';
-        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
+        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || !canAfford(p) ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
     }).join('');
     $('shopSlotsNote').textContent = `${shopState.stock.length} of ${Math.max(5, shopSlots())} stock slots open`;
     renderActiveCats();
@@ -9085,6 +9054,11 @@ function addQuarks(n) {
     } catch (e) { }
     renderQuarks();
 }
+// an infinite or NaN balance can't pay for anything
+const BAD_QUARKS = "Your quark balance isn't a normal number, so nothing can be bought.";
+function canAfford(price) {
+    return Number.isFinite(quarks) && quarks >= price;
+}
 // Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
 // lasts the next 100 presses
 const QSTORM_CHANCE = 1 / 8000;
@@ -9532,12 +9506,6 @@ function renderElemCompounds() {
 $('elemBack').addEventListener('click', () => go(elemReturn || 'inventory'));
 $('achievementSearch').addEventListener('input', renderAchievements);
 $('achievementFilter').addEventListener('change', renderAchievements);
-$('achievementGrid').addEventListener('click', e => {
-    const b = e.target.closest('[data-claim]');
-    if (b) {
-        claimAchievement(b.dataset.claim);
-    }
-});
 // shrink an element's font so text fits in room pixels
 function fitText(el, text, room, base) {
     const cs = getComputedStyle(el);
@@ -10032,10 +10000,8 @@ $('resetBtn').addEventListener('click', () => {
         renderHistory();
         updateAutoBtn();
         unlockedAchievements = [];
-        claimedAchievements = [];
         try {
             localStorage.removeItem('elementalAchievements');
-            localStorage.removeItem('elementalClaimed');
         } catch (e) { }
         syncEffectSettings();
         renderInventory();
@@ -10459,7 +10425,7 @@ function renderCosmetics() {
     const card = c => {
         let btn;
         if (!cosOwned(c.id)) {
-            btn = `<button class="primary cos-buy" data-id="${c.id}"${quarks < c.price ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
+            btn = `<button class="primary cos-buy" data-id="${c.id}"${!canAfford(c.price) ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
         } else if (cosState[c.kind] === c.id) {
             btn = `<button class="ghost cos-use on" data-id="${c.id}">In use · take off</button>`;
         } else {
@@ -10484,8 +10450,8 @@ $('cosGrid').addEventListener('click', e => {
         if (!cosUnlocked(c.id) || cosOwned(c.id)) {
             return;
         }
-        if (quarks < c.price) {
-            msg.textContent = 'Not enough quarks.';
+        if (!canAfford(c.price)) {
+            msg.textContent = Number.isFinite(quarks) ? 'Not enough quarks.' : BAD_QUARKS;
             return;
         }
         addQuarks(-c.price);
@@ -14007,7 +13973,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;
@@ -14384,8 +14350,6 @@ function cloudMerge(a, b) {
     const union = (x, y) => [...new Set([].concat(Array.isArray(x) ? x : [], Array.isArray(y) ? y : []))];
     const [aa, ab] = both('elementalAchievements', []);
     out.elementalAchievements = JSON.stringify(union(aa, ab));
-    const [ca2, cb2] = both('elementalClaimed', []);
-    out.elementalClaimed = JSON.stringify(union(ca2, cb2));
     const [na, nb] = both('elementalNetwork', {});
     out.elementalNetwork = JSON.stringify(Object.assign({}, na, nb));
     const [sa, sb2] = both('elementalSeen', {});
@@ -15585,9 +15549,7 @@ $('admDevPick').onchange = async () => {
         admDevInfo();
     }
 };
-const AWAY_MAX = 24 * 3600;
-const awayMax = () => AWAY_MAX + bondBonus().away * 3600;
-const AWAY_SLOWER = 10;
+// the shop and cloud saves go by the server's time
 const trustedNow = () => clockBase ? clockBase.server + (performance.now() - clockBase.perf) : null;
 async function clockSync() {
     if (!CLOUD.enabled) {
@@ -15599,7 +15561,15 @@ async function clockSync() {
         return false;
     }
     const t0 = performance.now();
-    const { data, error } = await sb.rpc('server_time');
+    // don't wait forever on a slow connection
+    const wait = new Promise(resolve => setTimeout(() => resolve({}), 6000));
+    let res;
+    try {
+        res = await Promise.race([sb.rpc('server_time'), wait]);
+    } catch (e) {
+        return false;
+    }
+    const { data, error } = res;
     const t1 = performance.now();
     const ms = typeof data === 'string' ? Date.parse(data) : NaN;
     if (error || !Number.isFinite(ms)) {
@@ -15608,56 +15578,13 @@ async function clockSync() {
     clockBase = { server: ms + (t1 - t0) / 2, perf: t1 };
     return true;
 }
-// the last time the game was seen open, in server time ({ t: null } = couldn't be checked)
-let awaySince = null;
-try {
-    const v = JSON.parse(localStorage.getItem('awayLastSeen') || 'null');
-    awaySince = v && typeof v === 'object' ? v : null;
-} catch (e) { }
-function awayStamp() {
-    const t = trustedNow();
-    if (t == null) {
-        return;
-    }
-    try {
-        localStorage.setItem('awayLastSeen', JSON.stringify({ t: Math.round(t) }));
-    } catch (e) { }
-}
-// keep the "last seen" time fresh, so it is right even if a phone closes the page without warning
-setInterval(awayStamp, 15000);
-addEventListener('pagehide', awayStamp);
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-        awayStamp();
-    } else if (clockBase) {
+    if (document.visibilityState === 'visible' && clockBase) {
         clockSync();
     }
 });
-// how many rolls the time away is worth: autoroll's full cycle (roll + break), ten times slower
-function awayRollsFor(seconds) {
-    const b = activeBuffStats();
-    if (!b.autoUnlocked || !(seconds > 0)) {
-        return 0;
-    }
-    const rollSec = Math.max(300, 3000 / (1 + b.speed / 100)) / 1000;
-    const cycle = (b.autoGap + rollSec + 1) * AWAY_SLOWER;
-    return Math.floor(seconds / cycle) * (1 + b.extra);
-}
-function awayMakeRoll(b, ev) {
-    const make = () => rollElements(0, null, { denom: ev === 'collider' ? 2 : b.chainDenom });
-    const elements = ev === 'hole' ? rollTwice(make) : make();
-    const formula = hillFormula(elements);
-    const log = exactRarity(elements, 0);
-    const known = ACHIEVEMENTS.find(a => a.hill === formula);
-    const name = elements.length === 1 ? elements[0][1] : (known ? known.name : elements.map(e => e[1]).join(' + '));
-    return ionise({ elements, formula, name, log, rarity: rarityText(log), score: rollScore(elements) }, rollIon());
-}
-function awayClock(s) {
-    s = Math.max(0, Math.floor(s));
-    return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-}
-// wait until accounts have settled, so away rolls never clash with a save from another device
-function awayWaitForCloud() {
+// wait until accounts have settled before asking for the time
+function clockWaitForCloud() {
     return new Promise(resolve => {
         const t0 = Date.now();
         (function check() {
@@ -15670,140 +15597,17 @@ function awayWaitForCloud() {
         })();
     });
 }
-async function awayProcess() {
-    await awayWaitForCloud();
-    // away rolls need the dice to count for the global board
-    if (cloudUser) {
-        await Promise.race([acFetch(), new Promise(r => setTimeout(r, 6000))]);
-    }
-    const clockOk = await clockSync();
-    clockTried = true;
-    if (!clockOk) {
-        // the time can't be checked, so this session can't be trusted as time away later either
-        try {
-            localStorage.setItem('awayLastSeen', JSON.stringify({ t: null }));
-        } catch (e) { }
-        return;
-    }
-    const since = awaySince && typeof awaySince.t === 'number' ? awaySince.t : null;
-    awayStamp();
-    if (since == null) {
-        return;
-    }
-    const seconds = Math.min(awayMax(), Math.max(0, (trustedNow() - since) / 1000));
-    const n = awayRollsFor(seconds);
-    if (n < 1) {
-        return;
-    }
-    const b = activeBuffStats();
-    const index = new Map(collection.map(c => [c.formula, c]));
-    const firstFinds = [];
-    const hist = [];
-    let total = totalRolls();
-    let earned = 0;
-    let best = null;
-    // storms work per press of Roll, and each press is (1 + bonus rolls) rolls
-    const per = 1 + b.extra;
-    const stormWas = qStormOn();
-    let stormAdd = null;
-    let stormQ = 0;
-    let stormStarted = false;
-    const evSeen = {};
-    const drops = {};
-    let ev = null;
-    let press = null;
-    let acEv = null;
-    for (let i = 0; i < n; i++) {
-        if (i % per === 0) {
-            press = acAwayPress();
-            ev = eventNow();
-            acEv = ev === 'collider' || ev === 'hole' ? acEvent() : null;
-            const sp = eventsPress(Math.min(per, n - i), press);
-            stormAdd = sp && !sp.ev && sp.add;
-            stormStarted = stormStarted || !!(sp && !sp.ev && sp.started);
-        }
-        if (ev && ev !== 'storm') {
-            evSeen[ev] = (evSeen[ev] || 0) + 1;
-        }
-        if (stormAdd) {
-            earned += stormAdd[i % per];
-            stormQ += stormAdd[i % per];
-        }
-        buffHold = b;
-        acOpen(press, 16 + i % per);
-        acTrace = [];
-        let r;
-        try {
-            r = awayMakeRoll(b, ev);
-            if (acStream) {
-                r.proof = { d: acDev, n: press, k: i % per, p: acParams(b, { X: 0, D: ev === 'collider' ? 2 : b.chainDenom, ln: 0, mg: 0, tw: ev === 'hole' ? 1 : 0, o: null, ch: [], ev: acEv }), t: acTrace };
-            }
-        } finally {
-            acClose();
-            acTrace = null;
-            buffHold = null;
-        }
-        if (!best || (displayMode === 'score' ? r.score > best.score : r.log < best.log)) {
-            best = r;
-        }
-        let x = index.get(r.formula);
-        if (!x) {
-            const lg = r.ion ? r.baseLog : r.log;
-            x = { formula: r.formula, name: r.name, elements: r.elements, rarity: rarityText(lg), log: lg, score: r.ion ? r.baseScore : r.score, count: 0 };
-            collection.push(x);
-            index.set(r.formula, x);
-            firstFinds.push(x);
-        }
-        x.count++;
-        if (r.ion > 0) {
-            x.ionP = Math.max(x.ionP || 0, r.ion);
-        } else if (r.ion < 0) {
-            x.ionN = Math.max(x.ionN || 0, -r.ion);
-        }
-        ionCredit(r.elements[0][0], r.ion);
-        total++;
-        earned += quarksFor(oddsSum(r.elements) * ionScoreMult(r.ion || 0), quarkMult(r.elements, b));
-        const d = i % per === 0 && rollDrop(press);
-        if (d) {
-            drops[d] = (drops[d] || 0) + 1;
-        }
-        if (n - i <= HISTORY_MAX) {
-            hist.push(r.ion ? { n: total, f: r.formula, l: r.log, s: r.score, i: r.ion } : { n: total, f: r.formula, l: r.log, s: r.score });
-        }
-    }
-    rollsMemo = null;
-    renderQStorm();
-    rollHistory = hist.reverse().concat(rollHistory).slice(0, HISTORY_MAX);
+// the shop waits for this, so it counts as done even if it fails
+async function clockStart() {
     try {
-        localStorage.setItem('elementalHistory', JSON.stringify(rollHistory));
+        localStorage.removeItem('awayLastSeen');
     } catch (e) { }
-    save();
-    addQuarks(earned);
-    firstFinds.forEach(r => checkAchievements(r));
-    renderHistory();
-    refreshViews();
-    if (typeof renderHome === 'function') {
-        renderHome();
+    await clockWaitForCloud();
+    try {
+        await clockSync();
+    } finally {
+        clockTried = true;
     }
-    // only the rarest is played, shown and sent on
-    const rec = Object.assign({}, best, { id: Date.now() + Math.random(), when: new Date().toISOString() });
-    globalConsider(rec);
-    go('game');
-    while (rolling) {
-        await new Promise(r => setTimeout(r, 100));
-    }
-    await doRoll([best]);
-    const w = openDialog('<h2>While you were away</h2>' +
-        '<p class="away-big">You rolled <b>' + formatNumber(n) + '</b> times while you were away.</p>' +
-        '<p class="away-clock">' + awayClock(seconds) + ' / ' + awayClock(awayMax()) + '</p>' +
-        '<dl class="away-best"><dt>Your rarest find was</dt><dd>' + esc(best.name) + ' <span>' + esc(withIon(best.formula, best.ion)) + '</span></dd>' +
-        '<dt>With ' + (displayMode === 'score' ? 'a score' : 'odds') + ' of</dt><dd>' + (displayMode === 'score' ? fmtScore(best.score) : rarityText(best.log)) + '</dd></dl>' +
-        (stormQ || stormStarted ? '<p class="away-storm"><b>Quark Storm</b> ' + (stormStarted || !stormWas ? 'hit while you were away' : qStormOn() ? 'carried on while you were away' : 'blew itself out while you were away') +
-            (stormQ ? ': +' + formatNumber(stormQ) + ' quarks' : '') + '.' + (qStormOn() ? ' It is still going, with ' + qStorm.left + ' rolls left.' : '') + '</p>' : '') +
-        (Object.keys(drops).length ? '<p class="away-storm"><b>Catalysts found</b> ' + Object.keys(drops).map(id => drops[id] + ' × ' + CAT[id].name).join(', ') + '.</p>' : '') +
-        Object.keys(evSeen).map(id => '<p class="away-storm ev-' + id + '"><b>' + EVENTS[id].name + '</b> covered ' + formatNumber(evSeen[id]) + ' of your rolls while you were away.' + (evOn(id) ? ' It is still going, with ' + evRun.left + ' rolls left.' : '') + '</p>').join('') +
-        '<div class="btn-row"><button class="primary" id="awayOk">Nice</button></div>');
-    w.querySelector('#awayOk').onclick = closeDialog;
 }
 // first time tutorial, a fresh save only
 const onScreen = id => $(id).classList.contains('active');
@@ -15975,5 +15779,5 @@ function tutInit() {
     tutShow(+v || 0);
 }
 cloudInit();
-awayProcess();
+clockStart();
 tutInit();
