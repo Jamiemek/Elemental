@@ -81,7 +81,7 @@ function renderCosmetics() {
     const card = c => {
         let btn;
         if (!cosOwned(c.id)) {
-            btn = `<button class="primary cos-buy" data-id="${c.id}"${quarks < c.price ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
+            btn = `<button class="primary cos-buy" data-id="${c.id}"${!canAfford(c.price) ? ' disabled' : ''}><span class="q-sym">q</span> ${c.price.toLocaleString('en-US')}</button>`;
         } else if (cosState[c.kind] === c.id) {
             btn = `<button class="ghost cos-use on" data-id="${c.id}">In use · take off</button>`;
         } else {
@@ -106,8 +106,8 @@ $('cosGrid').addEventListener('click', e => {
         if (!cosUnlocked(c.id) || cosOwned(c.id)) {
             return;
         }
-        if (quarks < c.price) {
-            msg.textContent = 'Not enough quarks.';
+        if (!canAfford(c.price)) {
+            msg.textContent = Number.isFinite(quarks) ? 'Not enough quarks.' : BAD_QUARKS;
             return;
         }
         addQuarks(-c.price);

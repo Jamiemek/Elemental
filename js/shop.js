@@ -560,7 +560,10 @@ function buyStock(i) {
     }
     const c = CAT[s.id];
     const p = shopPrice(c);
-    if (quarks < p) {
+    if (!canAfford(p)) {
+        if (!Number.isFinite(quarks)) {
+            $('shopMsg').textContent = BAD_QUARKS;
+        }
         return;
     }
     addQuarks(-p);
@@ -586,7 +589,7 @@ function buyAll() {
     const before = quarks;
     let n = 0;
     for (;;) {
-        const left = shopState.stock.map((s, i) => [i, s]).filter(([, s]) => !s.sold && shopPrice(CAT[s.id]) <= quarks);
+        const left = shopState.stock.map((s, i) => [i, s]).filter(([, s]) => !s.sold && canAfford(shopPrice(CAT[s.id])));
         if (!left.length) {
             break;
         }
@@ -594,7 +597,7 @@ function buyAll() {
         buyStock(left[0][0]);
         n++;
     }
-    $('shopMsg').textContent = n ? `Bought ${n} catalyst${n > 1 ? 's' : ''} for ${Math.round(before - quarks).toLocaleString('en-US')} quarks.` : "You can't afford anything here right now.";
+    $('shopMsg').textContent = n ? `Bought ${n} catalyst${n > 1 ? 's' : ''} for ${Math.round(before - quarks).toLocaleString('en-US')} quarks.` : Number.isFinite(quarks) ? "You can't afford anything here right now." : BAD_QUARKS;
 }
 function holdStock(i) {
     const s = shopState.stock[i];
@@ -614,7 +617,7 @@ function renderShop() {
         return;
     }
     shopCheck();
-    $('shopBuyAll').disabled = !shopState.stock.some(s => !s.sold && shopPrice(CAT[s.id]) <= quarks);
+    $('shopBuyAll').disabled = !shopState.stock.some(s => !s.sold && canAfford(shopPrice(CAT[s.id])));
     const cr = $('shopCourier');
     cr.hidden = !catInv.courier;
     cr.textContent = 'Use Courier (' + (catInv.courier || 0) + ')';
@@ -624,7 +627,7 @@ function renderShop() {
         const c = CAT[s.id];
         const p = shopPrice(c);
         const hold = canHold && !s.sold ? `<button class="ghost cat-hold${s.held ? ' on' : ''}" data-i="${i}">${s.held ? 'Held' : 'Hold'}</button>` : '';
-        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || quarks < p ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
+        return `<article class="cat-card${s.sold ? ' sold' : ''}${s.held ? ' held' : ''}" style="--tc:${CAT_TIERS[c.tier].col}">${tierChip(c.tier)}<h3>${c.name}</h3><p>${catEffect(c)}</p><p class="cat-len">${catLength(c)}</p><button class="${s.sold ? 'ghost' : 'primary'} cat-buy" data-i="${i}"${s.sold || !canAfford(p) ? ' disabled' : ''}>${s.sold ? 'Bought' : `<span class="q-sym">q</span> ${p.toLocaleString('en-US')}`}</button>${hold}</article>`;
     }).join('');
     $('shopSlotsNote').textContent = `${shopState.stock.length} of ${Math.max(5, shopSlots())} stock slots open`;
     renderActiveCats();

@@ -1,3 +1,3 @@
 cloudInit();
-awayProcess();
+clockStart();
 tutInit();

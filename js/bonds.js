@@ -532,7 +532,7 @@ function pityPrice(n) {
     pityMemo.price.set(key, price);
     return price;
 }
-const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && quarks >= pityPrice(n);
+const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && canAfford(pityPrice(n));
 const agentReady = n => catInv.bondagent > 0 && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req);
 function useAgent(n) {
     srcSpend('bondagent', 1);
@@ -564,13 +564,13 @@ function pityAsk(n) {
 }
 // joke element bonuses, no luck or speed ones
 const JOKE_BONUS = {
-    Um: ['event', 25], Zz: ['away', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
+    Um: ['event', 25], Zz: ['quark', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
     Ha: ['price', 5], Ad: ['refresh', 2], Pi: ['quark', 3.14], Nu: ['alone', 50], Xx: ['secret', 5], Uo: ['jokerate', 100], Zo: ['cos', 'warp'], Gg: ['cos', 'gameover']
 };
 const jokeBonusText = sym => {
     const [k, v] = JOKE_BONUS[sym];
     return {
-        event: `Events are ${v}% more likely`, away: `Away rolls cover ${v} more hours`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
+        event: `Events are ${v}% more likely`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
         cdur: `Catalysts last ${v}% longer`, storm: `Quark Storms pay ${v}% more`, dup: `${v}% chance a bought catalyst arrives as two`, evlen: `Events last ${v}% longer`,
         price: `Shop prices ${v}% lower`, refresh: `The shop restocks ${v} minutes sooner`, alone: `Rolls with no chain earn ${v}% more quarks`, secret: `Secret effects are ${v}% more likely`,
         jokerate: 'Joke catalysts appear twice as often in the shop', cos: v === 'warp' ? 'Unlocks the Warp scanner' : 'Unlocks the Game Over page and the Final Element badge'
@@ -585,7 +585,7 @@ function netBonus() {
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
         quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, upgrade: false, cos: [],
-        away: 0, evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
+        evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
     };
     let jokeLines = 0;
     net().edges.forEach(e => {

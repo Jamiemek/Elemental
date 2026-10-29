@@ -312,6 +312,11 @@ function addQuarks(n) {
     } catch (e) { }
     renderQuarks();
 }
+// an infinite or NaN balance can't pay for anything
+const BAD_QUARKS = "Your quark balance isn't a normal number, so nothing can be bought.";
+function canAfford(price) {
+    return Number.isFinite(quarks) && quarks >= price;
+}
 // Quark Storm. After any press of Roll there's a 1 in 8,000 chance of a storm, which
 // lasts the next 100 presses
 const QSTORM_CHANCE = 1 / 8000;
