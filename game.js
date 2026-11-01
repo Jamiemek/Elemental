@@ -7741,7 +7741,7 @@ const CATALYSTS = [
     { id: 'twinhorizon', name: 'Twin Horizon', tier: 5, rolls: 5, fx: { twice: true }, price: 64000 },
     { id: 'containment', name: 'Containment Field', tier: 5, instant: true, fx: { extend: 30 }, price: 56000 },
     { id: 'singseed', name: 'Singularity Seed', tier: 5, instant: true, fx: { start: 'hole' }, price: 120000 },
-    { id: 'insidejoke', name: 'Inside Joke', tier: 6, rolls: 1, joke: true, fx: { jokeNew: true }, price: 120000 }
+    { id: 'insidejoke', name: 'Inside Joke', tier: 6, rolls: 1, joke: true, fx: { jokeNew: true }, price: 12000000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
 function catEffect(c) {
