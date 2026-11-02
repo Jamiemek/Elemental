@@ -1,14 +1,6 @@
 -- part 22: a quark check for brand new saves, and the offline rolls cleared out for good
 
--- 1. the offline tracking that never got switched on
-drop function if exists public.offline_return(text, uuid);
-drop function if exists public.offline_heartbeat(text, uuid);
-drop function if exists public.offline_record_online_activity(uuid);
-drop table if exists public.offline_claims;
-drop table if exists public.offline_activity;
-drop table if exists public.offline_state;
-
--- 2. the quark checks on saves compare against the last save, so a save with nothing before it went unchecked:
+-- 1. the quark checks on saves compare against the last save, so a save with nothing before it went unchecked:
 -- the very first one, or the first real one after an empty start. Nobody starts with more than a handful of quarks
 create or replace function public.report_quark_new_save()
 returns trigger language plpgsql security definer set search_path = '' as $$
@@ -52,17 +44,20 @@ drop trigger if exists saves_new_quark_report on public.saves;
 create trigger saves_new_quark_report after insert or update on public.saves
   for each row execute function public.report_quark_new_save();
 
--- 3. presses numbered from 2^31 up were the offline rolls. The roll check now turns them away and only
+-- 2. presses numbered from 2^31 up were the offline rolls. The roll check now turns them away and only
 -- counts presses made in the game. Catalysts that dropped during offline rolls before they went still
--- check out (ac_src_check and the 'away' budget), so nobody gets flagged for using one. That part can go after the next reset
+-- check out (ac_src_check and the 'away' budget), so nobody gets flagged for using one. That part can go after the next reset.
+-- The roll check also told the offline tracking about each roll, so that call comes out before the tracking goes
 do $$
 declare
   def text;
   swaps text[];
   i int;
 begin
-  def := pg_get_functiondef('public.ac_check_rolls(uuid, text, integer, jsonb)'::regprocedure);
+  -- edited in the dashboard, so the line endings can be Windows ones
+  def := replace(pg_get_functiondef('public.ac_check_rolls(uuid, text, integer, jsonb)'::regprocedure), E'\r', '');
   swaps := array[
+    E'  if not away then\n    perform public.offline_record_online_activity(uid);\n  end if;\n', '',
     E'  away boolean;\n', '',
     E'  away := n >= 2147483648;\n', '',
     'n >= 4294967296', 'n >= 2147483648',
@@ -83,6 +78,9 @@ $a$,
 $a$, $a$  update public.ac_devices x set top = greatest(x.top, n), last_at = now() where x.user_id = uid and x.dev = d.dev;
 $a$
   ];
+  for i in 1 .. array_length(swaps, 1) loop
+    swaps[i] := replace(swaps[i], E'\r', '');
+  end loop;
   for i in 1 .. array_length(swaps, 1) by 2 loop
     if position(swaps[i] in def) = 0 then
       raise exception 'ac_check_rolls is not the part 9 version, nothing was changed (missing: %)', left(swaps[i], 60);
@@ -94,7 +92,7 @@ $a$
   end if;
   execute def;
 
-  def := pg_get_functiondef('public.dice_seeds(text, jsonb)'::regprocedure);
+  def := replace(pg_get_functiondef('public.dice_seeds(text, jsonb)'::regprocedure), E'\r', '');
   if position(E'    \'a\', d.atop,\n' in def) = 0 then
     raise exception 'dice_seeds is not the part 9 version, nothing was changed';
   end if;
@@ -106,3 +104,11 @@ $a$
   end if;
   alter table public.ac_devices drop column atop;
 end $$;
+
+-- 3. the offline tracking that never got switched on
+drop function if exists public.offline_return(text, uuid);
+drop function if exists public.offline_heartbeat(text, uuid);
+drop function if exists public.offline_record_online_activity(uuid);
+drop table if exists public.offline_claims;
+drop table if exists public.offline_activity;
+drop table if exists public.offline_state;
