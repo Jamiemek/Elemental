@@ -338,7 +338,7 @@ document.addEventListener('visibilitychange', () => {
 // when everyone is reset, every game that hears about it starts again from nothing
 // progress only: settings, the account link and the dice stay
 const RESET_KEYS = CLOUD_KEYS.concat(['elementalEvent', 'elementalQStorm', 'elementalQSeen', 'elementalQFlags', 'elementalJokeIntro', 'elementalAutoOn', 'elementalAutoState', 'elementalBonds2',
-    'elementalCloudAt', 'elementalCloudHash', 'elementalCloudFresh', 'elementalCloudNotice', 'cloudReplacedBackup', 'globalPending', 'awayLastSeen']);
+    'elementalCloudAt', 'elementalCloudHash', 'elementalCloudFresh', 'elementalCloudNotice', 'cloudReplacedBackup', 'globalPending']);
 function resetCheck(at) {
     let seen = null;
     try {

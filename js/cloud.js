@@ -228,7 +228,7 @@ async function cloudSync() {
             }
             row = { data: {}, updated_at: r.data[0].updated_at };
         }
-        ['elementalEvent', 'elementalQStorm', 'globalPending', 'awayLastSeen'].forEach(k => cloudSet(k, null));
+        ['elementalEvent', 'elementalQStorm', 'globalPending'].forEach(k => cloudSet(k, null));
         cloudApply(row);
         return;
     }

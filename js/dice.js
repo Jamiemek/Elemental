@@ -13,7 +13,6 @@ if (!/^[a-z0-9]{4,16}$/.test(acDev || '')) {
 // seeds are per account: d for this device's rolls, s for the shop
 let acKeys = null;
 let acCount = 0;
-let acAway = 0;
 try {
     const v = JSON.parse(localStorage.getItem('acDice') || 'null');
     if (v && v.u && Array.isArray(v.d) && Array.isArray(v.s)) {
@@ -22,12 +21,11 @@ try {
     const c = JSON.parse(localStorage.getItem('acPress') || 'null');
     if (c && acKeys && c.u === acKeys.u) {
         acCount = Math.max(0, Math.floor(c.n) || 0);
-        acAway = Math.max(0, Math.floor(c.a) || 0);
     }
 } catch (e) { }
 function acSaveCount() {
     try {
-        localStorage.setItem('acPress', JSON.stringify({ u: acKeys ? acKeys.u : '', n: acCount, a: acAway }));
+        localStorage.setItem('acPress', JSON.stringify({ u: acKeys ? acKeys.u : '', n: acCount }));
     } catch (e) { }
 }
 const acWords = hex => [0, 8, 16, 24].map(i => parseInt(hex.slice(i, i + 8), 16) >>> 0);
@@ -71,15 +69,6 @@ function acPress() {
         return null;
     }
     const n = acCount++;
-    acSaveCount();
-    return n;
-}
-// rolls while away are numbered on their own, from 2^31 up, so the presses you make yourself stay in a row
-function acAwayPress() {
-    if (!acKeys) {
-        return null;
-    }
-    const n = 2147483648 + acAway++;
     acSaveCount();
     return n;
 }
@@ -167,14 +156,12 @@ async function acLoad() {
     }
     if (!acKeys || acKeys.u !== cloudUser.id) {
         acCount = 0;
-        acAway = 0;
     }
     acKeys = { u: cloudUser.id, d: acWords(data.d), s: acWords(data.s) };
     try {
         localStorage.setItem('acDice', JSON.stringify(acKeys));
     } catch (e) { }
     acCount = Math.max(acCount, (data.n == null ? -1 : data.n) + 1);
-    acAway = Math.max(acAway, (data.a == null ? -1 : data.a) + 1);
     acSaveCount();
     if (data.legacy) {
         acLegacyApply(data.legacy);
