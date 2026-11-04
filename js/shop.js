@@ -65,14 +65,59 @@ const CATALYSTS = [
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
 // synthesised ones sit alongside: copies of shop catalysts take everything but the id from the original
+// Synthesis doesn't make catalysts: a recipe found adds that catalyst to your shop pool, priced like the shop's own of its tier
+const TIER_PRICE = [20, 105, 690, 3000, 17500, 60000, 132000];
 SYNTHS.forEach((y, i) => {
     const c = y.of ? Object.assign({}, CAT[y.of], { id: y.id, of: y.of }) : Object.assign({}, y);
     c.synth = true;
     c.r = y.r;
     c.ord = 1000 + i;
-    delete c.price;
+    if (!y.of) {
+        const keys = Object.keys(c.fx).filter(k => !['pct', 'pct2', 'n', 'fam2'].includes(k)).length + (c.fx.fam2 ? 1 : 0);
+        c.price = Math.round(TIER_PRICE[c.tier] * (keys > 1 ? 1.25 : 1));
+    }
     CAT[y.id] = c;
 });
+// the shop pool: every shop catalyst, plus every recipe you've found, less any you've switched off.
+// The order is fixed (shop ones first, then the lab book's), so a pool fits in a short code the server can read
+const POOL_IDS = CATALYSTS.map(c => c.id).concat(SYNTHS.filter(y => !y.of).map(y => y.id));
+// recipes found in the lab book: each one is in your shop pool. The lab book itself loads later
+let syKnown = [];
+try {
+    syKnown = JSON.parse(localStorage.getItem('elementalSynthKnown') || '[]').filter(id => CAT[id]);
+} catch (e) { }
+const syKnows = id => syKnown.includes(id);
+let poolOff = new Set();
+try {
+    poolOff = new Set(JSON.parse(localStorage.getItem('elementalPoolOff') || '[]'));
+} catch (e) { }
+function poolSave() {
+    try {
+        localStorage.setItem('elementalPoolOff', JSON.stringify([...poolOff]));
+    } catch (e) { }
+}
+// only Common, Uncommon and Rare can be switched out; Epic and up are always in once you have them
+const POOL_SWITCH_TOP = 2;
+const poolCanSwitch = id => CAT[id].tier <= POOL_SWITCH_TOP;
+const poolHas = id => (!CAT[id].synth || syKnows(id)) && !(poolOff.has(id) && poolCanSwitch(id));
+// silly catalysts are cosmetic, so they don't wait for joke catalysts to be unlocked
+const poolJoke = c => !!c.joke && !(c.fx && c.fx.silly);
+function poolMask() {
+    const b = new Uint8Array(Math.ceil(POOL_IDS.length / 8));
+    POOL_IDS.forEach((id, i) => {
+        if (poolHas(id)) {
+            b[i >> 3] |= 1 << (i & 7);
+        }
+    });
+    return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function poolFromMask(m) {
+    let s = '';
+    try {
+        s = atob(String(m).replace(/-/g, '+').replace(/_/g, '/'));
+    } catch (e) { }
+    return POOL_IDS.filter((id, i) => (s.charCodeAt(i >> 3) >> (i & 7)) & 1);
+}
 const SILLY = {
     duck: 'A rubber duck keeps you company while you roll', flip: 'Your finds come out upside down', confetti: 'Confetti on every roll, no matter how dull',
     comic: 'Everything is written in a very serious font', mirror: 'Your finds come out back to front', wobble: 'The scanner has the consistency of jelly',
@@ -524,7 +569,7 @@ function rollDrop(n) {
         g[0] = +(g[0] + bondBonus().droplux).toFixed(2);
         const id = shopRoll(g);
         catInv[id] = (catInv[id] || 0) + 1;
-        srcAdd(id, acStream ? ['d', acDev, n, g.join('|'), +dropChance().toFixed(4)].join('|') : null);
+        srcAdd(id, acStream ? ['dp', acDev, n, g.join('|'), +dropChance().toFixed(4)].join('|') : null);
         saveCats();
         return id;
     } finally {
@@ -618,7 +663,7 @@ function shopCheck() {
         try {
             const g = shopFlags();
             const id = shopRoll(g);
-            shopState.stock.push(acStream ? { id, sold: false, src: ['sh', r, j].join('|'), g: g.join('|') } : { id, sold: false });
+            shopState.stock.push(acStream ? { id, sold: false, src: ['sp', r, j].join('|'), g: g.join('|') } : { id, sold: false });
         } finally {
             acClose();
         }
@@ -626,10 +671,10 @@ function shopCheck() {
     saveCats();
     return shopState;
 }
-// what the stock roll depends on: rarer-stock bonus, joke catalysts, all jokes found, collider, joke rate
+// what the stock roll depends on: rarer-stock bonus, joke catalysts, all jokes found, collider, joke rate, the pool
 function shopFlags() {
     const b = bondBonus();
-    return [b.stock, (b.jokecat && jokesOn() ? 1 : 0) + (JOKES_BASE.every(j => jokesFound().has(j[0])) ? 2 : 0) + (colliderOn() ? 4 : 0), b.jokerate];
+    return [b.stock, (b.jokecat && jokesOn() ? 1 : 0) + (JOKES_BASE.every(j => jokesFound().has(j[0])) ? 2 : 0) + (colliderOn() ? 4 : 0), b.jokerate, poolMask()];
 }
 function shopRoll(g) {
     const boost = g[0] / 100;
@@ -645,8 +690,8 @@ function shopRoll(g) {
     }
     const jokes = g[1] & 1;
     const allJokes = g[1] & 2;
-    const pool = CATALYSTS.filter(c => c.tier === tier && (!c.joke || jokes) && !(c.id === 'insidejoke' && allJokes) && !(c.id === 'colliderkey' && !(g[1] & 4)));
-    const wt = c => c.joke ? 1 + g[2] / 100 : 1;
+    const pool = poolFromMask(g[3]).map(id => CAT[id]).filter(c => c.tier === tier && (!poolJoke(c) || jokes) && !(c.id === 'insidejoke' && allJokes) && !(c.id === 'colliderkey' && !(g[1] & 4)));
+    const wt = c => poolJoke(c) ? 1 + g[2] / 100 : 1;
     let x = rnd() * pool.reduce((s, c) => s + wt(c), 0);
     return (pool.find(c => (x -= wt(c)) < 0) || pool[pool.length - 1]).id;
 }
@@ -779,16 +824,14 @@ function renderCatInv() {
     if (!$('catInv')) {
         return;
     }
-    document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('sel', b.dataset.invtab === invTab));
-    const inv = Object.keys(catInv).filter(id => catInv[id] > 0 && CAT[id] && !!CAT[id].synth === (invTab === 'synth')).sort((a, b) => CAT[b].tier - CAT[a].tier || CAT[a].name.localeCompare(CAT[b].name));
+    const inv = Object.keys(catInv).filter(id => catInv[id] > 0 && CAT[id]).sort((a, b) => CAT[b].tier - CAT[a].tier || CAT[a].name.localeCompare(CAT[b].name));
     if (!inv.includes(invSel)) {
         invSel = inv[0] || null;
     }
     $('catInv').innerHTML = inv.length ? inv.map(id => {
         const c = CAT[id];
         return `<button class="inv-tile${id === invSel ? ' sel' : ''}" data-sel="${id}" style="--tc:${CAT_TIERS[c.tier].col}"><span class="it-name">${c.name}</span><span class="it-n">×${catInv[id].toLocaleString('en-US')}</span></button>`;
-    }).join('') : invTab === 'synth' ? '<p class="muted inv-empty">Nothing here yet. Catalysts you make at the Synthesis table wait here. They can\'t go into upgrades.</p>' :
-        '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
+    }).join('') : '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
     renderUpgrade();
     const d = $('invDetail');
     if (!invSel) {
@@ -808,11 +851,7 @@ function renderCatInv() {
     }
     renderActiveCats();
 }
-var invTab = 'shop';
-document.querySelectorAll('[data-invtab]').forEach(b => b.addEventListener('click', () => {
-    invTab = b.dataset.invtab;
-    renderCatInv();
-}));
+
 $('catInv').addEventListener('click', e => {
     const t = e.target.closest('[data-sel]');
     if (!t) {
@@ -1038,7 +1077,7 @@ $('upEmpty').onclick = () => {
 };
 // what an upgrade from tier t can make, picked the same way the server does
 function upRandom(t, jokes) {
-    const pool = CATALYSTS.filter(c => c.tier === t + 1 && (!c.joke || jokes) && c.id !== 'insidejoke' && c.id !== 'colliderkey');
+    const pool = POOL_IDS.filter(poolHas).map(id => CAT[id]).filter(c => c.tier === t + 1 && (!poolJoke(c) || jokes) && c.id !== 'insidejoke' && c.id !== 'colliderkey');
     return pool[Math.floor(Math.random() * pool.length)].id;
 }
 // takes one upgrade's catalysts out of the inventory; signed in, the sources sent are the ones at the front
@@ -1073,7 +1112,7 @@ $('upGo').onclick = async () => {
         upBusy = true;
         upSay('Combining…');
         renderUpgrade();
-        const { data, error } = await sb.rpc('ac_upgrade', { p_in: inputs, p_jokes: jokes });
+        const { data, error } = await sb.rpc('ac_upgrade', { p_in: inputs, p_jokes: jokes, p_pool: poolMask() });
         upBusy = false;
         if (error || !data || data.error || !CAT[data.id]) {
             upSay(error ? "Couldn't reach the server, so nothing was used. Try again." : "The server wouldn't accept those catalysts, so nothing was used.");
@@ -1140,7 +1179,7 @@ async function upMergeAll(t) {
         if (checked) {
             const at = {};
             const payload = part.map(g => g.map(id => ({ id, src: catSrc[id][at[id] = (at[id] ?? -1) + 1] })));
-            const { data, error } = await sb.rpc('ac_upgrade_many', { p_groups: payload, p_jokes: jokes });
+            const { data, error } = await sb.rpc('ac_upgrade_many', { p_groups: payload, p_jokes: jokes, p_pool: poolMask() });
             if (error || !data) {
                 stop = "Couldn't reach the server, so it stopped there.";
                 break;

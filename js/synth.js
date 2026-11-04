@@ -6,14 +6,16 @@ const syParse = r => {
     return { c, arms: arms.split(' ') };
 };
 const syKey = (c, arms) => c + '|' + [0, 1, 2, 3].map(i => arms.slice(i).concat(arms.slice(0, i)).join(' ')).sort()[0];
+// the shop's own catalysts are already in the pool, so their recipes aren't in the book
+const SY_BOOK = SYNTHS.filter(y => !y.of);
 const SY_BY_KEY = new Map();
-SYNTHS.forEach(y => {
+SY_BOOK.forEach(y => {
     const p = syParse(y.r);
     SY_BY_KEY.set(syKey(p.c, p.arms), y.id);
 });
 // the lab book's page order: examples first, the rest shuffled so the pages give nothing away
 const SY_PAGES = (() => {
-    const rest = SYNTHS.map(y => y.id).filter(id => !SYNTH_EXAMPLES.includes(id));
+    const rest = SY_BOOK.map(y => y.id).filter(id => !SYNTH_EXAMPLES.includes(id));
     let h = 20261103;
     const rnd = () => (h = Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9 >>> 0) / 4294967296;
     for (let i = rest.length - 1; i > 0; i--) {
@@ -22,11 +24,8 @@ const SY_PAGES = (() => {
     }
     return SYNTH_EXAMPLES.concat(rest);
 })();
-let syKnown = [];
-try {
-    syKnown = JSON.parse(localStorage.getItem('elementalSynthKnown') || '[]').filter(id => CAT[id]);
-} catch (e) { }
-const syKnows = id => SYNTH_EXAMPLES.includes(id) || syKnown.includes(id);
+// the book: a page for each recipe not found yet (stable numbers), then the shop pool at the back
+const syBookPages = () => SY_PAGES.filter(id => !syKnows(id)).concat(['pool']);
 // the best check so far against each unwritten page, lined up with the recipe: [[symbol, mark] x 5], centre first
 let syHints = {};
 try {
@@ -125,8 +124,14 @@ function synthesise() {
     cell.classList.remove('ok');
     void cell.offsetWidth;
     if (!id) {
-        // nothing made: check it against the page the lab book is open at
-        const pid = SY_PAGES[syPage];
+        // nothing found: check it against the page the lab book is open at
+        const pid = syBookPages()[syPage];
+        if (pid === 'pool') {
+            $('syMsg').textContent = 'Nothing there. Turn to a recipe page to check a mix against it.';
+            $('syMsg').className = 'sy-msg';
+            uiSound('deny');
+            return;
+        }
         syMarks = syCheck(c, arms, CAT[pid].r);
         // write it on the page, lined up with the recipe, if it tells you more than what's there
         const rot = syCheck.rot;
@@ -147,7 +152,13 @@ function synthesise() {
         return;
     }
     syMarks = null;
-    // uses one spare copy of each element on the table
+    const cat = CAT[id];
+    if (syKnows(id)) {
+        $('syMsg').innerHTML = '<b>' + esc(cat.name) + '</b> is already in your shop pool. Nothing was used.';
+        $('syMsg').className = 'sy-msg';
+        return;
+    }
+    // finding it uses one spare copy of each element on the table
     const need = {};
     [c].concat(arms).forEach(s => need[s] = (need[s] || 0) + 1);
     const plans = Object.entries(need).map(([s, n]) => payPlan({ t: 'el', k: s, n }));
@@ -168,27 +179,18 @@ function synthesise() {
         madeSave();
     }
     save();
-    catInv[id] = (catInv[id] || 0) + 1;
-    const cat = CAT[id];
-    if (cat.rolls || (cat.fx.start)) {
-        const src = 'y|' + acDev + '|' + Date.now().toString(36);
-        srcAdd(id, src);
-        synthLog(id, src);
-    }
-    saveCats();
-    const fresh = !syKnows(id);
-    if (fresh) {
-        syKnown.push(id);
-        sySave();
-        syPage = SY_PAGES.indexOf(id);
-    }
+    syKnown.push(id);
+    sySave();
+    synthFound();
+    // over to the shop pool, where it now sits
+    syNewest = id;
+    syPage = syBookPages().length - 1;
     cell.classList.add('ok');
     uiSound('bond');
-    $('syMsg').innerHTML = (fresh ? 'New recipe! ' : '') + '<b>' + esc(cat.name) + '</b> made. It\'s waiting in your inventory.' + (kept ? ' One ' + esc(elementBySymbol[kept][1]) + ' was left over.' : '');
+    $('syMsg').innerHTML = '<b>' + esc(cat.name) + '</b> is now in your shop pool and can turn up when the shop restocks.' + (kept ? ' One ' + esc(elementBySymbol[kept][1]) + ' was left over.' : '');
     $('syMsg').className = 'sy-msg ok';
-    if (fresh) {
-        showAchievementToast({ kicker: 'New recipe', name: cat.name, flavor: 'Written into your lab book.' });
-    }
+    showAchievementToast({ kicker: 'Added to the shop pool', name: cat.name, flavor: 'It can turn up in the shop from now on.' });
+    renderShop();
     renderSynth();
 }
 function renderSynth() {
@@ -256,12 +258,13 @@ function sySet(sym) {
     renderSynth();
 }
 // the lab book, one page at a time. A failed mix is checked against whichever page is open
+let syNewest = null;
 function syBook() {
-    syPage = Math.max(0, Math.min(SY_PAGES.length - 1, syPage));
-    const found = SYNTHS.filter(y => syKnows(y.id)).length;
-    $('syBookCount').textContent = found + ' of ' + SY_PAGES.length + ' written';
-    const id = SY_PAGES[syPage];
-    const c = CAT[id];
+    const pages = syBookPages();
+    syPage = Math.max(0, Math.min(pages.length - 1, syPage));
+    const found = SY_BOOK.filter(y => syKnows(y.id)).length;
+    $('syBookCount').textContent = found + ' of ' + SY_BOOK.length + ' found';
+    const id = pages[syPage];
     const mini = r => {
         const p = r ? syParse(r) : { c: '', arms: ['', '', '', ''] };
         const cell = (k, s) => `<span class="sy-mini-${k}${s ? ' fam-' + familyOf(s) : ''}">${s || '?'}</span>`;
@@ -272,9 +275,26 @@ function syBook() {
         const cell = (k, x) => x ? `<span class="sy-mini-${k} m-${x[1]}">${x[0]}</span>` : `<span class="sy-mini-${k}">?</span>`;
         return `<div class="sy-mini">${cell('c', h && h[0])}${SY_ARMS.map((k, j) => cell(k, h && h[j + 1])).join('')}</div>`;
     };
-    if (!syKnows(id)) {
-        $('syPages').innerHTML = `<div class="sy-page blank"><p class="sy-pno">Page ${syPage + 1}</p><h3>Unknown Catalyst #${syPage + 1}</h3>${hinted(syHints[id])}` +
-            `<p class="muted">${syHints[id] ? 'Your closest mix so far.' : 'Nothing tried against this page yet.'}</p>` +
+    const load = r => {
+        const p = syParse(r);
+        syTable = { c: p.c, arms: p.arms.slice() };
+        syPick = null;
+        syMarks = null;
+        $('syMsg').textContent = '';
+        renderSynth();
+    };
+    const no = SY_PAGES.indexOf(id) + 1;
+    if (id === 'pool') {
+        $('syPages').innerHTML = syPoolPage(mini);
+    } else if (SYNTH_EXAMPLES.includes(id)) {
+        // the worked examples show their recipe; making one still adds it to the pool
+        const c = CAT[id];
+        $('syPages').innerHTML = `<div class="sy-page" style="--tc:${CAT_TIERS[c.tier].col}"><p class="sy-pno">Example</p><h3>${esc(c.name)}</h3>${tierChip(c.tier)}` +
+            mini(c.r) + `<p class="ip-effect">${catEffect(c)}</p><p class="muted">Make it to add it to your shop pool.</p><button class="ghost" id="syLoad">Put on the table</button></div>`;
+        $('syLoad').onclick = () => load(c.r);
+    } else {
+        $('syPages').innerHTML = `<div class="sy-page blank"><p class="sy-pno">Recipe ${no}</p><h3>Unknown Catalyst #${no}</h3>${hinted(syHints[id])}` +
+            `<p class="muted">${syHints[id] ? 'Your closest mix so far.' : 'Nothing tried against this page yet.'} Find it to add it to your shop pool.</p>` +
             (syHints[id] ? '<button class="ghost" id="syGuess">Put best guess on the table</button>' : '') + '</div>';
         // greens and yellows go back where they were tried; greys are left empty
         const gb = $('syGuess');
@@ -289,39 +309,56 @@ function syBook() {
                 renderSynth();
             };
         }
-    } else {
-        const T = CAT_TIERS[c.tier];
-        $('syPages').innerHTML = `<div class="sy-page" style="--tc:${T.col}"><p class="sy-pno">Page ${syPage + 1}</p><h3>${esc(c.name)}</h3>${tierChip(c.tier)}${c.joke ? ' <span class="sy-joke">Joke</span>' : ''}` +
-            mini(c.r) + `<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${(catInv[id] || 0).toLocaleString('en-US')}</dd></div></dl>` +
-            `<button class="ghost" data-load="${id}">Put on the table</button></div>`;
-        $('syPages').querySelector('[data-load]').onclick = () => {
-            const p = syParse(c.r);
-            syTable = { c: p.c, arms: p.arms.slice() };
-            syPick = null;
-            syMarks = null;
-            $('syMsg').textContent = '';
-            renderSynth();
-        };
     }
     $('syPrev').disabled = syPage === 0;
-    $('syNext').disabled = syPage + 1 >= SY_PAGES.length;
+    $('syNext').disabled = syPage + 1 >= pages.length;
     $('syPageNo').value = syPage + 1;
+    $('syPageNo').max = pages.length;
 }
-function syFlip(d) {
-    syPage = Math.max(0, Math.min(SY_PAGES.length - 1, syPage + d));
-    syMarks = null;
-    renderSynth();
+// the back of the book: everything that can turn up in your shop, rarest first. The commoner ones can be switched off
+function syPoolPage(mini) {
+    const list = POOL_IDS.map(id => CAT[id]).filter(c => !c.synth || syKnows(c.id)).sort((a, b) => b.tier - a.tier || (a.synth === b.synth ? a.name.localeCompare(b.name) : a.synth ? 1 : -1));
+    let tier = -1;
+    const rows = list.map(c => {
+        const head = c.tier !== tier ? `<h4 class="sy-pool-tier" style="--tc:${c.tier === 6 ? 'var(--ink)' : CAT_TIERS[c.tier].col}">${CAT_TIERS[c.tier].name}</h4>` : '';
+        tier = c.tier;
+        const on = poolHas(c.id);
+        const sw = poolCanSwitch(c.id) ? `<button class="ghost sy-pool-tog${on ? ' on' : ''}" data-pool="${c.id}" aria-pressed="${on}">${on ? 'In pool' : 'Out'}</button>` : '<span class="sy-pool-fixed">In pool</span>';
+        return head + `<div class="sy-pool-row${c.id === syNewest ? ' new' : ''}${on ? '' : ' off'}">${c.synth ? mini(c.r) : '<span class="sy-pool-shop">Shop</span>'}` +
+            `<div class="sy-pool-text"><b>${esc(c.name)}</b><small>${catEffect(c)}</small></div>${sw}</div>`;
+    }).join('');
+    return `<div class="sy-page sy-pool"><p class="sy-pno">Shop pool</p><h3>In your shop pool</h3>` +
+        `<p class="muted">The shop restocks from these. Each recipe you find joins them. Common, Uncommon and Rare ones can be switched off to keep them out of the shop.</p>${rows}</div>`;
 }
-// jump to the next page that has something written on it
-function syNextWritten(d) {
-    for (let i = syPage + d; i >= 0 && i < SY_PAGES.length; i += d) {
-        if (syKnows(SY_PAGES[i])) {
-            syPage = i;
-            syMarks = null;
-            renderSynth();
+$('syPages').addEventListener('click', e => {
+    const b = e.target.closest('[data-pool]');
+    if (!b) {
+        return;
+    }
+    const c = CAT[b.dataset.pool];
+    if (!poolCanSwitch(c.id)) {
+        return;
+    }
+    if (!poolOff.has(c.id)) {
+        // every rarity keeps at least one that isn't a joke catalyst, so the shop always has something to pick
+        const left = POOL_IDS.filter(id => CAT[id].tier === c.tier && id !== c.id && poolHas(id) && !poolJoke(CAT[id]));
+        if (!poolJoke(c) && !left.length) {
+            $('syMsg').textContent = 'Each rarity needs at least one non-joke catalyst in the pool.';
+            $('syMsg').className = 'sy-msg';
             return;
         }
+        poolOff.add(c.id);
+    } else {
+        poolOff.delete(c.id);
     }
+    poolSave();
+    $('syMsg').textContent = '';
+    syBook();
+});
+function syFlip(d) {
+    syPage = Math.max(0, Math.min(syBookPages().length - 1, syPage + d));
+    syMarks = null;
+    renderSynth();
 }
 ['c'].concat(SY_ARMS).forEach(k => {
     $('sySlot_' + k).addEventListener('click', () => {
@@ -363,14 +400,23 @@ $('syClear').addEventListener('click', () => {
     renderSynth();
 });
 $('syPageNo').addEventListener('change', e => {
-    syPage = Math.max(0, Math.min(SY_PAGES.length - 1, (parseInt(e.target.value, 10) || 1) - 1));
+    syPage = Math.max(0, Math.min(syBookPages().length - 1, (parseInt(e.target.value, 10) || 1) - 1));
     syMarks = null;
     renderSynth();
 });
 $('syPrev').addEventListener('click', () => syFlip(-1));
 $('syNext').addEventListener('click', () => syFlip(1));
-$('syPrevW').addEventListener('click', () => syNextWritten(-1));
-$('syNextW').addEventListener('click', () => syNextWritten(1));
+// first page, and the shop pool at the back
+$('syPrevW').addEventListener('click', () => {
+    syPage = 0;
+    syMarks = null;
+    renderSynth();
+});
+$('syNextW').addEventListener('click', () => {
+    syPage = syBookPages().length - 1;
+    syMarks = null;
+    renderSynth();
+});
 function syNavSync() {
     $('invSyBtn').hidden = !syOn();
 }

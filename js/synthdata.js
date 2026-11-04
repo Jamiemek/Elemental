@@ -1,5 +1,5 @@
 // Synthesised catalysts. Each recipe is a centre element and four arms read clockwise;
-// turning the pattern round doesn't change it. Shop catalysts made here have an 'of'
+// turning the pattern round doesn't change it. Ones with an 'of' are copies of shop catalysts, kept so copies made in 2.2 still work
 const SYNTHS = [
     { id: 'y_lanth', of: 'lanth', r: 'Mn:La La La Ce' },
     { id: 'y_actin', of: 'actin', r: 'Mn:Th Th Th Th' },
@@ -158,5 +158,5 @@ const SYNTHS = [
     { id: 'y_pair_lanth_actin', name: 'Lanthanide Contraction', tier: 3, min: 20, fx: { fam: 'lanth', pct: 150, fam2: 'actin', pct2: 150 }, r: 'Ni:Tb Th Tb Th' },
     { id: 'y_saltpan', name: 'Salt Pan', tier: 2, min: 20, fx: { fam: 'alkali', pct: 150, fam2: 'halogen', pct2: 150 }, r: 'Co:Rb Rb Cl F' }
 ];
-// the lab book starts with these written in
-const SYNTH_EXAMPLES = ['y_ignition', 'y_conc_transition', 'y_goldspark'];
+// worked examples: the lab book shows these recipes from the start
+const SYNTH_EXAMPLES = ['y_bonfire', 'y_conc_transition', 'y_goldspark'];

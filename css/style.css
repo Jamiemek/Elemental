@@ -3928,6 +3928,90 @@ html.fx-on body {
 .sy-mini-tr { left: 78%; top: 22%; }
 .sy-mini-br { left: 78%; top: 78%; }
 .sy-mini-bl { left: 22%; top: 78%; }
+.sy-pool .sy-pool-tier {
+  margin: 14px 0 4px;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--tc);
+  font: 700 13px var(--head);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tc);
+}
+.sy-pool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--band);
+}
+.sy-pool-row.off {
+  opacity: .5;
+}
+.sy-pool-row.new {
+  animation: syPoolNew 1.6s ease-out 2;
+  background: rgba(63, 191, 106, .14);
+}
+@keyframes syPoolNew {
+  0% { background: rgba(63, 191, 106, .45); }
+  100% { background: rgba(63, 191, 106, .14); }
+}
+.sy-pool-row .sy-mini {
+  flex: none;
+  width: 58px;
+  height: 58px;
+  margin: 0;
+}
+.sy-pool-row .sy-mini span {
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  font-size: 9px;
+  border-width: 1px;
+}
+.sy-pool-row .sy-mini .sy-mini-c {
+  width: 20px !important;
+  height: 20px !important;
+  margin: -10px 0 0 -10px !important;
+}
+.sy-pool-shop {
+  flex: none;
+  width: 58px;
+  text-align: center;
+  font: 700 11px var(--head);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.sy-pool-text {
+  flex: 1;
+  min-width: 0;
+}
+.sy-pool-text b {
+  display: block;
+}
+.sy-pool-text small {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.sy-pool .sy-pool-tog {
+  flex: none;
+  margin: 0;
+  min-width: 74px;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+.sy-pool .sy-pool-tog.on {
+  background: #3fbf6a;
+  color: #0e2416;
+}
+.sy-pool-fixed {
+  flex: none;
+  min-width: 74px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-2);
+}
 .sy-page .ghost {
   margin-top: 10px;
   font-size: 14px;

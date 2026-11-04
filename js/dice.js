@@ -167,6 +167,7 @@ async function acLoad() {
         acLegacyApply(data.legacy);
     }
     syLogFlush();
+    synthFound();
 }
 // synthesised copies the rolls can check get logged with the server as they're made, or as soon as it can be reached
 let syLogQ = [];
@@ -202,3 +203,28 @@ async function syLogSend() {
     syLogSave();
 }
 setInterval(syLogFlush, 60000);
+// recipes found in the lab book go to the server too, so the shop and drops it checks can include them.
+// Anything found before this (or on another device) goes along the first time round
+let syFoundOk = [];
+try {
+    syFoundOk = JSON.parse(localStorage.getItem('elementalSynthFoundOk') || '[]');
+} catch (e) { }
+let syFoundBusy = null;
+function synthFound() {
+    const ids = syKnown.filter(id => CAT[id] && CAT[id].synth && !CAT[id].of && !syFoundOk.includes(id));
+    if (!syFoundBusy && sb && cloudUser && ids.length) {
+        syFoundBusy = syFoundSend(ids.slice(0, 20)).finally(() => syFoundBusy = null);
+    }
+    return syFoundBusy || Promise.resolve();
+}
+async function syFoundSend(ids) {
+    const { data, error } = await sb.rpc('synth_found', { p_ids: ids });
+    if (error || !data || data.error) {
+        return;
+    }
+    syFoundOk = syFoundOk.concat(data.ok || []);
+    try {
+        localStorage.setItem('elementalSynthFoundOk', JSON.stringify(syFoundOk));
+    } catch (e) { }
+}
+setInterval(synthFound, 60000);

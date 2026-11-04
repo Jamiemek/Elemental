@@ -96,6 +96,7 @@ async function globalSubmit(p) {
     }
     // a find made with a synthesised catalyst only counts once the server has the catalyst logged
     await syLogFlush();
+    await synthFound();
     const args = { p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_proof: p.pf };
     if (p.ion) {
         args.p_ion = p.ion;
