@@ -64,8 +64,52 @@ const CATALYSTS = [
     { id: 'insidejoke', name: 'Inside Joke', tier: 6, rolls: 1, joke: true, fx: { jokeNew: true }, price: 12000000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
+// synthesised ones sit alongside: copies of shop catalysts take everything but the id from the original
+SYNTHS.forEach((y, i) => {
+    const c = y.of ? Object.assign({}, CAT[y.of], { id: y.id, of: y.of }) : Object.assign({}, y);
+    c.synth = true;
+    c.r = y.r;
+    c.ord = 1000 + i;
+    delete c.price;
+    CAT[y.id] = c;
+});
+const SILLY = {
+    duck: 'A rubber duck keeps you company while you roll', flip: 'Your finds come out upside down', confetti: 'Confetti on every roll, no matter how dull',
+    comic: 'Everything is written in a very serious font', mirror: 'Your finds come out back to front', wobble: 'The scanner has the consistency of jelly',
+    disco: 'The scanner throws a party', googly: 'Your finds have googly eyes', bighead: 'Your finds are enormous', drama: 'The room goes dark for every roll. For effect',
+    typewriter: 'Find names are typed out one letter at a time', rainbow: 'Find names come out in every colour', shy: 'Your finds hide when you look at them'
+};
+// one line for each thing a catalyst does
 function catEffect(c) {
     const f = c.fx;
+    const keys = Object.keys(f).filter(k => !['pct', 'fam2', 'pct2', 'n'].includes(k));
+    if (keys.length > 1 || f.fam2) {
+        const parts = keys.map(k => catEffect({ tier: c.tier, fx: k === 'fam' ? { fam: f.fam, pct: f.pct } : { [k]: f[k] } }));
+        if (f.fam2) {
+            parts.push(catEffect({ fx: { fam: f.fam2, pct: f.pct2 } }));
+        }
+        return parts.join('. ');
+    }
+    const fresh = {
+        auto: `+${f.auto}% autoroll speed`, shopcut: `Shop prices ${f.shopcut}% lower`, ionx: `Ions are ${f.ionx}% more likely`, droprate: `+${f.droprate}% catalyst drops`,
+        evlen: `Events last ${f.evlen}% longer`, stormx: `Quark Storms are ${f.stormx}% bigger`, elxcut: `Electrolysis costs ${f.elxcut}% less`,
+        secret: `+${f.secret}% chance of a secret variant`, refund: `+${f.refund}% chance single-roll catalysts aren't used up`, fastrestock: `The shop restocks ${f.fastrestock} minutes sooner`,
+        quarks: `Gives ${(f.quarks || 0).toLocaleString('en-US')} quarks`, ionLens: 'Every roll is an ion, ² or ³, plus or minus. Needs ionisation unlocked',
+        voidx: `During a Vacuum, void elements are ${f.voidx} times as likely`, agents: `Gives ${f.agents} Bonding Agents`, silly: SILLY[f.silly]
+    };
+    const nk = Object.keys(f).find(x => fresh[x]);
+    if (nk) {
+        return fresh[nk];
+    }
+    if (f.grant && f.n) {
+        return `Your next ${f.n} catalyst purchases cost half`;
+    }
+    if (f.start === 'gamma' || f.start === 'hyper') {
+        return 'Starts a ' + EVENTS[f.start].name + ' now (not while another event is running)';
+    }
+    if (f.start === 'vacuum') {
+        return 'Starts a ' + VACUUM_SEED.toLocaleString('en-US') + '-roll Vacuum now (not while another event is running)';
+    }
     if (f.fam) {
         return `+${f.pct}% chance to roll ${FAMILY_ONE[f.fam] === 'superheavy' ? 'a superheavy (Mt to Lv)' : (/^[aeiou]/.test(FAMILY_ONE[f.fam]) ? 'an ' : 'a ') + FAMILY_ONE[f.fam]}`;
     }
@@ -79,13 +123,14 @@ function catEffect(c) {
         return `+${f.speed}% scanner speed`;
     }
     if (f.chain) {
-        return 'Chain chance one step better (1 in 8 to 1 in 7 at base, never past 1 in 5)';
+        const fl = chainFloor(c.tier);
+        return f.chain > 1 ? `Chain chance ${f.chain} steps better (never past 1 in ${fl})` : `Chain chance one step better (1 in 8 to 1 in 7 at base, never past 1 in ${fl})`;
     }
     if (f.chainMax) {
-        return 'Chain chance at its maximum, 1 in 5';
+        return chainFloor(c.tier) < CHAIN_MAX ? `Chain chance at 1 in ${chainFloor(c.tier)}, past the usual best of 1 in ${CHAIN_MAX}` : `Chain chance at its maximum, 1 in ${CHAIN_MAX}`;
     }
     if (f.extra) {
-        return '+1 bonus roll on every roll, up to the maximum of 3';
+        return `+${f.extra} bonus roll${f.extra > 1 ? 's' : ''} on every roll, up to the maximum`;
     }
     if (f.linked) {
         return "Each roll chains at least once. Can't run alongside single-roll luck";
@@ -190,18 +235,46 @@ function activeList() {
     pruneActive();
     return Object.keys(catActive).sort((a, b) => parseFloat(a) - parseFloat(b) || a.length - b.length).map(k => ({ key: k, tier: parseInt(k), a: catActive[k], c: CAT[catActive[k].id] }));
 }
-// totals from active timed catalysts, for computeBuffs and weightTable
+// totals from active timed catalysts, for computeBuffs and weightTable.
+// Stacking is tempered: for each effect the strongest catalyst counts in full and every other one at half,
+// and a few effects have a hard ceiling on what catalysts can add between them
+const CAT_STACK = ['quark', 'speed', 'event', 'lens', 'heavy', 'joke', 'auto', 'shopcut', 'ionx', 'droprate', 'evlen', 'stormx', 'elxcut', 'secret', 'refund', 'fastrestock'];
+const CAT_CEIL = { quark: 525, joke: 400, ionx: 200, droprate: 100, refund: 10, shopcut: 30, evlen: 50, event: 100, fam: 200 };
+const stackSum = list => {
+    list.sort((a, b) => b - a);
+    return list.reduce((s, v, i) => s + (i ? v / 2 : v), 0);
+};
 function catBonus() {
     const r = {
-        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {},
-        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0, level: false
+        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, chainFloor: CHAIN_MAX, fam: {},
+        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0, level: false,
+        auto: 0, shopcut: 0, ionx: 0, droprate: 0, evlen: 0, stormx: 0, elxcut: 0, secret: 0, refund: 0, fastrestock: 0, silly: [], voidx: 1
     };
+    const parts = {};
+    const fams = {};
+    const add = (k, v) => (parts[k] = parts[k] || []).push(v);
     activeList().forEach(({ a, c }) => {
-        if (!a.until) {
+        if (!a.until || !c) {
             return;
         }
         const f = c.fx;
-        ['event', 'lens', 'heavy', 'joke'].forEach(k => r[k] += f[k] || 0);
+        CAT_STACK.forEach(k => {
+            if (f[k]) {
+                add(k, f[k]);
+            }
+        });
+        if (f.silly) {
+            r.silly.push(f.silly);
+        }
+        if (f.voidx) {
+            r.voidx = Math.max(r.voidx, f.voidx);
+        }
+        if (f.fam) {
+            (fams[f.fam] = fams[f.fam] || []).push(f.pct);
+        }
+        if (f.fam2) {
+            (fams[f.fam2] = fams[f.fam2] || []).push(f.pct2);
+        }
         if (f.laugh) {
             r.laugh = true;
         }
@@ -209,16 +282,11 @@ function catBonus() {
             r.level = true;
         }
         if (f.gag) {
-            r.gag = a.hit ? 10 : 5;
+            r.gag = Math.max(r.gag, a.hit ? 10 : 5);
         }
+        // luck already has its own hidden ceiling; bonus rolls and chain steps have theirs
         if (f.luck) {
             r.luck += f.luck;
-        }
-        if (f.speed) {
-            r.speed += f.speed;
-        }
-        if (f.quark) {
-            r.quark += f.quark;
         }
         if (f.extra) {
             r.extra += f.extra;
@@ -229,10 +297,12 @@ function catBonus() {
         if (f.chainMax) {
             r.chainMax = true;
         }
-        if (f.fam) {
-            r.fam[f.fam] = (r.fam[f.fam] || 0) + f.pct;
+        if (f.chain || f.chainMax) {
+            r.chainFloor = Math.min(r.chainFloor, chainFloor(c.tier));
         }
     });
+    Object.keys(parts).forEach(k => r[k] = Math.min(CAT_CEIL[k] || Infinity, stackSum(parts[k])));
+    Object.keys(fams).forEach(k => r.fam[k] = Math.min(CAT_CEIL.fam, stackSum(fams[k])));
     return r;
 }
 // the soonest moment an active catalyst runs out, so cached buffs refresh then
@@ -246,14 +316,13 @@ function catNextExpiry() {
     return t;
 }
 // catalysts that boost the same thing can't run together
-const CAT_AREAS = { luck: 'luck', rollLuck: 'single-roll luck', speed: 'roll speed', quark: 'quarks', lens: 'quarks', heavy: 'quarks', laugh: 'quarks', chain: 'chain chance', chainMax: 'chain chance', chain3: 'chain chance', extra: 'bonus rolls', event: 'event chances', joke: 'joke elements', gag: 'joke elements' };
-function catArea(c) {
-    if (c.fx.fam) {
-        return FAMILY_NAMES[c.fx.fam].toLowerCase();
-    }
-    const k = Object.keys(c.fx).find(x => CAT_AREAS[x]);
-    return k ? CAT_AREAS[k] : null;
+const CAT_AREAS = { ionLens: 'ions', voidx: 'void elements', auto: 'autoroll speed', shopcut: 'shop prices', ionx: 'ion chance', droprate: 'catalyst drops', evlen: 'event length', stormx: 'Quark Storms', elxcut: 'Electrolysis costs', secret: 'secret finds', refund: 'refunds', fastrestock: 'shop restocks', silly: 'silliness', luck: 'luck', rollLuck: 'single-roll luck', speed: 'roll speed', quark: 'quarks', lens: 'quarks', heavy: 'quarks', laugh: 'quarks', chain: 'chain chance', chainMax: 'chain chance', chain3: 'chain chance', extra: 'bonus rolls', event: 'event chances', joke: 'joke elements', gag: 'joke elements' };
+function catAreas(c) {
+    const out = Object.keys(c.fx).filter(x => CAT_AREAS[x]).map(x => CAT_AREAS[x]);
+    [c.fx.fam, c.fx.fam2].forEach(f => f && out.push(FAMILY_NAMES[f].toLowerCase()));
+    return out;
 }
+const catArea = c => catAreas(c)[0] || null;
 // Linked Reaction and Family Magnet don't mix with single-roll luck, as together they all but guarantee a top tier find
 const shapesChain = c => !!(c.fx.linked || c.fx.magnet);
 function luckClash(c) {
@@ -279,14 +348,18 @@ function useCatalyst(id, n) {
         const o = CAT[cur.id];
         return `${o.name} is already running for ${CAT_TIERS[c.tier].name.toLowerCase()} catalysts (${catLeft(cur)} left). Only one ${CAT_TIERS[c.tier].name.toLowerCase()} catalyst can be active at a time.`;
     }
-    const area = catArea(c);
-    const clash = area && activeList().find(x => x.c && x.c.id !== id && catArea(x.c) === area);
+    const mine = catAreas(c);
+    const clash = activeList().find(x => x.c && x.c.id !== id && catAreas(x.c).some(z => mine.includes(z)));
+    const area = clash && catAreas(clash.c).find(z => mine.includes(z));
     if (clash) {
         return `${clash.c.name} is already boosting ${area} (${catLeft(clash.a)} left). Only one catalyst can boost ${area} at a time.`;
     }
     const mix = luckClash(c);
     if (mix) {
         return mix;
+    }
+    if (c.fx.ionLens && !bondBonus().ion) {
+        return 'Ionisation hasn\'t been unlocked on the bonds tree yet, so there are no ions to roll.';
     }
     if (c.rolls) {
         catActive[catSlot(c)] = { id, rolls: (cur ? cur.rolls : 0) + c.rolls * n, src: (cur && cur.src || []).concat(srcTake(id, n)), h: cur ? cur.h : undefined };
@@ -305,8 +378,8 @@ function useCatalyst(id, n) {
 }
 function useInstant(c, n) {
     const f = c.fx;
-    if (f.start) {
-        if (anyEventOn()) {
+    if (f.start === 'storm' || f.start === 'collider' || f.start === 'hole') {
+        if (anyEventOn() || vacOn()) {
             return 'An event is already running. Only one can run at a time.';
         }
         if (f.start === 'collider' && !colliderOn()) {
@@ -327,6 +400,33 @@ function useInstant(c, n) {
         shopState.r = (shopState.r || 0) + 1;
         shopState.j = 0;
         shopCheck();
+    } else if (f.start === 'vacuum') {
+        if (anyEventOn() || vacOn()) {
+            return 'An event is already running. Only one can run at a time.';
+        }
+        n = 1;
+        const src = srcTake(c.id, 1);
+        vacStart(acKeys ? acCount : null, VACUUM_SEED);
+        // started by a catalyst, so the server can see where it came from
+        vacRun.src = src;
+        vacSave();
+        renderQStorm();
+    } else if (f.start === 'gamma' || f.start === 'hyper') {
+        if (anyEventOn() || vacOn()) {
+            return 'An event is already running. Only one can run at a time.';
+        }
+        if (f.start === 'hyper' && !bondBonus().hyper) {
+            return 'Hypercharged hasn\'t been unlocked yet.';
+        }
+        n = 1;
+        evStart(f.start, acKeys ? { s: acCount, src: srcTake(c.id, 1) } : {});
+        renderQStorm();
+    } else if (f.quarks) {
+        addQuarks(f.quarks * n);
+    } else if (f.agents) {
+        catInv.bondagent = (catInv.bondagent || 0) + f.agents * n;
+    } else if (f.grant && f.n) {
+        catFlags.grant = (catFlags.grant || 0) + f.n * n;
     } else if (f.bond) {
         return 'Bonding Agents are used on the bonds tree: tap any red slot to fill it.';
     } else if (f.extend) {
@@ -373,7 +473,7 @@ function fmtClock(s) {
 // press and k place the roll, so refunds come from the dice too
 function takeRollCharge(press, k) {
     pruneActive();
-    const out = { rollLuck: 0, unfound: false, linked: false, magnet: false, chain3: false, twice: false, jokeNew: false, used: [], src: [] };
+    const out = { rollLuck: 0, unfound: false, linked: false, magnet: false, chain3: false, twice: false, jokeNew: false, ionLens: false, used: [], src: [] };
     Object.keys(catActive).forEach(t => {
         const a = catActive[t];
         if (a.rolls == null || a.rolls <= 0) {
@@ -388,7 +488,7 @@ function takeRollCharge(press, k) {
         if (f.unfound) {
             out.unfound = true;
         }
-        ['linked', 'magnet', 'chain3', 'twice', 'jokeNew'].forEach(k => {
+        ['linked', 'magnet', 'chain3', 'twice', 'jokeNew', 'ionLens'].forEach(k => {
             if (f[k]) {
                 out[k] = true;
             }
@@ -398,7 +498,7 @@ function takeRollCharge(press, k) {
         if (seen) {
             a.h = (a.h || []).concat([[press, k]]);
         }
-        if ((seen ? acDraw(acKeys.d, press, 3, CATALYSTS.indexOf(CAT[a.id]), k) : Math.random()) >= bondBonus().refund / 100) {
+        if ((seen ? acDraw(acKeys.d, press, 3, CAT[a.id].synth ? CAT[a.id].ord : CATALYSTS.indexOf(CAT[a.id]), k) : Math.random()) >= refundPct() / 100) {
             a.rolls -= 1;
         }
     });
@@ -406,9 +506,11 @@ function takeRollCharge(press, k) {
     saveCats();
     return out;
 }
+const refundPct = () => bondBonus().refund + catBonus().refund;
 // catalyst drops from the easy bridge, picked like shop stock
+const dropChance = () => bondBonus().drop * (1 + (bondBonus().droprate + catBonus().droprate) / 100);
 function rollDrop(n) {
-    const p = bondBonus().drop / 100;
+    const p = dropChance() / 100;
     if (!p) {
         return null;
     }
@@ -417,10 +519,12 @@ function rollDrop(n) {
         if (rnd() >= p) {
             return null;
         }
+        // drops can lean rarer than the shop
         const g = shopFlags();
+        g[0] = +(g[0] + bondBonus().droplux).toFixed(2);
         const id = shopRoll(g);
         catInv[id] = (catInv[id] || 0) + 1;
-        srcAdd(id, acStream ? ['d', acDev, n, g.join('|'), bondBonus().drop].join('|') : null);
+        srcAdd(id, acStream ? ['d', acDev, n, g.join('|'), +dropChance().toFixed(4)].join('|') : null);
         saveCats();
         return id;
     } finally {
@@ -454,12 +558,12 @@ function clearCatalyst(tier) {
 // the shop
 function shopPeriodMs() {
     const b = bondBonus();
-    return Math.max(5, 20 - b.refresh) * 60000;
+    return Math.max(5, 20 - b.refresh - catBonus().fastrestock) * 60000;
 }
 // 2 + bonds, max 6
-const shopSlots = () => Math.min(6, 2 + bondBonus().slots);
+const shopSlots = () => Math.min(8, 2 + bondBonus().slots);
 function shopPrice(c, grant = true) {
-    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100) * (grant && catFlags.grant ? 0.5 : 1)));
+    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price + catBonus().shopcut) / 100) * (grant && catFlags.grant ? 0.5 : 1)));
 }
 var clockBase = null;
 var clockTried = false;
@@ -525,7 +629,7 @@ function shopCheck() {
 // what the stock roll depends on: rarer-stock bonus, joke catalysts, all jokes found, collider, joke rate
 function shopFlags() {
     const b = bondBonus();
-    return [b.stock, (b.jokecat && jokesOn() ? 1 : 0) + (jokesFound().size === JOKES.length ? 2 : 0) + (colliderOn() ? 4 : 0), b.jokerate];
+    return [b.stock, (b.jokecat && jokesOn() ? 1 : 0) + (JOKES_BASE.every(j => jokesFound().has(j[0])) ? 2 : 0) + (colliderOn() ? 4 : 0), b.jokerate];
 }
 function shopRoll(g) {
     const boost = g[0] / 100;
@@ -642,7 +746,7 @@ function renderActiveCats() {
     ['catActive', 'rollCats'].forEach(k => {
         const el = $(k);
         if (el) {
-            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + rows(k === 'catActive') : '';
+            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' + (list.length > 1 ? '<p class="muted stack-note">Where two boost the same thing, the stronger counts in full and the other at half.</p>' : '') : '') + rows(k === 'catActive') : '';
         }
     });
     const cl = $('catClear');
@@ -675,14 +779,16 @@ function renderCatInv() {
     if (!$('catInv')) {
         return;
     }
-    const inv = Object.keys(catInv).filter(id => catInv[id] > 0 && CAT[id]).sort((a, b) => CAT[b].tier - CAT[a].tier || CAT[a].name.localeCompare(CAT[b].name));
+    document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('sel', b.dataset.invtab === invTab));
+    const inv = Object.keys(catInv).filter(id => catInv[id] > 0 && CAT[id] && !!CAT[id].synth === (invTab === 'synth')).sort((a, b) => CAT[b].tier - CAT[a].tier || CAT[a].name.localeCompare(CAT[b].name));
     if (!inv.includes(invSel)) {
         invSel = inv[0] || null;
     }
     $('catInv').innerHTML = inv.length ? inv.map(id => {
         const c = CAT[id];
         return `<button class="inv-tile${id === invSel ? ' sel' : ''}" data-sel="${id}" style="--tc:${CAT_TIERS[c.tier].col}"><span class="it-name">${c.name}</span><span class="it-n">×${catInv[id].toLocaleString('en-US')}</span></button>`;
-    }).join('') : '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
+    }).join('') : invTab === 'synth' ? '<p class="muted inv-empty">Nothing here yet. Catalysts you make at the Synthesis table wait here. They can\'t go into upgrades.</p>' :
+        '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
     renderUpgrade();
     const d = $('invDetail');
     if (!invSel) {
@@ -702,6 +808,11 @@ function renderCatInv() {
     }
     renderActiveCats();
 }
+var invTab = 'shop';
+document.querySelectorAll('[data-invtab]').forEach(b => b.addEventListener('click', () => {
+    invTab = b.dataset.invtab;
+    renderCatInv();
+}));
 $('catInv').addEventListener('click', e => {
     const t = e.target.closest('[data-sel]');
     if (!t) {

@@ -25,7 +25,7 @@
     } catch (e) { }
 })();
 </script>
-<link rel="stylesheet" href="css/style.css?v=1f8456d378">
+<link rel="stylesheet" href="css/style.css?v=a73da10f31">
 </head>
 <body>
 <div class="topband"><div class="topband-in">
@@ -75,8 +75,9 @@
 <button class="ghost roll-bonds" data-go="bonds" id="rollBondsBtn" title="Bonds" aria-label="Bonds"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7.5l3 8M16 7.5l-3 8M8.5 6h7"/></svg><span class="rn-label">Bonds</span></button>
 </nav>
 <div class="roll-results" id="rollResults"><div class="roll-result-column"><div class="reel" id="reel"><div class="reel-symbol" id="reelSymbol">?</div></div><div class="result-card"><h2 class="result-name" id="resultName">No roll yet</h2><div class="rarity" id="resultRarity">Press Roll to start</div><div id="resultExtra" class="sub"></div></div></div></div>
-<div class="roll-controls"><button class="primary" id="rollBtn">Roll</button><button class="ghost" id="autoRollBtn" aria-pressed="false" disabled>Autoroll locked</button></div>
+<div class="roll-controls"><button class="primary" id="rollBtn">Roll</button><button class="ghost" id="autoRollBtn" aria-pressed="false" disabled>Autoroll locked</button><button class="ghost" id="levelBtn" aria-pressed="false" hidden>Leveller off</button></div>
 <div class="qstorm-bar" id="qStormBar" aria-live="polite" hidden></div>
+<div class="qstorm-bar ev-vacuum" id="vacBar" aria-live="polite" hidden></div>
 <div id="autoHint"></div>
 <div class="toast" id="rollToast" aria-live="polite" style="display:none"></div>
 </section>
@@ -103,6 +104,7 @@
 <div class="periodic-wrap"><div class="periodic full" id="periodic"></div></div>
 <div class="legend" id="legend"></div>
 <div id="jokeWrap" hidden><div class="toolbar"><strong id="jokeStats"></strong></div><div class="periodic-wrap"><div class="periodic full joke-table" id="jokeTable"></div></div></div>
+<div id="voidWrap" hidden><div class="toolbar"><strong id="voidStats"></strong></div><div class="periodic-wrap"><div class="periodic full void-table" id="voidTable"></div></div></div>
 <p class="footnote">Select any found element to open its page. Its bonus applies permanently from the first time you find it.</p>
 <div id="buffSummary"></div>
 </div>
@@ -135,6 +137,7 @@
 <label class="check"><input type="checkbox" id="cutsSetting">Play cutscenes when I find their elements</label>
 <h4 class="vw-h">Cutscenes</h4><div class="vw-grid" id="vwCuts"></div>
 <div id="vwJokeWrap" hidden><h4 class="vw-h">Joke cutscenes</h4><div class="vw-grid" id="vwJokes"></div></div>
+<div id="vwVoidWrap" hidden><h4 class="vw-h">Void cutscenes</h4><div class="vw-grid" id="vwVoids"></div></div>
 <h4 class="vw-h">Rarity effects</h4><div class="vw-grid" id="vwFx"></div>
 <div id="vwDarkWrap" hidden><h4 class="vw-h">Secret effects</h4><div class="vw-grid" id="vwDark"></div></div></div></div>
 </details>
@@ -235,12 +238,12 @@
 </main>
 
 <main id="bonds" class="screen">
-<div class="bonds-bar"><button class="ghost" data-go="menu">Main menu</button><button class="ghost" data-go="game">Roll</button><div class="bonds-title">BONDS</div><span class="bonds-hint">Drag to move · scroll or pinch to zoom · tap a glowing slot to fill it</span></div>
+<div class="bonds-bar"><button class="ghost" data-go="menu">Main menu</button><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="electro" id="bondsElxBtn" hidden>Electrolysis</button><div class="bonds-title">BONDS</div><span class="bonds-hint">Drag to move · scroll or pinch to zoom · tap a glowing slot to fill it</span></div>
 <div class="net-wrap">
 <canvas id="netCanvas" class="net-canvas" aria-label="Bond network"></canvas>
 <div id="netFx" class="net-fx" aria-hidden="true"></div>
 <div class="net-tools"><button class="ghost" id="netCentre">Centre</button><button class="ghost" id="netTotalsBtn">Network buffs</button></div>
-<div class="net-totals" id="netTotalsWrap"><dl class="stats" id="netTotals"></dl></div>
+<div class="net-totals" id="netTotalsWrap"><div id="netTotals"></div></div>
 <button class="primary net-jump" id="netJump" hidden>Jump to slot</button>
 </div>
 </main>
@@ -262,17 +265,60 @@
 </main>
 
 <main id="catinv" class="screen">
-<div class="page-head"><div><h1>Inventory</h1><p class="sub">Your catalysts. Select one to see what it does and use it.</p></div><div class="head-btns"><button class="ghost" data-go="upgrade" id="invUpBtn" hidden>Upgrade</button><button class="ghost" data-go="shop">Shop</button><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="menu">Back</button></div></div>
+<div class="page-head"><div><h1>Inventory</h1><p class="sub">Your catalysts. Select one to see what it does and use it.</p></div><div class="head-btns"><button class="ghost" data-go="synth" id="invSyBtn" hidden>Synthesis</button><button class="ghost" data-go="upgrade" id="invUpBtn" hidden>Upgrade</button><button class="ghost" data-go="shop">Shop</button><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="menu">Back</button></div></div>
 <div class="inv-layout">
 <aside class="inv-detail" id="invDetail"></aside>
 <section class="inv-right">
 <div id="catActive" class="inv-active"></div>
-<div class="inv-sect"><span>Catalysts</span></div>
+<div class="inv-tabs" role="tablist"><button class="ghost sel" data-invtab="shop" role="tab">Catalysts</button><button class="ghost" data-invtab="synth" role="tab">Synthesised catalysts</button></div>
 <div class="inv-grid" id="catInv"></div>
 </section>
 </div>
 </main>
 
+<main id="synth" class="screen">
+<div class="page-head"><div><h1>Synthesis</h1><p class="sub">Put five elements on the table and see what they make. Turning a pattern round makes no difference; moving elements between slots does.</p></div><div class="head-btns"><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="catinv">Back</button></div></div>
+<section class="sy-page-wrap">
+<p class="muted" id="syLocked">Catalyst Synthesis unlocks on outer ring 2 of the bonds tree.</p>
+<div id="syBody" class="sy-layout" hidden>
+<div class="sy-bench">
+<div class="sy-table" id="syTable">
+<button class="sy-slot sy-tl" id="sySlot_tl" aria-label="Top left arm"></button>
+<button class="sy-slot sy-tr" id="sySlot_tr" aria-label="Top right arm"></button>
+<button class="sy-slot sy-c" id="sySlot_c" aria-label="Centre"></button>
+<button class="sy-slot sy-br" id="sySlot_br" aria-label="Bottom right arm"></button>
+<button class="sy-slot sy-bl" id="sySlot_bl" aria-label="Bottom left arm"></button>
+</div>
+<div class="btn-row sy-btns"><button class="primary" id="syGo" disabled>Synthesise</button><button class="ghost" id="syClear">Clear</button></div>
+<p class="sy-msg" id="syMsg" aria-live="polite"></p>
+<div class="sy-pick" id="syPickWrap" hidden><div class="sy-pick-head"><strong id="syPickHead"></strong><button class="linkish" id="syPickClear">Empty this slot</button><button class="ghost" id="syPickClose">Done</button></div><div class="periodic-wrap"><div class="periodic compact sy-pt" id="syPt"></div></div></div>
+</div>
+<div class="sy-book">
+<div class="sy-book-head"><h2 class="side-h">Lab book</h2><span id="syBookCount"></span></div>
+<div class="sy-pages" id="syPages"></div>
+<div class="sy-book-nav"><button class="ghost" id="syPrevW" title="Previous written page" aria-label="Previous written page">«</button><button class="ghost" id="syPrev" aria-label="Previous page">‹</button><label class="sy-pg">Page <input id="syPageNo" type="number" min="1" inputmode="numeric" aria-label="Page number"></label><button class="ghost" id="syNext" aria-label="Next page">›</button><button class="ghost" id="syNextW" title="Next written page" aria-label="Next written page">»</button></div>
+</div>
+</div>
+</section>
+</main>
+<main id="electro" class="screen">
+<div class="page-head"><div><h1>Electrolysis</h1><p class="sub">Fuse the compounds the bonds tree asks for, or split compounds back into their elements.</p></div><div class="head-btns"><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="bonds">Back</button></div></div>
+<section class="inventory-panel elx-page">
+<p class="muted" id="elxLocked">Electrolysis unlocks on outer ring 2 of the bonds tree.</p>
+<div id="elxBody" hidden>
+<div class="elx-cell" id="elxCell" aria-hidden="true"><svg viewBox="0 0 320 150"><defs><linearGradient id="elxLiq" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fd4ff" stop-opacity=".28"/><stop offset="1" stop-color="#5fd4ff" stop-opacity=".08"/></linearGradient></defs><path class="elx-wire" d="M110 30V12h-34M210 30V12h34"/><rect class="elx-batt" x="56" y="4" width="20" height="16"/><rect class="elx-batt" x="244" y="4" width="20" height="16"/><text class="elx-pole" x="66" y="16">−</text><text class="elx-pole" x="254" y="16">+</text><path class="elx-glass" d="M70 50v80a10 10 0 0 0 10 10h160a10 10 0 0 0 10-10V50"/><path class="elx-liq" d="M71 72h178v58a9 9 0 0 1-9 9H80a9 9 0 0 1-9-9z" fill="url(#elxLiq)"/><rect class="elx-rod" x="104" y="30" width="12" height="92"/><rect class="elx-rod" x="204" y="30" width="12" height="92"/><path class="elx-arc" d="M116 80l20-6-10 10 22-4-12 10 26-6-14 10 22-2-10 8 24-4"/></svg><span class="elx-out"></span></div>
+<div class="up-tiers elx-tabs"><button class="ghost" data-elx="fuse">Fusion</button><button class="ghost" data-elx="split">Fission</button><input id="elxSearch" type="search" placeholder="Search formulas or names" aria-label="Search formulas or names"></div>
+<div class="elx-bar"><label class="elx-sort">Sort <select id="elxSort" aria-label="Sort"></select></label><button class="ghost elx-more-btn" id="elxOptBtn" aria-expanded="false" aria-controls="elxOpts">Filters <span id="elxOptCount"></span><i aria-hidden="true">▾</i></button></div>
+<div class="elx-opts" id="elxOpts" hidden></div>
+<p class="muted elx-help" id="elxHelp"></p>
+<div class="periodic-wrap elx-pt-wrap" id="elxPtWrap" hidden><div class="periodic compact elx-pt" id="elxPt"></div></div>
+<p class="elx-pick" id="elxPick" hidden></p>
+<p class="shop-msg ok" id="elxMsg" aria-live="polite"></p>
+<div class="elx-list" id="elxList"></div>
+<p class="muted" id="elxMore"></p>
+</div>
+</section>
+</main>
 <main id="upgrade" class="screen">
 <div class="page-head"><div><h1>Upgrade</h1><p class="sub">Put in 10 catalysts of one tier and get a random catalyst from the tier above. Mythic is as high as it goes.</p></div><div class="head-btns"><button class="ghost" data-go="catinv">Inventory</button><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="menu">Back</button></div></div>
 <section class="inventory-panel up-page">
@@ -383,5 +429,5 @@
 <div id="rarityEffect" class="rarity-effect" aria-hidden="true"></div>
 <div id="globalBanner" class="g-banner" role="status" aria-live="polite"></div>
 <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite"><small id="achievementToastKicker">Achievement unlocked</small><strong id="achievementToastName">Water</strong><span id="achievementToastDesc"></span></div>
-<script src="game.js?v=6f52d0b300"></script>
+<script src="game.js?v=bfd86cc48e"></script>
 </body></html>

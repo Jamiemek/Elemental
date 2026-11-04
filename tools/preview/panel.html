@@ -187,6 +187,44 @@
         });
         saveNet();
     });
+    add('Fill bonds to outer ring 1', () => {
+        net().nodes.forEach(n => {
+            if (n.circle == null) {
+                netState[n.id] = 1;
+            }
+        });
+        saveNet();
+    });
+    add('Unlock Electrolysis', () => {
+        net().nodes.forEach(n => {
+            if (n.circle == null) {
+                netState[n.id] = 1;
+            }
+        });
+        const e = net().edges.find(x => x.kind === 'electrolysis');
+        netState[e.a] = netState[e.b] = 1;
+        saveNet();
+    });
+    add('Unlock Synthesis', () => {
+        net().nodes.forEach(n => {
+            if (n.circle == null) {
+                netState[n.id] = 1;
+            }
+        });
+        const e = net().edges.find(x => x.kind === 'synthesis');
+        netState[e.a] = netState[e.b] = 1;
+        saveNet();
+    });
+    add('Write every recipe in the lab book', () => {
+        syKnown = SYNTHS.map(y => y.id);
+        sySave();
+    });
+    add('+1 of every synthesised catalyst', () => SYNTHS.forEach(y => catInv[y.id] = (catInv[y.id] || 0) + 1));
+    add('+10 Bonding Agents', () => catInv.bondagent = (catInv.bondagent || 0) + 10);
+    add('Every ion of every element', () => {
+        ELEMENTS.forEach(e => ionMarks[e[0]] = [ION_MAX, ION_MAX]);
+        ionSave();
+    });
     add('Fill every bond', () => {
         net().nodes.forEach(n => netState[n.id] = 1);
         saveNet();
@@ -196,6 +234,8 @@
         qStormSave();
         evRun = null;
         evSave();
+        vacRun = null;
+        vacSave();
     };
     add('Unlock all cosmetics', () => {
         net().nodes.forEach(n => netState[n.id] = 1);
@@ -237,6 +277,21 @@
         evStart('hole');
         renderQStorm();
     });
+    add('Start Gamma Ray Burst', () => {
+        evClear();
+        evStart('gamma');
+        renderQStorm();
+    });
+    add('Start Hypercharged', () => {
+        evClear();
+        evStart('hyper');
+        renderQStorm();
+    });
+    add('Start Vacuum', () => {
+        evClear();
+        vacStart(null);
+        renderQStorm();
+    });
     add('Stop events', () => {
         evClear();
         renderQStorm();
@@ -245,6 +300,33 @@
     add('Replay tutorial (wipes save)', () => {
         sessionStorage.setItem('previewWipe', '1');
         location.reload();
+    });
+})();
+</script>
+<script>
+// roll any void element, Vacuum or not
+(function () {
+    const box = document.getElementById('fxPreview');
+    const lab = document.createElement('span');
+    lab.style.cssText = 'width:100%;font-family:var(--head);font-size:12px;letter-spacing:.1em;color:#8aa2ff;margin-top:4px';
+    lab.textContent = 'VOID ELEMENTS';
+    box.appendChild(lab);
+    VOIDS.forEach(v => {
+        const b = document.createElement('button');
+        b.className = 'ghost';
+        b.textContent = v[0];
+        b.style.cssText = 'padding:4px 10px;font-size:15px;color:#8aa2ff;border-color:#8aa2ff';
+        b.onclick = () => {
+            if (rolling) {
+                return;
+            }
+            if (!$('game').classList.contains('active')) {
+                go('game');
+            }
+            window.__forceEl = v[0];
+            setTimeout(() => doRoll(), 80);
+        };
+        box.appendChild(b);
     });
 })();
 </script>

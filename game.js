@@ -182,11 +182,32 @@ const JOKES = [
     ['Xx', 'Redactium', 500000000, '[DATA EXPUNGED]', [3, 2]],
     ['Uo', 'Unobtainium', 700000000, 'The one every scientist is after', [3, 16]],
     ['Zo', 'Zoomium', 1000000000, 'Already gone before you see it', [3, 17]],
-    ['Gg', 'Gameoverium', 1500000000, 'The last element there will ever be', [3, 18]]
+    ['Gg', 'Gameoverium', 1500000000, 'The last element there will ever be', [3, 18]],
+    // from the outer ring 2 connector
+    ['Oo', 'Oopsium', 400000000, 'Made entirely by accident, and never the same way twice', [3, 13]],
+    ['Bf', 'Bufferium', 800000000, 'Still loading', [3, 15]],
+    ['Fz', 'Freddy Fazbearium', 2500000000, "It's been here the whole time", [1, 10]]
 ];
 JOKES.forEach(j => elementBySymbol[j[0]] = j);
 const JOKE_SYMS = new Set(JOKES.map(j => j[0]));
 const isJoke = sym => JOKE_SYMS.has(sym);
+const JOKES_LATE = new Set(['Oo', 'Bf', 'Fz']);
+// nobody sees this one on the table until they've found it
+const JOKE_HIDDEN = 'Fz';
+const JOKES_BASE = JOKES.filter(j => !JOKES_LATE.has(j[0]));
+const jokeOpen = j => !JOKES_LATE.has(j[0]) || bondBonus().jokes3;
+// only ever rolled during a Vacuum. Their table stays hidden until one turns up
+const VOIDS = [
+    ['Kn', 'Kenonium', 20000000, 'Named after the kenon, the empty space Democritus said atoms move through', [1, 7]],
+    ['Lq', 'Lacunium', 60000000, 'Turns up in the gaps of things: a missing page, a skipped beat', [1, 8]],
+    ['Tw', 'Tohuvium', 150000000, 'Formless and empty, left over from before anything was sorted', [1, 9]],
+    ['Ap', 'Apeiron', 400000000, 'The boundless stuff everything else was cut from', [1, 10]],
+    ['Ix', 'Interstitium', 800000000, 'Lives between the atoms of other elements and pays no rent', [1, 11]],
+    ['Gx', 'Ginnungium', 1500000000, 'Scooped from the yawning gap before the first world', [1, 12]]
+];
+VOIDS.forEach(v => elementBySymbol[v[0]] = v);
+const VOID_SYMS = new Set(VOIDS.map(v => v[0]));
+const isVoid = sym => VOID_SYMS.has(sym);
 const tableLayout = {};
 function placeRow(p, a) {
     a.forEach(([s, c]) => tableLayout[s] = [p, c]);
@@ -5273,6 +5294,24 @@ function qsSprite(i) {
     }
     return qsSprites[i];
 }
+// soft round glow in any colour, for event particles
+const glowSprites = {};
+function glowSprite(c) {
+    if (!glowSprites[c]) {
+        const s = document.createElement('canvas');
+        s.width = s.height = 64;
+        const x = s.getContext('2d');
+        const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, c + 'aa');
+        gr.addColorStop(0.4, c + '44');
+        gr.addColorStop(1, c + '00');
+        x.fillStyle = gr;
+        x.fillRect(0, 0, 64, 64);
+        glowSprites[c] = s;
+    }
+    return glowSprites[c];
+}
+const RAD_SYMS = ['Tc', 'Pm'].concat(ELEMENTS.slice(83).map(e => e[0]));
 // text sprites, setting the font per particle was too slow
 const GLYPH = 128;
 let glyphs = new Map();
@@ -5391,7 +5430,7 @@ function skinLayer(g, sk, t, W, H, q) {
     }
     g.restore();
 }
-const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'] };
+const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'], gamma: ['GAMMA RAY BURST', '#7dff6a'], hyper: ['HYPERCHARGED', '#ffe14d'], vacuum: ['VACUUM', '#8aa2ff'] };
 // black hole off the right edge, drawn once per roll
 function holeLayer(W, H, dpr) {
     const R = H * 0.55;
@@ -5515,9 +5554,43 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
         p.y = (Math.random() - 0.5) * (H / Pp) * d * 1.25;
         p.s = 0.25 + Math.random() * 0.45;
         p.t = ELEMENTS[Math.random() * ELEMENTS.length | 0][0];
+        // gamma: plenty of radioactive ones, glowing. hypercharged: some carry a charge. vacuum: a few blink out
+        p.rad = ev === 'gamma' && Math.random() < 0.45;
+        if (p.rad) {
+            p.t = RAD_SYMS[Math.random() * RAD_SYMS.length | 0];
+        }
+        p.lab = p.t;
+        if (ev === 'hyper' && Math.random() < 0.35) {
+            const n = Math.random() < 0.8 ? 1 : 2;
+            p.lab = withIon(p.t, Math.random() < 0.7 ? n : -n);
+            p.ion = true;
+        }
+        p.fl = Math.random() * 6.3;
+        p.dk = 0;
+        // hypercharged: some come apart into loose charges that drift off and latch onto others
+        p.frag = ev === 'hyper' && !p.ion && Math.random() < 0.3 ? 3 + Math.random() * 7 : 0;
+        p.near = null;
+        p.bits = p.frag ? Array.from({ length: 5 + (Math.random() * 6 | 0) }, () => ({ a: Math.random() * 6.3, r: 0.6 + Math.random() * 1.4, plus: Math.random() < 0.5, to: Math.random() * 1e9 | 0, w: Math.random() * 6.3 })) : null;
         return p;
     };
-    const P = ev === 'collider' ? [] : Array.from({ length: lowDetail ? 90 : 150 }, () => spawn({}, 0.6 + Math.pow(Math.random(), 0.8) * 13.4, -9));
+    // a vacuum has nothing in it at all
+    const P = ev === 'collider' || ev === 'vacuum' ? [] : Array.from({ length: lowDetail ? 90 : 150 }, () => spawn({}, 0.6 + Math.pow(Math.random(), 0.8) * 13.4, -9));
+    // gamma: bursts (a flash, two jets and a shock ring) and the bits radioactive elements shed
+    const bursts = [];
+    const specks = [];
+    let nextBurst = 120 + Math.random() * 200;
+    // quark storm: dust drifting round with the storm
+    const dust = storm ? Array.from({ length: lowDetail ? 40 : 90 }, () => ({ a: Math.random() * 6.2832, r: 0.05 + Math.random() * 0.95, s: 0.6 + Math.random() * 0.9 })) : null;
+    // black hole: matter going round the disk
+    const disk = holeArt ? Array.from({ length: lowDetail ? 70 : 160 }, () => ({ r: 1.15 + Math.pow(Math.random(), 1.6) * 1.4, a: Math.random() * 6.2832, s: 0.6 + Math.random() * 0.8, l: 0.05 + Math.random() * 0.12 })) : null;
+    // where each find was last frame, so things can head for it
+    const tgAt = labels.map(() => null);
+    // hypercharged: little arcs between charged elements, and rings where a loose charge lands
+    const arcs = [];
+    const pulses = [];
+    // vacuum: where the brackets look while there's nothing to find, and what gathers into the find
+    const seek = { x: W / 2, y: H / 2, fx: W / 2, fy: H / 2, s: 20, from: 0, at: 0 };
+    const motes = ev === 'vacuum' ? labels.map(() => Array.from({ length: lowDetail ? 60 : 140 }, () => ({ a: Math.random() * 6.2832, r: 0.3 + Math.random() * 2.2, s: 0.5 + Math.random() * 0.7, d: Math.random() * 0.4 }))) : null;
     P.forEach(p => {
         p.L = 1600 + Math.random() * 1600;
         p.b = -Math.random() * p.L * 0.9;
@@ -5591,6 +5664,337 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             }
             const pr = (x, y, d) => [W / 2 + (x - cxw) * Pp / d, H / 2 + (y - cyw) * Pp / d];
             const hole = holeArt ? drawHole(g, holeArt, W, H, 1 - q) : null;
+            if (ev === 'vacuum') {
+                // pitch black, only letting go right at the end
+                g.globalAlpha = 1 - sm((u - 0.97) / 0.03);
+                g.fillStyle = '#000';
+                g.fillRect(0, 0, W, H);
+            }
+            if (storm) {
+                // gold dust drifting round the middle of the storm
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                g.translate(W / 2, H / 2);
+                g.rotate(t / 2600);
+                const RR = Math.hypot(W, H) * 0.55;
+                // gold dust caught up in it
+                dust.forEach(m => {
+                    const an = m.a + t / 2600 * (1 + 1.5 / m.r);
+                    const x = Math.cos(an) * m.r * RR;
+                    const y = Math.sin(an) * m.r * RR * 0.62;
+                    g.globalAlpha = (0.35 + 0.35 * Math.sin(t / 200 + m.a * 7)) * (1 - q);
+                    g.fillStyle = '#ffe28a';
+                    g.fillRect(x - m.s, y - m.s, m.s * 2, m.s * 2);
+                });
+                g.restore();
+            }
+            if (hole) {
+                // matter streaming round the disk, quicker further in; behind the hole it's hidden
+                const [bx, by, R] = hole;
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                g.translate(bx, by);
+                g.rotate(-0.12);
+                disk.forEach(m => {
+                    const sp = m.s / Math.pow(m.r, 1.5);
+                    const a0 = m.a + t / 900 * sp;
+                    g.beginPath();
+                    let vis = false;
+                    for (let j = 0; j <= 4; j++) {
+                        const an = a0 - j * m.l / 4;
+                        const X = Math.cos(an) * R * m.r;
+                        const Y = Math.sin(an) * R * m.r * 0.18;
+                        // hidden where it passes behind the shadow
+                        const hid = Math.sin(an) < 0 && Math.abs(X) < R * 1.02;
+                        if (j && !hid && vis) {
+                            g.lineTo(X, Y);
+                        } else {
+                            g.moveTo(X, Y);
+                        }
+                        vis = !hid;
+                    }
+                    // the side coming towards us is brighter
+                    const lit = 0.55 + 0.45 * -Math.cos(a0);
+                    g.globalAlpha = lit * 0.55 * (1 - q) * (m.r < 1.6 ? 1 : 0.6);
+                    g.strokeStyle = m.r < 1.5 ? '#fff1d8' : '#ffb070';
+                    g.lineWidth = m.r < 1.5 ? 1.6 : 1.1;
+                    g.stroke();
+                });
+                g.restore();
+                // at the lock the hole flares and fires jets out of its poles
+                const fk = (t - T1 + 60) / 900;
+                if (fk > 0 && fk < 1) {
+                    const f = Math.pow(1 - fk, 1.5) * (1 - q * 0.5);
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    const fr = R * (1.4 + fk * 0.6);
+                    g.globalAlpha = f * 0.35;
+                    g.drawImage(glowSprite('#ffb070'), bx - fr, by - fr, fr * 2, fr * 2);
+                    // a pulse of light rolls out from the edge of the hole
+                    g.globalAlpha = f * 0.8;
+                    g.strokeStyle = '#fff1d8';
+                    g.lineWidth = R * 0.03 * (1 - fk) + 1;
+                    g.beginPath();
+                    g.arc(bx, by, R * (1.02 + sm(fk) * 0.9), 0, 6.2832);
+                    g.stroke();
+                    g.globalAlpha = f * 0.3;
+                    g.lineWidth = R * 0.12 * (1 - fk) + 2;
+                    g.strokeStyle = '#ffb070';
+                    g.stroke();
+                    g.restore();
+                }
+                // the photon ring shimmers
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                for (let j = 0; j < 3; j++) {
+                    const a0 = t / 500 + j * 2.0944;
+                    g.globalAlpha = 0.35 * (1 - q);
+                    g.strokeStyle = '#fff3dc';
+                    g.lineWidth = R * 0.02;
+                    g.beginPath();
+                    g.arc(bx, by, R * 1.02, a0, a0 + 0.5);
+                    g.stroke();
+                }
+                g.restore();
+            }
+            if (ev === 'gamma') {
+                // a sickly green at the edges, brighter for a moment after each burst
+                const kick = bursts.reduce((m, b) => Math.max(m, 1 - (t - b.b) / 260), 0);
+                const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+                vg.addColorStop(0, 'rgba(125,255,106,0)');
+                vg.addColorStop(1, 'rgba(125,255,106,' + (0.1 + 0.12 * Math.max(0, kick)) * (1 - q) + ')');
+                g.globalAlpha = 1;
+                g.fillStyle = vg;
+                g.fillRect(0, 0, W, H);
+            }
+            // the loose charges: out from where the element broke, then over to another element and stuck there
+            const drawBits = (p, sx, sy, fz, k, a) => {
+                if (!p.near) {
+                    // each charge heads for one of the few elements closest to where it broke off
+                    p.near = P.filter(o => o !== p && !o.frag && o.sx != null)
+                        .sort((x, y) => Math.hypot(x.sx - sx, x.sy - sy) - Math.hypot(y.sx - sx, y.sy - sy)).slice(0, 4);
+                }
+                p.bits.forEach(b => {
+                    const o = p.near.length ? p.near[b.to % p.near.length] : null;
+                    const out = sm(k * 2.2);
+                    let x = sx + Math.cos(b.a + t / 900) * b.r * fz * out;
+                    let y = sy + Math.sin(b.a + t / 900) * b.r * fz * out;
+                    const m = sm((k - 0.4) / 0.8);
+                    const col = b.plus ? '#ffe68a' : '#a9c6ff';
+                    const orb = Math.max(7, fz * 0.45);
+                    if (o && m > 0) {
+                        // curves over to its new element and circles it
+                        const ox = o.sx + Math.cos(b.w + t / 260) * orb;
+                        const oy = o.sy + Math.sin(b.w + t / 260) * orb;
+                        const cx = (x + ox) / 2 - (oy - y) * 0.35;
+                        const cy = (y + oy) / 2 + (ox - x) * 0.35;
+                        const bez = f => [(1 - f) * (1 - f) * x + 2 * (1 - f) * f * cx + f * f * ox, (1 - f) * (1 - f) * y + 2 * (1 - f) * f * cy + f * f * oy];
+                        const [nx, ny] = bez(m);
+                        // the thread it leaves behind, fading once it lands
+                        g.globalAlpha = a * 0.45 * Math.min(1, m * 3) * (1 - sm((m - 0.85) / 0.15) * 0.7);
+                        g.strokeStyle = col;
+                        g.lineWidth = 0.8;
+                        g.beginPath();
+                        g.moveTo(nx, ny);
+                        g.quadraticCurveTo((nx + o.sx) / 2 - (o.sy - ny) * 0.2, (ny + o.sy) / 2 + (o.sx - nx) * 0.2, o.sx, o.sy);
+                        g.stroke();
+                        x = nx;
+                        y = ny;
+                        if (m >= 0.995 && !b.landed) {
+                            b.landed = true;
+                            pulses.push({ o, b: t, col });
+                        }
+                    }
+                    const sz = Math.max(8, Math.min(22, fz * 0.38));
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    g.globalAlpha = a * Math.min(1, k * 3) * 0.8;
+                    g.drawImage(glowSprite(b.plus ? '#ffd860' : '#7aa8ff'), x - sz * 1.4, y - sz * 1.4, sz * 2.8, sz * 2.8);
+                    g.restore();
+                    g.globalAlpha = Math.min(1, a * 1.2) * Math.min(1, k * 3);
+                    drawGlyph(g, b.plus ? '+' : '−', b.plus ? '#fff2c0' : '#d6e4ff', fam, sz, x, y);
+                });
+            };
+            const drawGamma = (t, q, u) => {
+                if (t > nextBurst && u < 0.6) {
+                    // somewhere in the field, a short-lived source fires two jets out opposite ways
+                    bursts.push({ x: W * (0.15 + Math.random() * 0.7), y: H * (0.15 + Math.random() * 0.7), a: Math.random() * 6.2832, b: t, s: 0.7 + Math.random() * 0.6 });
+                    nextBurst = t + 700 + Math.random() * 900;
+                }
+                const far = Math.hypot(W, H);
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                for (let j = bursts.length - 1; j >= 0; j--) {
+                    const B = bursts[j];
+                    const k = (t - B.b) / 900;
+                    if (k >= 1) {
+                        bursts.splice(j, 1);
+                        continue;
+                    }
+                    const f = (1 - q) * Math.pow(1 - k, 1.6);
+                    // shock ring
+                    g.globalAlpha = f * 0.5;
+                    g.strokeStyle = '#7dff6a';
+                    g.lineWidth = 2 * (1 - k) + 0.5;
+                    g.beginPath();
+                    g.arc(B.x, B.y, sm(k) * Math.min(W, H) * 0.55 * B.s, 0, 6.2832);
+                    g.stroke();
+                    // the jets: narrow cones that shoot out and fade
+                    const len = far * sm(Math.min(1, k * 4));
+                    [0, Math.PI].forEach(o => {
+                        const an = B.a + o;
+                        const ex = B.x + Math.cos(an) * len;
+                        const ey = B.y + Math.sin(an) * len;
+                        const nx = -Math.sin(an);
+                        const ny = Math.cos(an);
+                        const wid = (6 + 22 * k) * B.s;
+                        // a wider, fainter sheath round the jet
+                        const sh = g.createLinearGradient(B.x, B.y, ex, ey);
+                        sh.addColorStop(0, 'rgba(90,255,200,' + f * 0.35 + ')');
+                        sh.addColorStop(1, 'rgba(90,255,200,0)');
+                        g.globalAlpha = 1;
+                        g.fillStyle = sh;
+                        g.beginPath();
+                        g.moveTo(B.x, B.y);
+                        g.lineTo(ex + nx * wid * 2.6, ey + ny * wid * 2.6);
+                        g.lineTo(ex - nx * wid * 2.6, ey - ny * wid * 2.6);
+                        g.closePath();
+                        g.fill();
+                        const gr = g.createLinearGradient(B.x, B.y, ex, ey);
+                        gr.addColorStop(0, 'rgba(235,255,228,' + f + ')');
+                        gr.addColorStop(0.25, 'rgba(125,255,106,' + f * 0.55 + ')');
+                        gr.addColorStop(1, 'rgba(125,255,106,0)');
+                        g.globalAlpha = 1;
+                        g.fillStyle = gr;
+                        g.beginPath();
+                        g.moveTo(B.x + nx * 1.5, B.y + ny * 1.5);
+                        g.lineTo(ex + nx * wid, ey + ny * wid);
+                        g.lineTo(ex - nx * wid, ey - ny * wid);
+                        g.lineTo(B.x - nx * 1.5, B.y - ny * 1.5);
+                        g.closePath();
+                        g.fill();
+                        // bright core down the middle
+                        g.globalAlpha = f * 0.9;
+                        g.strokeStyle = '#f2fff0';
+                        g.lineWidth = 1.2;
+                        g.beginPath();
+                        g.moveTo(B.x, B.y);
+                        g.lineTo(B.x + Math.cos(an) * len * 0.7, B.y + Math.sin(an) * len * 0.7);
+                        g.stroke();
+                        // knots of light racing out along it
+                        for (let i = 0; i < 5; i++) {
+                            const f2 = ((t - B.b) / 380 + i / 5 + B.s) % 1;
+                            const d2 = far * f2;
+                            if (d2 > len) {
+                                continue;
+                            }
+                            const r2 = (3 + 5 * (1 - f2)) * B.s;
+                            g.globalAlpha = f * (1 - f2);
+                            g.drawImage(glowSprite('#eaffe4'), B.x + Math.cos(an) * d2 - r2, B.y + Math.sin(an) * d2 - r2, r2 * 2, r2 * 2);
+                        }
+                    });
+                    // the source itself, white hot then gone
+                    const fr = (18 + 40 * (1 - k)) * B.s;
+                    g.globalAlpha = (1 - q) * Math.pow(1 - k, 3);
+                    g.drawImage(glowSprite('#f2fff0'), B.x - fr, B.y - fr, fr * 2, fr * 2);
+                    g.drawImage(glowSprite('#7dff6a'), B.x - fr * 2, B.y - fr * 2, fr * 4, fr * 4);
+                    // the whole field flashes for a moment
+                    if (k < 0.12) {
+                        g.globalAlpha = (1 - k / 0.12) * 0.16 * (1 - q);
+                        g.fillStyle = '#b8ffaa';
+                        g.fillRect(0, 0, W, H);
+                    }
+                }
+                g.restore();
+                // decay particles: alpha ones short and fat, beta ones quick and thin
+                for (let j = specks.length - 1; j >= 0; j--) {
+                    const P2 = specks[j];
+                    const k = (t - P2.b) / P2.L;
+                    if (k >= 1) {
+                        specks.splice(j, 1);
+                        continue;
+                    }
+                    const sp = P2.beta ? 1.8 : 0.9;
+                    const x = P2.x + P2.vx * (t - P2.b) * sp;
+                    const y = P2.y + P2.vy * (t - P2.b) * sp;
+                    g.globalAlpha = (1 - k) * (1 - q) * 0.9;
+                    g.strokeStyle = P2.beta ? '#c9ffbd' : '#7dff6a';
+                    g.lineWidth = P2.beta ? 1 : 2.2;
+                    g.beginPath();
+                    g.moveTo(x, y);
+                    g.lineTo(x - P2.vx * (P2.beta ? 40 : 14), y - P2.vy * (P2.beta ? 40 : 14));
+                    g.stroke();
+                }
+            };
+            const drawHyper = (t, q) => {
+                // now and then a faint crackle jumps between two charged elements that are close together
+                if (Math.random() < (lowDetail ? 0.06 : 0.14) && arcs.length < 5) {
+                    const on = P.filter(p => p.ion && p.sx != null && p.sx > 0 && p.sx < W && p.sy > 0 && p.sy < H);
+                    if (on.length > 1) {
+                        const A = on[Math.random() * on.length | 0];
+                        let best = null;
+                        on.forEach(o => {
+                            const dd = Math.hypot(o.sx - A.sx, o.sy - A.sy);
+                            if (o !== A && dd < Math.min(W, H) * 0.35 && (!best || dd < best.dd)) {
+                                best = { o, dd };
+                            }
+                        });
+                        if (best) {
+                            arcs.push({ A, B: best.o, b: t, seed: Math.random() * 1000 });
+                        }
+                    }
+                }
+                for (let j = arcs.length - 1; j >= 0; j--) {
+                    const R = arcs[j];
+                    const k = (t - R.b) / 180;
+                    if (k >= 1) {
+                        arcs.splice(j, 1);
+                        continue;
+                    }
+                    const segs = 7;
+                    const dx = R.B.sx - R.A.sx;
+                    const dy = R.B.sy - R.A.sy;
+                    const L = Math.hypot(dx, dy) || 1;
+                    g.beginPath();
+                    for (let i = 0; i <= segs; i++) {
+                        const f = i / segs;
+                        const off = i === 0 || i === segs ? 0 : Math.sin(R.seed + i * 12.9898 + Math.floor(t / 45) * 3.1) * L * 0.08;
+                        const X = R.A.sx + dx * f - dy / L * off;
+                        const Y = R.A.sy + dy * f + dx / L * off;
+                        if (i) {
+                            g.lineTo(X, Y);
+                        } else {
+                            g.moveTo(X, Y);
+                        }
+                    }
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    g.strokeStyle = '#ffd860';
+                    g.globalAlpha = (1 - k) * 0.25 * (1 - q);
+                    g.lineWidth = 5;
+                    g.stroke();
+                    g.strokeStyle = '#fff6d8';
+                    g.globalAlpha = (1 - k) * 0.85 * (1 - q);
+                    g.lineWidth = 1;
+                    g.stroke();
+                    [R.A, R.B].forEach(E => g.drawImage(glowSprite('#ffd860'), E.sx - 9, E.sy - 9, 18, 18));
+                    g.restore();
+                }
+                for (let j = pulses.length - 1; j >= 0; j--) {
+                    const R = pulses[j];
+                    const k = (t - R.b) / 380;
+                    if (k >= 1) {
+                        pulses.splice(j, 1);
+                        continue;
+                    }
+                    g.globalAlpha = (1 - k) * 0.6 * (1 - q);
+                    g.strokeStyle = R.col;
+                    g.lineWidth = 1;
+                    g.beginPath();
+                    g.arc(R.o.sx, R.o.sy, 6 + k * 18, 0, 6.2832);
+                    g.stroke();
+                }
+            };
             P.forEach(p => {
                 let d = p.z - cz;
                 if (d < 0.35 || p.gone) {
@@ -5616,9 +6020,32 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                         p.gone = true;
                         return;
                     }
+                    p.pull = e;
+                    p.ang = Math.atan2(by - hy, bx - hx);
                 }
-                const [sx, sy] = pr(px, py, d);
+                let [sx, sy] = pr(px, py, d);
+                // about to come apart: it shivers first
+                if (p.frag && d < p.frag + 1.5 && d >= p.frag) {
+                    const sh = (1 - (d - p.frag) / 1.5) * Math.max(1, base * p.s / d * 0.08);
+                    sx += (Math.random() - 0.5) * sh * 2;
+                    sy += (Math.random() - 0.5) * sh * 2;
+                }
+                p.sx = sx;
+                p.sy = sy;
                 const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92) * fade;
+                if (p.frag && d < p.frag) {
+                    const k0 = (p.frag - d) / 0.5;
+                    if (k0 < 1) {
+                        // the snap as it splits
+                        const fr = Math.max(8, base * p.s / d) * (1 + k0 * 1.5);
+                        g.globalAlpha = a * (1 - k0) * 0.8;
+                        g.drawImage(glowSprite('#fff4c8'), sx - fr, sy - fr, fr * 2, fr * 2);
+                    }
+                    drawBits(p, sx, sy, Math.max(5, base * p.s / d), (p.frag - d) / 2.2, a);
+                    if ((p.frag - d) / 0.6 >= 1) {
+                        return;
+                    }
+                }
                 if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) {
                     return;
                 }
@@ -5635,16 +6062,65 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     g.lineTo(ex, ey);
                     g.stroke();
                 }
-                g.globalAlpha = a;
+                g.globalAlpha = p.frag && d < p.frag ? a * (1 - (p.frag - d) / 0.6) : a;
                 const fz = Math.max(5, base * p.s / d);
-                if (sk === 'holographic') {
+                if (p.rad) {
+                    const fl = 0.55 + 0.45 * Math.sin(t / 90 + p.fl) * Math.sin(t / 37 + p.fl * 2);
+                    const gr = Math.min(fz * 1.5, 46);
+                    g.globalAlpha = a * fl * 0.85;
+                    g.drawImage(glowSprite('#7dff6a'), sx - gr, sy - gr, gr * 2, gr * 2);
+                    g.globalAlpha = a;
+                    drawGlyph(g, p.t, '#d4ffc9', fam, fz, sx, sy);
+                    // every so often it decays: a few quick particles shoot off
+                    if (t > p.dk && fz > 9 && specks.length < (lowDetail ? 60 : 160)) {
+                        if (p.dk) {
+                            const n = 2 + (Math.random() * 4 | 0);
+                            for (let j = 0; j < n; j++) {
+                                const an = Math.random() * 6.2832;
+                                const v = (0.25 + Math.random() * 0.6) * Math.max(1, fz / 18);
+                                specks.push({ x: sx, y: sy, vx: Math.cos(an) * v, vy: Math.sin(an) * v, b: t, L: 260 + Math.random() * 260, beta: Math.random() < 0.6 });
+                            }
+                            g.globalAlpha = a;
+                            g.drawImage(glowSprite('#eaffe4'), sx - fz, sy - fz, fz * 2, fz * 2);
+                        }
+                        p.dk = t + 250 + Math.random() * 1400;
+                    }
+                    return;
+                }
+                if (p.ion && fz > 10) {
+                    const ang = t / 300 + p.fl;
+                    const rr = fz * 0.75;
                     g.globalAlpha = a * 0.6;
-                    drawGlyph(g, p.t, '#ff4fd8', fam, fz, sx - 1.5, sy);
-                    drawGlyph(g, p.t, '#3ff0ff', fam, fz, sx + 1.5, sy);
+                    g.drawImage(glowSprite('#ffe9a0'), sx + Math.cos(ang) * rr - 3, sy + Math.sin(ang) * rr * 0.45 - 3, 6, 6);
                     g.globalAlpha = a;
                 }
-                drawGlyph(g, p.t, SK.fg, fam, fz, sx, sy);
+                if (sk === 'holographic') {
+                    g.globalAlpha = a * 0.6;
+                    drawGlyph(g, p.lab, '#ff4fd8', fam, fz, sx - 1.5, sy);
+                    drawGlyph(g, p.lab, '#3ff0ff', fam, fz, sx + 1.5, sy);
+                    g.globalAlpha = a;
+                }
+                if (hole && p.pull > 0.3) {
+                    // stretched out towards the hole and reddening as it goes
+                    const st2 = (p.pull - 0.3) / 0.7;
+                    g.save();
+                    g.translate(sx, sy);
+                    g.rotate(p.ang);
+                    g.scale(1 + st2 * 2.2, 1 - st2 * 0.55);
+                    drawGlyph(g, p.lab, SK.fg, fam, fz, 0, 0);
+                    g.globalAlpha = a * st2;
+                    drawGlyph(g, p.lab, '#ff9a5a', fam, fz, 0, 0);
+                    g.restore();
+                    return;
+                }
+                drawGlyph(g, p.lab, p.ion ? '#efe9c4' : SK.fg, fam, fz, sx, sy);
             });
+            if (ev === 'gamma') {
+                drawGamma(t, q, u);
+            }
+            if (ev === 'hyper') {
+                drawHyper(t, q);
+            }
             let bang = 0;
             C.forEach(p => {
                 let d = p.z - cz;
@@ -5708,7 +6184,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             });
             if (bang > 0.05) {
                 // flash for close hits
-                g.globalAlpha = bang * 0.35;
+                g.globalAlpha = bang * 0.22;
                 g.fillStyle = '#5fd4ff';
                 g.fillRect(0, 0, W, H);
             }
@@ -5721,7 +6197,24 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 // swirl round the centre of the field, faster as they come close
                 const spin = p.w * (1.2 + 3 / d);
                 const ang = p.a0 + spin * t / 1000;
-                const [sx, sy] = pr(Math.cos(ang) * p.r0, Math.sin(ang) * p.r0, d);
+                let [sx, sy] = pr(Math.cos(ang) * p.r0, Math.sin(ang) * p.r0, d);
+                // at the lock, the storm pours into the find
+                const tgq = tgAt[p.c % N] || tgAt[0];
+                const pull = tgq && p.k === 0 ? sm((t - T1 + 120 - (p.sp % 1) * 260) / 420) : 0;
+                if (pull > 0) {
+                    if (pull >= 1) {
+                        return;
+                    }
+                    sx += (tgq[0] - sx) * pull * pull;
+                    sy += (tgq[1] - sy) * pull * pull;
+                    const rq = Math.max(2, base * 0.06) * (1 - pull * 0.5);
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    g.globalAlpha = 0.9;
+                    g.drawImage(qsSprite(p.c), sx - rq * 3, sy - rq * 3, rq * 6, rq * 6);
+                    g.restore();
+                    return;
+                }
                 if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) {
                     return;
                 }
@@ -5731,12 +6224,14 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 }
                 const r = Math.max(1.8, base * 0.085 / d);
                 const glow = r * 3.4;
-                // a short trail along the swirl
-                g.globalAlpha = a * 0.4;
+                // a trail along the swirl
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                g.globalAlpha = a * 0.45;
                 g.strokeStyle = QS_COLS[p.c];
-                g.lineWidth = Math.max(1, r * 0.7);
+                g.lineWidth = Math.max(1, r * 0.8);
                 g.beginPath();
-                for (let s = 0; s <= 6; s++) {
+                for (let s = 0; s <= 10; s++) {
                     const b2 = ang - spin * s * 0.035;
                     const [tx, ty] = pr(Math.cos(b2) * p.r0, Math.sin(b2) * p.r0, d + s * 0.05);
                     if (s) {
@@ -5746,6 +6241,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     }
                 }
                 g.stroke();
+                g.restore();
                 g.globalAlpha = a;
                 if (!p.k) {
                     g.drawImage(qsSprite(p.c), sx - glow, sy - glow, glow * 2, glow * 2);
@@ -5782,6 +6278,32 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 pts.forEach((A, j) => g.drawImage(qsSprite(j), A[0] - gl, A[1] - gl, gl * 2, gl * 2));
             });
             const st = 0.45 + 0.55 * sm((u - 0.55) / 0.1);
+            if (ev === 'vacuum' && t < T1 - 460) {
+                // nothing to lock onto: the brackets hunt about the dark
+                if (t > seek.at) {
+                    seek.fx = seek.x;
+                    seek.fy = seek.y;
+                    seek.x = W * (0.15 + Math.random() * 0.7);
+                    seek.y = H * (0.2 + Math.random() * 0.6);
+                    seek.s = 14 + Math.random() * 22;
+                    seek.from = t;
+                    seek.at = t + 260 + Math.random() * 260;
+                }
+                const k = sm((t - seek.from) / 140);
+                const x = seek.fx + (seek.x - seek.fx) * k;
+                const y = seek.fy + (seek.y - seek.fy) * k;
+                const h = seek.s * (1.4 - 0.4 * k);
+                g.globalAlpha = 0.3 + 0.3 * k;
+                g.strokeStyle = '#8aa2ff';
+                g.lineWidth = 1.2;
+                g.beginPath();
+                [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b]) => {
+                    g.moveTo(x + a * h, y + b * h * 0.7 - b * 6);
+                    g.lineTo(x + a * h, y + b * h * 0.7);
+                    g.lineTo(x + a * h - a * 6, y + b * h * 0.7);
+                });
+                g.stroke();
+            }
             T.forEach((tg, i) => {
                 const [px, py] = pr(tg.x, tg.y, dt);
                 const sx = px + ((targets ? targets[i].x : W * (i + 0.5) / N) - px) * w2;
@@ -5806,6 +6328,129 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     }
                 }
                 g.globalAlpha = hl ? 1 : 0.8 * Math.min(1, (dt - 0.35) / 0.9);
+                tgAt[i] = [sx, sy];
+                if (storm && t > T1 + 180) {
+                    // a gold ring as the last of the storm lands
+                    const k = (t - T1 - 180) / 600;
+                    if (k < 1) {
+                        g.save();
+                        g.globalCompositeOperation = 'lighter';
+                        g.globalAlpha = (1 - k) * 0.8;
+                        g.strokeStyle = '#f0c419';
+                        g.lineWidth = 2 * (1 - k) + 0.5;
+                        g.beginPath();
+                        g.arc(sx, sy, sz * (0.7 + k * 1.8), 0, 6.2832);
+                        g.stroke();
+                        const fr = sz * (1 + k);
+                        g.globalAlpha = (1 - k) * 0.5;
+                        g.drawImage(glowSprite('#f0c419'), sx - fr, sy - fr, fr * 2, fr * 2);
+                        g.restore();
+                    }
+                }
+                if (ev === 'collider' && t >= T1 - 40) {
+                    const k = (t - T1 + 40) / 500;
+                    if (k < 1) {
+                        g.save();
+                        g.globalCompositeOperation = 'lighter';
+                        const fr = sz * (1.2 + k * 2.5);
+                        g.globalAlpha = (1 - k) * 0.7;
+                        g.drawImage(glowSprite('#5fd4ff'), sx - fr, sy - fr, fr * 2, fr * 2);
+                        g.globalAlpha = (1 - k) * 0.85;
+                        g.strokeStyle = '#bfefff';
+                        g.lineWidth = 1.5;
+                        g.beginPath();
+                        g.arc(sx, sy, sz * (0.6 + k * 3), 0, 6.2832);
+                        g.stroke();
+                        g.restore();
+                    }
+                }
+                if (ev === 'gamma' && t >= T1 && !tg.burst) {
+                    // the find goes off like one of the bursts
+                    tg.burst = true;
+                    bursts.push({ x: sx, y: sy, a: Math.random() * 6.2832, b: t, s: 1.15 });
+                }
+                if (ev === 'hyper' && t > T1 - 200) {
+                    // loose charges gather round the find and settle into it
+                    const e = sm((t - T1 + 200) / 500);
+                    const fade = 1 - sm((u - 0.88) / 0.12);
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    for (let j = 0; j < 8; j++) {
+                        const an = j / 8 * 6.2832 + t / 520 * (j % 2 ? 1 : -1);
+                        const rr = sz * (2.6 - 1.7 * e);
+                        const cx2 = sx + Math.cos(an) * rr;
+                        const cy2 = sy + Math.sin(an) * rr * 0.6;
+                        const plus = j % 2 === 0;
+                        const s2 = Math.max(8, sz * 0.22);
+                        g.globalAlpha = e * fade * 0.75;
+                        g.drawImage(glowSprite(plus ? '#ffd860' : '#7aa8ff'), cx2 - s2 * 1.4, cy2 - s2 * 1.4, s2 * 2.8, s2 * 2.8);
+                        g.globalAlpha = e * fade;
+                        drawGlyph(g, plus ? '+' : '−', plus ? '#fff2c0' : '#d6e4ff', fam, s2, cx2, cy2);
+                    }
+                    g.restore();
+                }
+                if (ev === 'vacuum') {
+                    // locks onto nothing, then the element slowly comes up out of the dark
+                    const e = sm((t - T1 + 80) / (total - T1));
+                    if (e <= 0) {
+                        return;
+                    }
+                    // faint light drawn in from all round, spiralling into the find
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    const reach = Math.min(W / N, H) * 0.45;
+                    const at = f => {
+                        const rr = (sz * 0.3 + m0.r * reach / 2.5) * (1 - f);
+                        const an = m0.a + (1 - f) * 2.4;
+                        return [sx + Math.cos(an) * rr * 1.25, sy + Math.sin(an) * rr * 0.85];
+                    };
+                    let m0 = null;
+                    motes[i].forEach(m => {
+                        m0 = m;
+                        const f = sm((e - m.d) / (1 - m.d));
+                        if (f <= 0 || f >= 1) {
+                            return;
+                        }
+                        const [x1, y1] = at(f);
+                        const [x0, y0] = at(Math.max(0, f - 0.08));
+                        g.globalAlpha = Math.sin(Math.PI * f) * 0.9;
+                        g.strokeStyle = f > 0.65 ? '#dfe5ff' : '#6f84ff';
+                        g.lineWidth = m.s * 1.6;
+                        g.beginPath();
+                        g.moveTo(x0, y0);
+                        g.lineTo(x1, y1);
+                        g.stroke();
+                    });
+                    g.restore();
+                    const hr = sz * (0.9 + e * 0.9);
+                    g.globalAlpha = e * 0.45;
+                    g.drawImage(glowSprite('#4a5cff'), sx - hr, sy - hr, hr * 2, hr * 2);
+                    // a ring of bent light once it's mostly through
+                    const lk = (e - 0.55) / 0.45;
+                    if (lk > 0 && lk < 1) {
+                        g.globalAlpha = (1 - lk) * 0.5;
+                        g.strokeStyle = '#b8c4ff';
+                        g.lineWidth = 1.5 * (1 - lk) + 0.4;
+                        g.beginPath();
+                        g.ellipse(sx, sy, sz * (0.6 + lk * 1.8), sz * (0.45 + lk * 1.3), 0, 0, 6.2832);
+                        g.stroke();
+                    }
+                    // a soft bloom the moment it's whole
+                    const bl = (e - 0.7) / 0.3;
+                    if (bl > 0 && bl < 1) {
+                        const br = sz * (1.2 + bl * 1.4);
+                        g.save();
+                        g.globalCompositeOperation = 'lighter';
+                        g.globalAlpha = Math.sin(Math.PI * bl) * 0.5;
+                        g.drawImage(glowSprite('#c8d2ff'), sx - br, sy - br, br * 2, br * 2);
+                        g.restore();
+                    }
+                    g.globalAlpha = Math.pow(e, 1.4) * 0.9;
+                    drawGlyph(g, labels[i], '#7f93ff', fam, sz, sx, sy);
+                    g.globalAlpha = sm((e - 0.45) / 0.55);
+                    drawGlyph(g, labels[i], SK.hi, fam, sz, sx, sy);
+                    return;
+                }
                 drawGlyph(g, labels[i], hl ? (u > 0.65 ? SK.hi : ac) : SK.fg, fam, sz, sx, sy);
             });
             g.globalAlpha = 0.9;
@@ -5813,7 +6458,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             g.font = '600 11px ' + fam;
             g.textBaseline = 'alphabetic';
             g.textAlign = 'left';
-            g.fillText(u < 0.65 ? 'FIELD SCAN' : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
+            g.fillText(u < 0.65 ? (ev === 'vacuum' ? 'SEARCHING' + '...'.slice(0, (t / 300 | 0) % 4) : 'FIELD SCAN') : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
             g.textAlign = 'right';
             g.fillText('RNG ' + D.toFixed(1), W - 18, 26);
             if (ev) {
@@ -6127,6 +6772,19 @@ function go(screen) {
     if (screen === 'upgrade') {
         renderUpgrade();
     }
+    if (screen === 'synth') {
+        renderSynth();
+    }
+    if (screen === 'catinv') {
+        syNavSync();
+    }
+    if (screen === 'electro') {
+        $('elxMsg').textContent = '';
+        renderElx();
+    }
+    if (screen === 'bonds') {
+        elxNavSync();
+    }
     if (screen === 'game') {
         upNavSync();
     }
@@ -6237,6 +6895,7 @@ function discoveredSymbols() {
     const set = new Set();
     collection.forEach(c => (c.elements || []).forEach(e => set.add(e[0])));
     JOKE_SYMS.forEach(s => set.delete(s));
+    VOID_SYMS.forEach(s => set.delete(s));
     foundCache = { col: collection, n: collection.length, set };
     return set;
 }
@@ -6252,6 +6911,20 @@ function jokesFound() {
         }
     }));
     jokeFoundCache = { n: collection.length, s };
+    return s;
+}
+let voidFoundCache = null;
+function voidsFound() {
+    if (voidFoundCache && voidFoundCache.n === collection.length) {
+        return voidFoundCache.s;
+    }
+    const s = new Set();
+    collection.forEach(c => (c.elements || []).forEach(e => {
+        if (isVoid(e[0])) {
+            s.add(e[0]);
+        }
+    }));
+    voidFoundCache = { n: collection.length, s };
     return s;
 }
 // Dice the server can roll again. Each press of Roll takes the next number from this
@@ -6339,7 +7012,7 @@ function acParams(b, more) {
             F[k] = b.fam[k];
         }
     });
-    return Object.assign({ L: b.oddsLuck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0 }, more);
+    return Object.assign({ L: b.oddsLuck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0, P3: bondBonus().jokes3 ? 1 : 0, Q: +ionBoost().toFixed(4), Qc: ionClimb() }, more);
 }
 // the event behind a press, if it's one that changes rolls
 function acEvent() {
@@ -6422,7 +7095,42 @@ async function acLoad() {
     if (data.legacy) {
         acLegacyApply(data.legacy);
     }
+    syLogFlush();
 }
+// synthesised copies the rolls can check get logged with the server as they're made, or as soon as it can be reached
+let syLogQ = [];
+try {
+    syLogQ = JSON.parse(localStorage.getItem('elementalSynthLog') || '[]');
+} catch (e) { }
+function syLogSave() {
+    try {
+        localStorage.setItem('elementalSynthLog', JSON.stringify(syLogQ));
+    } catch (e) { }
+}
+function synthLog(id, src) {
+    syLogQ.push({ s: src, c: id });
+    syLogSave();
+    syLogFlush();
+}
+let syLogBusy = null;
+function syLogFlush() {
+    if (!syLogBusy && sb && cloudUser && syLogQ.length) {
+        syLogBusy = syLogSend().finally(() => syLogBusy = null);
+    }
+    return syLogBusy || Promise.resolve();
+}
+async function syLogSend() {
+    const batch = syLogQ.slice(0, 20);
+    const { data, error } = await sb.rpc('synth_log', { p_items: batch });
+    if (error || !data || data.error) {
+        return;
+    }
+    // logged or turned down are done with; anything told to wait stays for the next try
+    const done = new Set((data.ok || []).concat(data.no || []));
+    syLogQ = syLogQ.filter(x => !done.has(x.s));
+    syLogSave();
+}
+setInterval(syLogFlush, 60000);
 // Bond network
 const NET_SEED = 20261021;
 const NET_QTY = 23;
@@ -6448,8 +7156,9 @@ const OUTER_PER_ORBIT = 207;
 const OUTER_RADIUS = 3420;
 const OUTER_STEP = 180;
 const OUTER_BRIDGES = 6;
-const OUTER_TOTALS = { quark: 100, event: 100, cdur: 50, dup: 25, refund: 25, storm: 100 };
-const OUTER_SHARE = [['quark', 0.25], ['event', 0.2], ['cdur', 0.2], ['dup', 0.12], ['refund', 0.12], ['storm', 0.11]];
+// line buffs: [kind, total across the ring, share of the lines]. One line deep in each ring is a shop stock slot instead
+const OUTER_BUFFS = [['quark', 60, 0.1], ['event', 60, 0.09], ['storm', 60, 0.07], ['cdur', 30, 0.08], ['droprate', 50, 0.07], ['stock', 30, 0.08],
+    ['price', 10, 0.07], ['dup', 15, 0.07], ['refund', 15, 0.07], ['heavy', 20, 0.06], ['alone', 30, 0.06], ['evlen', 20, 0.06], ['auto', 100, 0.06], ['secret', 5, 0.06]];
 // each bridge unlocks a feature: [kind, cosmetic, what its outer slot asks for]
 // the two joke bridges work in order: the first one lit gives the joke table, the second the joke catalysts
 const BRIDGE_UNLOCKS = [['ion', 0, ['Co', 240]], ['hold', 0, ['Sb', 360]], ['upgrade', 0, ['Sc', 370]],
@@ -6458,6 +7167,23 @@ const BRIDGE_UNLOCKS = [['ion', 0, ['Co', 240]], ['hold', 0, ['Sb', 360]], ['upg
 const BRIDGE_ORDER = [3, 1, 5, 0, 2, 4];
 // the rest of the cosmetics are out in the orbits: [orbit, cosmetic]
 const OUTER_UNLOCKS = [[1, 'blueprint'], [1, 'holographic'], [2, 'notebook'], [2, 'retro'], [2, 'astral']];
+// outer ring 2: six circles of 200 slots out past outer ring 1, each joined to it by one line that unlocks a mechanic.
+// Laid out after everything else with its own seed, so no slot that already exists moves or changes
+const RING2_SEED = 20261103;
+const RING2_SLOTS = 200;
+const RING2_STEP = 120;
+const RING2_SPACING = 112;
+const RING2_GAP = 650;
+const RING2_UNLOCKS = ['leveller', 'electrolysis', 'hyper', 'synthesis', 'bonusroll', 'jokes3'];
+// what each circle's first slot asks for
+const RING2_GATES = [['Yb', 900], ['Lu', 700], ['Hf', 800], ['Re', 600], ['Os', 650], ['Ir', 550]];
+const RING2_COL = ['#7cf2c8', '#ff9f5a', '#ffe14d', '#c58cff', '#7dff6a', '#8aa2ff'];
+// line buffs inside the circles, as totals across all six
+const RING2_BUFFS = [['ionup', 100, 0.1], ['droprate', 100, 0.08], ['droplux', 50, 0.06], ['stock', 40, 0.06], ['price', 10, 0.05], ['refresh', 2, 0.04],
+    ['dup', 10, 0.05], ['refund', 10, 0.05], ['quark', 30, 0.06], ['event', 30, 0.06], ['evlen', 20, 0.05], ['storm', 30, 0.05], ['cdur', 15, 0.05],
+    ['ionstep', 25, 0.05], ['jokeup', 50, 0.05], ['elxcut', 20, 0.05], ['synthkeep', 10, 0.04], ['agentkeep', 10, 0.05]];
+// outer ring 2 slots take two Bonding Agents each
+const RING2_AGENTS = 2;
 const COSMETIC_NAMES = {
     oscilloscope: 'Oscilloscope scanner', holographic: 'Holographic scanner', blueprint: 'Blueprint page', notebook: 'Lab notebook page',
     retro: 'Retro spawn effects', astral: 'Astral spawn effects', warp: 'Warp scanner', gameover: 'Game Over page'
@@ -6473,6 +7199,20 @@ try {
 function saveNet() {
     try {
         localStorage.setItem('elementalNetwork', JSON.stringify(netState));
+    } catch (e) { }
+}
+// Bonding Agents already put into outer ring 2 slots that need a second one
+var netAgents = {};
+try {
+    netAgents = JSON.parse(localStorage.getItem('elementalBondAgents') || '{}');
+} catch (e) { }
+var levellerOn = false;
+try {
+    levellerOn = localStorage.getItem('elementalLeveller') === '1';
+} catch (e) { }
+function saveNetAgents() {
+    try {
+        localStorage.setItem('elementalBondAgents', JSON.stringify(netAgents));
     } catch (e) { }
 }
 const seededRnd = a => () => {
@@ -6655,12 +7395,23 @@ function layNetwork() {
     const to = nodes.slice(base).filter(n => n.orbit === 0).reduce((b, n) => Math.hypot(n.x - from.x, n.y - from.y) < Math.hypot(b.x - from.x, b.y - from.y) ? n : b);
     to.req = { t: 'el', k: 'O', n: 1000 };
     edges.push({ a: from.id, b: to.id, ring: NET_RINGS + 2, orbit: 0, kind: 'drop', val: 0.2 });
+    const outerEnd = nodes.length;
+    genRing2(nodes, edges, reqFor);
     const adj = nodes.map(() => []);
     edges.forEach((e, i) => {
         adj[e.a].push(i);
         adj[e.b].push(i);
     });
-    return { nodes, edges, adj, base };
+    return { nodes, edges, adj, base, outerEnd };
+}
+// a joke element's share of a roll, next to the real elements, for slots that ask for one
+function jokeShare(sym, luck, share) {
+    const j = elementBySymbol[sym];
+    if (!j) {
+        return 0;
+    }
+    const tot = ELEMENTS.reduce((s, e) => s + Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5) / e[2], 0);
+    return share[sym] = Math.pow(1 + 1.5 * (Math.log10(j[2] + 1) / 3), (luck / 100) / 1.5) / j[2] / tot;
 }
 // expected rolls to get a slot's full amount at a given luck and chain chance
 const shareMemo = {};
@@ -6676,9 +7427,14 @@ function rollsFor(q, luck, denom) {
         Object.keys(share).forEach(k => share[k] /= tot);
     }
     const go = 1 / denom;
+    const sh = k => share[k] != null ? share[k] : jokeShare(k, luck, share);
     let p;
-    if (q.t === 'el') {
-        p = share[q.k] * (1 - go);
+    if (q.t === 'ion') {
+        // the first element of a roll, with an ion that size (ions only ever land on the first)
+        const base = q.s > 0 ? ION_PLUS : ION_MINUS;
+        p = sh(q.k) * base * Math.pow(base, Math.abs(q.s) - 1);
+    } else if (q.t === 'el') {
+        p = sh(q.k) * (1 - go);
     } else if (q.t === 'fam') {
         p = ELEMENTS.filter(e => familyOf(e[0]) === q.k).reduce((s, e) => s + share[e[0]], 0) * (1 - go);
     } else if (q.t === 'has') {
@@ -6772,35 +7528,167 @@ function genOuter(nodes, edges, reqFor) {
     const free = outerEdges.filter(e => !taken.has(e));
     free.forEach(e => {
         let x = R();
-        e.kind = OUTER_SHARE.find(([, p]) => (x -= p) < 0)[0];
+        e.kind = OUTER_BUFFS.find(([, , p]) => (x -= p) < 0)[0];
     });
-    Object.keys(OUTER_TOTALS).forEach(kind => {
-        const list = free.filter(e => e.kind === kind);
-        const wsum = list.reduce((s, e) => s + Math.pow(e.orbit + 1, 1.5), 0);
-        list.forEach(e => e.val = Math.max(0.01, Math.round(OUTER_TOTALS[kind] * Math.pow(e.orbit + 1, 1.5) / wsum * 100) / 100));
+    ringBuffs(free.filter(e => e !== outerSlotLine(free, nodes, hard)), OUTER_BUFFS, e => Math.pow(e.orbit + 1, 1.5));
+}
+function genRing2(nodes, edges, reqFor) {
+    const R = seededRnd(RING2_SEED);
+    const rim = nodes.filter(n => n.orbit === OUTER_ORBITS - 1);
+    // circle size: rings of slots round a centre slot until there are 200
+    const counts = [1];
+    for (let j = 1; counts.reduce((a, b) => a + b, 0) < RING2_SLOTS; j++) {
+        counts.push(Math.round(2 * Math.PI * j * RING2_STEP / RING2_SPACING));
+    }
+    counts[counts.length - 1] -= counts.reduce((a, b) => a + b, 0) - RING2_SLOTS;
+    const discR = (counts.length - 1) * RING2_STEP;
+    const centreR = OUTER_RADIUS + (OUTER_ORBITS - 1) * OUTER_STEP + RING2_GAP + discR;
+    for (let k = 0; k < RING2_UNLOCKS.length; k++) {
+        const ca = k / RING2_UNLOCKS.length * Math.PI * 2;
+        const cx = Math.cos(ca) * centreR;
+        const cy = Math.sin(ca) * centreR;
+        const rings = [];
+        counts.forEach((c, j) => {
+            const off = R() * Math.PI * 2;
+            const list = [];
+            for (let i = 0; i < c; i++) {
+                const a = off + (i + (j ? (R() - 0.5) * 0.35 : 0)) / c * Math.PI * 2;
+                const r = j * RING2_STEP + (j ? (R() - 0.5) * 28 : 0);
+                const n = { id: nodes.length, x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, orbit: OUTER_ORBITS, circle: k, ring: NET_RINGS + 6 };
+                nodes.push(n);
+                list.push(n);
+            }
+            rings.push(list);
+        });
+        const near = (list, n) => list.reduce((b, m) => Math.hypot(m.x - n.x, m.y - n.y) < Math.hypot(b.x - n.x, b.y - n.y) ? m : b, list[0]);
+        const link = (a, b) => edges.push({ a: a.id, b: b.id, ring: NET_RINGS + 6, orbit: OUTER_ORBITS, circle: k });
+        rings.forEach((list, j) => {
+            if (!j) {
+                return;
+            }
+            list.forEach((n, i) => {
+                link(near(rings[j - 1], n), n);
+                // round the ring: most neighbours touch, so there are loops to choose between
+                if (list.length > 2 && R() < 0.6) {
+                    link(n, list[(i + 1) % list.length]);
+                }
+            });
+        });
+        // the way in: the rim slot facing outer ring 1, and the line that unlocks this circle's mechanic
+        const entry = rings[rings.length - 1].reduce((b, n) => Math.hypot(n.x, n.y) < Math.hypot(b.x, b.y) ? n : b);
+        const gate = near(rim, entry);
+        edges.push({ a: gate.id, b: entry.id, ring: NET_RINGS + 6, orbit: OUTER_ORBITS, circle: k, kind: RING2_UNLOCKS[k], val: 1, gate: true });
+        // slots get harder the further they are from the way in
+        const all = rings.flat();
+        const depth = new Map([[entry, 0]]);
+        const queue = [entry];
+        const adj = new Map(all.map(n => [n, []]));
+        edges.forEach(e => {
+            if (e.circle === k && !e.gate) {
+                adj.get(nodes[e.a]).push(nodes[e.b]);
+                adj.get(nodes[e.b]).push(nodes[e.a]);
+            }
+        });
+        while (queue.length) {
+            const n = queue.shift();
+            adj.get(n).forEach(m => {
+                if (!depth.has(m)) {
+                    depth.set(m, depth.get(n) + 1);
+                    queue.push(m);
+                }
+            });
+        }
+        const deepest = Math.max(...depth.values());
+        all.forEach(n => {
+            const f = depth.get(n) / deepest;
+            n.depth = depth.get(n);
+            // a little past outer ring 1 (rings 26-28) at the way in, up to ring 30 at the far side
+            n.ring = NET_RINGS + 3 + Math.round(f * 3);
+            const roll = R();
+            if (f > 0.8 && roll < 0.12) {
+                // the hardest: one of the commoner joke elements
+                n.req = { t: 'el', k: JOKES[Math.floor(R() * 3)][0], n: 1 };
+            } else if (f > 0.15 && roll < 0.2) {
+                // an ion: +1 to +2 of something common, and further in a -1
+                const els = ELEMENTS.filter(e => e[2] < 40 + f * 400);
+                const sym = els[Math.floor(R() * els.length)][0];
+                n.req = { t: 'ion', k: sym, n: 1, s: f > 0.6 && R() < 0.35 ? -1 : f > 0.4 ? 2 : 1 };
+            } else {
+                n.req = reqFor(n.ring, R);
+                const q = n.req;
+                if (q.t === 'cp' && rollsFor(q, 700, 3) > 4e5) {
+                    const els = ELEMENTS.filter(e => parseFormula(q.l)[e[0]]);
+                    n.req = { t: 'has', k: els.reduce((a, b) => b[2] > a[2] ? b : a)[0], n: 12 };
+                }
+            }
+        });
+        entry.req = { t: 'el', k: RING2_GATES[k][0], n: RING2_GATES[k][1] };
+    }
+    // line buffs inside the circles
+    const inside = edges.filter(e => e.circle != null && !e.gate);
+    inside.forEach(e => {
+        let x = R();
+        e.kind = RING2_BUFFS.find(([, , p]) => (x -= p) < 0)[0];
+    });
+    const w = e => 1 + Math.max(nodes[e.a].depth, nodes[e.b].depth);
+    ringBuffs(inside.filter(e => e !== outerSlotLine(inside, nodes, n => n.depth)), RING2_BUFFS, w);
+}
+// the line furthest in becomes a shop stock slot
+function outerSlotLine(list, nodes, hard) {
+    let best = null;
+    let bc = -1;
+    list.forEach(e => {
+        const c = Math.max(hard(nodes[e.a]), hard(nodes[e.b]));
+        if (c > bc) {
+            bc = c;
+            best = e;
+        }
+    });
+    if (best) {
+        best.kind = 'slot';
+        best.val = 1;
+    }
+    return best;
+}
+// shares each buff's total out over its lines, more for the harder ones
+function ringBuffs(list, buffs, weight) {
+    buffs.forEach(([kind, total]) => {
+        const mine = list.filter(e => e.kind === kind);
+        const wsum = mine.reduce((s, e) => s + weight(e), 0);
+        mine.forEach(e => e.val = Math.max(0.01, Math.round(total * weight(e) / wsum * 100) / 100));
     });
 }
 function net() {
     return NET || (NET = genNetwork());
 }
 const netFilled = id => !!netState[id];
-// outer ring stays off the map until one of its slots can be reached
+// outer ring 1 stays off the map until one of its slots can be reached, and each outer ring 2 circle until one of its own can
 let outerMemo = null;
 function outerShown() {
     if (!outerMemo || outerMemo.v !== netVer) {
         const N = net();
-        outerMemo = { v: netVer, on: N.nodes.slice(N.base).some(n => netFilled(n.id) || netReachable(n.id)) };
+        const open = list => list.some(n => netFilled(n.id) || netReachable(n.id));
+        const ring1 = N.nodes.slice(N.base, N.outerEnd);
+        outerMemo = { v: netVer, on: open(ring1), circles: RING2_UNLOCKS.map((u, k) => open(N.nodes.filter(n => n.circle === k))) };
     }
     return outerMemo.on;
 }
+// nodes: every slot, for looking one up by id. list: the slots on the map. edges: the lines on the map
+let shownMemo = null;
 function shownNet() {
     const N = net();
-    if (outerShown()) {
-        return N;
+    const on = outerShown();
+    const key = on + ':' + outerMemo.circles.join();
+    if (!shownMemo || shownMemo.key !== key) {
+        const show = n => n.orbit == null || (n.circle == null ? on : outerMemo.circles[n.circle]);
+        const list = N.nodes.filter(show);
+        shownMemo = { key, nodes: N.nodes, list, edges: N.edges.filter(e => show(N.nodes[e.a]) && show(N.nodes[e.b])), adj: N.adj };
     }
-    return N.inner || (N.inner = { nodes: N.nodes.slice(0, N.base), edges: N.edges.filter(e => e.orbit == null), adj: N.adj });
+    return shownMemo;
 }
-const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos', 'drop', 'upgrade']);
+const slotCol = n => n.circle != null ? RING2_COL[n.circle] : NET_RING_COL[Math.min(NET_RING_COL.length - 1, n.ring)];
+const lineCol = e => e.circle != null ? RING2_COL[e.circle] : NET_RING_COL[Math.min(NET_RING_COL.length - 1, e.ring)];
+const NET_BIG = new Set(['mult', 'slot', 'chain', 'ion', 'joke', 'hold', 'jokecat', 'cos', 'drop', 'upgrade', ...RING2_UNLOCKS]);
 const isJokeLine = e => e.kind === 'joke' || e.kind === 'jokecat';
 // which of the two the line gives: the joke table if it was lit first (or no other is lit yet), the joke catalysts if second
 function jokeLineGives(e) {
@@ -6816,7 +7704,12 @@ function edgeDesc(e) {
     const outer = {
         quark: `+${v}% quarks`, event: `+${v}% event chance`, cdur: `+${v}% catalyst time`, dup: `+${v}% duplicate catalysts`,
         refund: `+${v}% catalyst refunds`, storm: `+${v}% Quark Storm size`, hold: 'Shop hold', drop: 'Catalyst drops (1 in 500 presses of Roll)',
-        ion: 'Unlocks ionisation', upgrade: 'Unlocks catalyst upgrades', cos: 'Unlocks ' + COSMETIC_NAMES[v]
+        ion: 'Unlocks ionisation', upgrade: 'Unlocks catalyst upgrades', cos: 'Unlocks ' + COSMETIC_NAMES[v],
+        ionup: `+${v}% ion chance`, droprate: `+${v}% catalyst drops`, heavy: `+${v}% quarks for each chained element`, alone: `+${v}% quarks on unchained rolls`,
+        evlen: `+${v}% event length`, secret: `+${v}% secret effect chance`, droplux: `+${v}% rarer catalyst drops`, ionstep: `Ions climb a charge ${v}% more often`,
+        jokeup: `+${v}% joke element chance`, elxcut: `−${v}% Electrolysis costs`, synthkeep: `${v}% chance a synthesis keeps one element`,
+        agentkeep: `${v}% chance a Bonding Agent isn't used up`, leveller: 'Unlocks the Leveller toggle', electrolysis: 'Unlocks Electrolysis',
+        synthesis: 'Unlocks Catalyst Synthesis', hyper: 'Unlocks the Hypercharged event', bonusroll: '+1 bonus roll, past the usual 3', jokes3: 'Unlocks 3 new joke elements'
     };
     if (isJokeLine(e)) {
         return jokeLineGives(e) === 'table' ? 'Unlocks the joke table' : 'Joke catalysts in the shop';
@@ -6824,6 +7717,9 @@ function edgeDesc(e) {
     return outer[e.kind] || (e.kind === 'luck' ? `+${v}% luck` : e.kind === 'mult' ? `×${v} luck` : e.kind === 'auto' ? `+${v}% autoroll speed` : e.kind === 'chain' ? 'Chain chance +1 step' : e.kind === 'extra' ? '+1 bonus roll' : e.kind === 'price' ? `−${v}% shop prices` : e.kind === 'refresh' ? `−${v} min shop restock` : e.kind === 'stock' ? `+${v}% rarer shop stock` : '+1 shop stock slot');
 }
 function reqShort(q) {
+    if (q.t === 'ion') {
+        return withIon(q.k, q.s);
+    }
     if (q.t === 'el') {
         return (q.n > 1 ? q.n + ' ' : '') + q.k;
     }
@@ -6865,9 +7761,17 @@ function payIndex(cp) {
     }
     return payIdx;
 }
+// ion slots only ask that you've rolled that ion at some point: nothing is used up
+const ionHad = q => {
+    const m = ionMarks[q.k] || [0, 0];
+    return q.s > 0 ? m[0] >= q.s : m[1] >= -q.s;
+};
 function eligible(q) {
     const avail = c => (c.count || 1) - (c.spent || 0);
     let list;
+    if (q.t === 'ion') {
+        return [];
+    }
     if (q.t === 'el') {
         const c = findFormula(q.k);
         list = c ? [c] : [];
@@ -6875,6 +7779,8 @@ function eligible(q) {
         const ix = payIndex(q.t === 'cp');
         list = (q.t === 'cp' ? ix.cp : q.t === 'fam' ? ix.fam : ix.has).get(q.k) || [];
     }
+    // plus anything made by Electrolysis
+    list = list.concat(madeFor(q));
     return list.map(c => ({ c, n: avail(c) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
 }
 var netVer = 0;
@@ -6884,11 +7790,14 @@ function canPay(q) {
     if (m && m.v === netVer) {
         return m.ok;
     }
-    const ok = eligible(q).reduce((s, x) => s + x.n, 0) >= q.n;
+    const ok = q.t === 'ion' ? ionHad(q) : eligible(q).reduce((s, x) => s + x.n, 0) >= q.n;
     payMemo.set(q, { v: netVer, ok });
     return ok;
 }
 function payPlan(q) {
+    if (q.t === 'ion') {
+        return ionHad(q) ? [] : null;
+    }
     let need = q.n;
     const plan = [];
     eligible(q).forEach(x => {
@@ -6935,69 +7844,42 @@ function fillFree(id) {
     setTimeout(jokeIntroCheck, 600);
     applyCosmetics();
 }
-// quark pity: outer ring slots can be bought outright once 3 bridges are lit
-let pityMemo = null;
-function pityOn() {
-    if (!pityMemo || pityMemo.v !== netVer) {
-        pityMemo = { v: netVer, on: net().edges.filter(e => e.bridge && edgeLit(e)).length >= 3, price: new Map() };
-    }
-    return pityMemo.on;
-}
-function pityPrice(n) {
-    pityOn();
-    const key = n.id + ':' + collection.length;
-    if (pityMemo.price.has(key)) {
-        return pityMemo.price.get(key);
-    }
-    const b = activeBuffStats();
-    const q = n.req;
-    const left = Math.max(1, q.n - eligible(q).reduce((s, x) => s + x.n, 0));
-    const rolls = rollsFor(q, Math.round(b.luck - catBonus().luck), b.chainDenom) * left / q.n;
-    const price = Number(Math.min(2.5e7, Math.max(1e6, rolls * 0.5)).toPrecision(2));
-    pityMemo.price.set(key, price);
-    return price;
-}
-const pityReady = n => n.orbit != null && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req) && pityOn() && canAfford(pityPrice(n));
 const agentReady = n => catInv.bondagent > 0 && !netFilled(n.id) && netReachable(n.id) && !canPay(n.req);
+// agents a slot still needs: outer ring 2 slots take two
+const agentsLeft = n => (n.circle != null ? RING2_AGENTS : 1) - (netAgents[n.id] || 0);
 function useAgent(n) {
-    srcSpend('bondagent', 1);
-    catInv.bondagent--;
-    if (!catInv.bondagent) {
-        delete catInv.bondagent;
-    }
-    saveCats();
-    fillFree(n.id);
-}
-function pityAsk(n) {
-    const price = pityPrice(n);
-    const w = openDialog('<h2>Use quarks for this slot?</h2><p>This will spend <b>' + formatNumber(price) + ' quarks</b> to fill the slot without its ' + esc(reqShort(n.req)) + '. It can\'t be undone.</p>' +
-        '<div class="btn-row"><button class="primary" id="pityYes">Spend ' + formatNumber(price) + '</button><button class="ghost" id="pityNo">Cancel</button></div>');
-    w.querySelector('#pityNo').onclick = closeDialog;
-    w.querySelector('#pityYes').onclick = () => {
-        closeDialog();
-        if (!pityReady(n)) {
-            return;
+    // outer ring 2 can let one go further
+    if (Math.random() >= bondBonus().agentkeep / 100) {
+        srcSpend('bondagent', 1);
+        catInv.bondagent--;
+        if (!catInv.bondagent) {
+            delete catInv.bondagent;
         }
-        addQuarks(-price);
-        fillFree(n.id);
-        netFlash(n.id);
-        bondSummary();
-        $('netTotals').innerHTML = netTotalsHtml();
-        renderRollStats();
-        netDraw();
-    };
+        saveCats();
+    }
+    if (agentsLeft(n) > 1) {
+        netAgents[n.id] = (netAgents[n.id] || 0) + 1;
+        saveNetAgents();
+        netVer++;
+        return false;
+    }
+    delete netAgents[n.id];
+    saveNetAgents();
+    fillFree(n.id);
+    return true;
 }
 // joke element bonuses, no luck or speed ones
 const JOKE_BONUS = {
     Um: ['event', 25], Zz: ['quark', 6], Mu: ['quark', 15], Ln: ['refund', 10], Df: ['cdur', 15], Cz: ['storm', 25], Mb: ['dup', 5], Dj: ['evlen', 25],
-    Ha: ['price', 5], Ad: ['refresh', 2], Pi: ['quark', 3.14], Nu: ['alone', 50], Xx: ['secret', 5], Uo: ['jokerate', 100], Zo: ['cos', 'warp'], Gg: ['cos', 'gameover']
+    Ha: ['price', 5], Ad: ['refresh', 2], Pi: ['quark', 3.14], Nu: ['alone', 50], Xx: ['secret', 5], Uo: ['jokerate', 100], Zo: ['cos', 'warp'], Gg: ['cos', 'gameover'],
+    Oo: ['droprate', 25], Bf: ['cdur', 10], Fz: ['secret', 10]
 };
 const jokeBonusText = sym => {
     const [k, v] = JOKE_BONUS[sym];
     return {
         event: `Events are ${v}% more likely`, quark: `+${v}% quarks per roll`, refund: `${v}% chance a single-roll catalyst isn't used up`,
         cdur: `Catalysts last ${v}% longer`, storm: `Quark Storms pay ${v}% more`, dup: `${v}% chance a bought catalyst arrives as two`, evlen: `Events last ${v}% longer`,
-        price: `Shop prices ${v}% lower`, refresh: `The shop restocks ${v} minutes sooner`, alone: `Rolls with no chain earn ${v}% more quarks`, secret: `Secret effects are ${v}% more likely`,
+        price: `Shop prices ${v}% lower`, refresh: `The shop restocks ${v} minutes sooner`, alone: `Rolls with no chain earn ${v}% more quarks`, droprate: `+${v}% catalyst drops`, secret: `Secret effects are ${v}% more likely`,
         jokerate: 'Joke catalysts appear twice as often in the shop', cos: v === 'warp' ? 'Unlocks the Warp scanner' : 'Unlocks the Game Over page and the Final Element badge'
     }[k];
 };
@@ -7010,7 +7892,8 @@ function netBonus() {
     const r = {
         add: 0, mult: 1, auto: 0, price: 0, refresh: 0, stock: 0, slots: 0, chain: 0, extra: 0,
         quark: 0, event: 0, cdur: 0, dup: 0, refund: 0, storm: 0, hold: false, ion: false, joke: false, jokecat: false, upgrade: false, cos: [],
-        evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0
+        evlen: 0, alone: 0, secret: 0, jokerate: 0, drop: 0, ionup: 0, droprate: 0, heavy: 0, droplux: 0, ionstep: 0, jokeup: 0, elxcut: 0, synthkeep: 0, agentkeep: 0,
+        leveller: false, electrolysis: false, synthesis: false, hyper: false, bonusroll: false, jokes3: false
     };
     let jokeLines = 0;
     net().edges.forEach(e => {
@@ -7062,7 +7945,7 @@ function bondBonus() {
     return r;
 }
 function bondSummary() {
-    const N = shownNet().nodes.length;
+    const N = shownNet().list.length;
     const f = Object.keys(netState).length;
     $('homeBonds').textContent = f + ' / ' + N + ' slots';
 }
@@ -7107,11 +7990,10 @@ function netDraw() {
     const dpr = cv.width / Math.max(1, cv.getBoundingClientRect().width);
     const W = cv.width / dpr;
     const H = cv.height / dpr;
-    const { nodes, edges } = shownNet();
+    const { nodes, list, edges } = shownNet();
     const z = netView.z;
     const t = performance.now();
     const head = netDraw.font || (netDraw.font = getComputedStyle(document.body).getPropertyValue('--head'));
-    const ringCol = r => NET_RING_COL[Math.min(NET_RING_COL.length - 1, r)];
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, W, H);
     // blueprint grid
@@ -7137,7 +8019,7 @@ function netDraw() {
     const vis = (x, y) => x > -pad && x < W + pad && y > -pad && y < H + pad;
     const far = z < 0.45;
     if (z < 0.24) {
-        const pic = netFarPicture(ringCol);
+        const pic = netFarPicture();
         const k = z / pic.s;
         g.imageSmoothingEnabled = true;
         g.drawImage(pic.cv, (pic.x0 - netView.x) * z + W / 2, (pic.y0 - netView.y) * z + H / 2, pic.cv.width / pic.r * k, pic.cv.height / pic.r * k);
@@ -7155,6 +8037,9 @@ function netDraw() {
         });
         g.globalAlpha = 1;
         $('netJump').hidden = true;
+        if (drawBeam(g, S, z)) {
+            any = true;
+        }
         if (any) {
             netDrawSoon();
         }
@@ -7175,7 +8060,7 @@ function netDraw() {
         }
         const on = edgeLit(e);
         if (on) {
-            lit.push([ax, ay, bx, by, ringCol(e.ring)]);
+            lit.push([ax, ay, bx, by, lineCol(e)]);
         } else {
             const p = NET_BIG.has(e.kind) || far ? solid : dashed;
             p.moveTo(ax, ay);
@@ -7221,7 +8106,7 @@ function netDraw() {
             const w = g.measureText(txt).width + 10;
             g.fillStyle = 'rgba(10,16,14,.85)';
             g.fillRect(mx - w / 2, my - 9 * k, w, 18 * k);
-            g.fillStyle = on ? ringCol(e.ring) : NET_BIG.has(e.kind) ? '#f0c419' : 'rgba(232,239,233,.55)';
+            g.fillStyle = on ? lineCol(e) : NET_BIG.has(e.kind) ? '#f0c419' : 'rgba(232,239,233,.55)';
             g.fillText(txt, mx, my + 0.5);
         });
     }
@@ -7235,7 +8120,7 @@ function netDraw() {
         const ring = new Path2D();
         const red = new Path2D();
         const rr = Math.max(2, R);
-        nodes.forEach(n => {
+        list.forEach(n => {
             const [x, y] = S(n.x, n.y);
             if (!vis(x, y)) {
                 return;
@@ -7243,17 +8128,21 @@ function netDraw() {
             const filled = netFilled(n.id);
             const avail = !filled && netReachable(n.id) && canPay(n.req);
             anyAvail = anyAvail || avail;
-            const key = filled ? ringCol(n.ring) : 'rgba(232,239,233,.35)';
+            const key = filled ? slotCol(n) : 'rgba(232,239,233,.35)';
             if (!groups.has(key)) {
                 groups.set(key, new Path2D());
             }
             const p = groups.get(key);
             p.moveTo(x + rr, y);
             p.arc(x, y, rr, 0, Math.PI * 2);
-            if (avail || agentReady(n) || pityReady(n)) {
+            if (avail || agentReady(n)) {
                 const p2 = avail ? ring : red;
                 p2.moveTo(x + rr + 4, y);
                 p2.arc(x, y, rr + 4, 0, Math.PI * 2);
+                if (!avail && agentsLeft(n) > 1) {
+                    p2.moveTo(x + rr + 8, y);
+                    p2.arc(x, y, rr + 8, 0, Math.PI * 2);
+                }
             }
         });
         groups.forEach((p, col) => {
@@ -7268,7 +8157,7 @@ function netDraw() {
         g.stroke(red);
         g.globalAlpha = 1;
     } else {
-        nodes.forEach(n => {
+        list.forEach(n => {
             const [x, y] = S(n.x, n.y);
             if (!vis(x, y)) {
                 return;
@@ -7276,8 +8165,8 @@ function netDraw() {
             const filled = netFilled(n.id);
             const reach = netReachable(n.id);
             const avail = !filled && reach && canPay(n.req);
-            const pity = !avail && (agentReady(n) || pityReady(n));
-            const col = ringCol(n.ring);
+            const pity = !avail && agentReady(n);
+            const col = slotCol(n);
             anyAvail = anyAvail || avail || pity;
             g.globalAlpha = filled || reach ? 1 : 0.35;
             const hex = n.req.t === 'cp' || n.req.t === 'has';
@@ -7293,6 +8182,11 @@ function netDraw() {
                 g.strokeStyle = avail ? '#f0c419' : '#ff5a4a';
                 g.lineWidth = Math.max(1, 2 * z);
                 g.stroke();
+                // a second red ring while the slot still needs two agents
+                if (!avail && agentsLeft(n) > 1) {
+                    slotPath(g, x, y, R + (13 + 5 * pulse) * z, hex);
+                    g.stroke();
+                }
             }
             if (netSel === n.id) {
                 g.globalAlpha = 1;
@@ -7352,25 +8246,26 @@ function netDraw() {
     if (jb) {
         jb.hidden = !(off.length && !anyAvail);
     }
+    const beaming = drawBeam(g, S, z);
     // keep animating only while something on screen pulses
-    if (anyAvail || off.length) {
+    if (anyAvail || off.length || beaming) {
         netDrawSoon();
     }
 }
 let netFarPic = null;
-function netFarPicture(ringCol) {
-    const key = netVer + ':' + Object.keys(netState).length + ':' + outerShown() + ':' + !!catInv.bondagent;
+function netFarPicture() {
+    const key = netVer + ':' + Object.keys(netState).length + ':' + shownNet().key + ':' + !!catInv.bondagent;
     if (netFarPic && netFarPic.key === key) {
         return netFarPic;
     }
-    const { nodes, edges } = shownNet();
+    const { nodes, list, edges } = shownNet();
     const s = 0.24;
     const r = Math.min(2, devicePixelRatio || 1);
     let x0 = Infinity;
     let y0 = Infinity;
     let x1 = -Infinity;
     let y1 = -Infinity;
-    nodes.forEach(n => {
+    list.forEach(n => {
         x0 = Math.min(x0, n.x);
         y0 = Math.min(y0, n.y);
         x1 = Math.max(x1, n.x);
@@ -7406,7 +8301,7 @@ function netFarPicture(ringCol) {
         }
         const [ax, ay] = P(nodes[e.a].x, nodes[e.a].y);
         const [bx, by] = P(nodes[e.b].x, nodes[e.b].y);
-        g.strokeStyle = ringCol(e.ring);
+        g.strokeStyle = lineCol(e);
         g.lineWidth = 2.5;
         g.beginPath();
         g.moveTo(ax, ay);
@@ -7414,8 +8309,8 @@ function netFarPicture(ringCol) {
         g.stroke();
     });
     const groups = new Map();
-    nodes.forEach(n => {
-        const key2 = netFilled(n.id) ? ringCol(n.ring) : 'rgba(232,239,233,.35)';
+    list.forEach(n => {
+        const key2 = netFilled(n.id) ? slotCol(n) : 'rgba(232,239,233,.35)';
         if (!groups.has(key2)) {
             groups.set(key2, new Path2D());
         }
@@ -7472,7 +8367,7 @@ function netGlideTo(x, y, z) {
     })(t0);
 }
 function netJump() {
-    const { nodes } = shownNet();
+    const { nodes } = net();
     let best = null;
     fillableIds().map(id => nodes[id]).forEach(n => {
         const d = Math.hypot(n.x - netView.x, n.y - netView.y);
@@ -7484,27 +8379,45 @@ function netJump() {
         netGlideTo(best.n.x, best.n.y, 1.1);
     }
 }
+// network buffs: the headline numbers up top, everything else in groups that open on a tap
+const netOpen = new Set();
 function netTotalsHtml() {
     const b = netBonus();
-    const rows = [['Luck', '+' + b.add.toFixed(2) + '%'], ['Luck multiplier', '×' + b.mult.toFixed(3)], ['Autoroll speed', '+' + b.auto.toFixed(1) + '%'], ['Shop prices', '−' + b.price.toFixed(2) + '%'], ['Shop restock', '−' + b.refresh.toFixed(2) + ' min'], ['Rarer shop stock', '+' + b.stock.toFixed(2) + '%'], ['Shop stock slots', '+' + b.slots], ['Bonus rolls', '+' + b.extra], ['Chain steps', '+' + b.chain]];
-    [['Quarks per roll', b.quark, '%'], ['Event chance', b.event, '%'], ['Catalyst duration', b.cdur, '%'], ['Duplicate catalysts', b.dup, '% chance'],
-        ['Single-roll catalysts kept', b.refund, '% chance'], ['Bigger Quark Storms', b.storm, '%']].forEach(([k, v, u]) => {
-        if (v) {
-            rows.push([k, '+' + v.toFixed(2) + u]);
+    const pc = (v, d = 1) => '+' + (+v.toFixed(d)) + '%';
+    const tiles = [['Luck', pc(b.add, 2)], ['Luck ×', '×' + b.mult.toFixed(3)], ['Chain', '+' + b.chain + ' step' + (b.chain === 1 ? '' : 's')],
+        ['Bonus rolls', '+' + (b.extra + (b.bonusroll ? 1 : 0))], ['Autoroll', pc(b.auto)], ['Shop slots', String(2 + b.slots)]];
+    const drop = b.drop ? '1 in ' + Math.round(100 / (b.drop * (1 + b.droprate / 100))) + ' presses' : '';
+    // [group, [[label, value or empty to skip]]]
+    const groups = [
+        ['Shop', [['Prices', b.price && '−' + (+b.price.toFixed(2)) + '%'], ['Restocks sooner', b.refresh && (+b.refresh.toFixed(2)) + ' min'], ['Rarer stock', b.stock && pc(b.stock, 2)],
+            ['Duplicate catalysts', b.dup && pc(b.dup, 2)], ['Single-roll catalysts kept', b.refund && pc(b.refund, 2)]]],
+        ['Quarks', [['Per roll', b.quark && pc(b.quark, 2)], ['Per chained element', b.heavy && pc(b.heavy, 2)], ['Unchained rolls', b.alone && pc(b.alone, 2)],
+            ['Quark Storm size', b.storm && pc(b.storm, 2)]]],
+        ['Events', [['Chance', b.event && pc(b.event, 2)], ['Length', b.evlen && pc(b.evlen, 2)], ['Secret effects', b.secret && pc(b.secret, 2)]]],
+        ['Catalysts', [['Drops', drop], ['More drops', b.droprate && pc(b.droprate, 2)], ['Rarer drops', b.droplux && pc(b.droplux, 2)], ['Duration', b.cdur && pc(b.cdur, 2)]]],
+        ['Ions', [['Chance', b.ionup && pc(b.ionup, 2)], ['Climb a charge', b.ionstep && pc(b.ionstep, 2)]]],
+        ['Jokes', [['Joke element chance', b.jokeup && pc(b.jokeup, 2)]]],
+        ['Crafting', [['Electrolysis costs', b.elxcut && '−' + (+b.elxcut.toFixed(2)) + '%'], ['Synthesis keeps an element', b.synthkeep && (+b.synthkeep.toFixed(2)) + '%'],
+            ['Bonding Agent kept', b.agentkeep && (+b.agentkeep.toFixed(2)) + '%']]]
+    ];
+    let h = '<div class="nt-tiles">' + tiles.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('') + '</div>';
+    groups.forEach(([name, rows]) => {
+        rows = rows.filter(r => r[1]);
+        if (!rows.length) {
+            return;
         }
+        h += `<details class="nt-group" data-g="${name}"${netOpen.has(name) ? ' open' : ''}><summary><span>${name}</span><em>${rows.slice(0, 2).map(r => r[1]).join(' · ')}</em></summary>` +
+            '<dl>' + rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('') + '</dl></details>';
     });
-    [['Shop hold', b.hold], ['Ionisation', b.ion], ['Catalyst upgrades', b.upgrade], ['Joke periodic table', b.joke], ['Joke catalysts', b.jokecat]].forEach(([k, on]) => {
-        if (on) {
-            rows.push([k, 'Unlocked']);
-        }
-    });
+    const unlocks = [['Shop hold', b.hold], ['Ionisation', b.ion], ['Catalyst upgrades', b.upgrade], ['Joke table', b.joke], ['Joke catalysts', b.jokecat], ['Leveller', b.leveller],
+        ['Electrolysis', b.electrolysis], ['Synthesis', b.synthesis], ['Hypercharged', b.hyper], ['4th bonus roll', b.bonusroll], ['3 new jokes', b.jokes3]].filter(x => x[1]).map(x => x[0]);
     if (b.cos.length) {
-        rows.push(['Cosmetics unlocked', b.cos.length]);
+        unlocks.push(b.cos.length + (b.cos.length === 1 ? ' cosmetic' : ' cosmetics'));
     }
-    if (b.drop) {
-        rows.push(['Catalyst drops', '1 in ' + Math.round(100 / b.drop) + ' presses']);
+    if (unlocks.length) {
+        h += '<div class="nt-unlocks">' + unlocks.map(x => `<span>${x}</span>`).join('') + '</div>';
     }
-    return rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    return h;
 }
 // tapping a slot fills it straight away when you can; otherwise the slot flashes red
 function netSelect(id) {
@@ -7526,13 +8439,79 @@ function netSelect(id) {
         bondSummary();
         $('netTotals').innerHTML = netTotalsHtml();
         renderRollStats();
-    } else if (pityReady(net().nodes[id])) {
-        pityAsk(net().nodes[id]);
     } else if (!netFilled(id)) {
         uiSound('deny');
         netFlash(id, '#ff5a4a');
+        if (!netReachable(id)) {
+            netBeamTo(id);
+        }
     }
     netDraw();
+}
+// the yellow beam that shows the shortest way to a slot you can't reach yet
+let netBeam = null;
+function netBeamTo(id) {
+    const { nodes, edges, adj } = net();
+    const from = new Map();
+    let queue = Object.keys(netState).map(Number);
+    if (!queue.length) {
+        queue = [0];
+    }
+    queue.forEach(i => from.set(i, -1));
+    for (let i = 0; i < queue.length && !from.has(id); i++) {
+        adj[queue[i]].forEach(ei => {
+            const j = edges[ei].a === queue[i] ? edges[ei].b : edges[ei].a;
+            if (!from.has(j)) {
+                from.set(j, queue[i]);
+                queue.push(j);
+            }
+        });
+    }
+    if (!from.has(id)) {
+        return;
+    }
+    // starts at the tapped slot and runs back to the nearest filled one
+    const path = [];
+    for (let i = id; i !== -1; i = from.get(i)) {
+        path.push(nodes[i]);
+    }
+    netBeam = { path, t0: performance.now(), dur: Math.min(1200, 300 + 35 * path.length) };
+}
+function drawBeam(g, S, z) {
+    if (!netBeam) {
+        return false;
+    }
+    const k = (performance.now() - netBeam.t0) / netBeam.dur;
+    if (k > 1.6) {
+        netBeam = null;
+        return false;
+    }
+    const pts = netBeam.path.map(n => S(n.x, n.y));
+    // how far along the path the head has got, in hops
+    const head = Math.min(1, k) * (pts.length - 1);
+    g.save();
+    g.globalAlpha = k > 1 ? 1 - (k - 1) / 0.6 : 1;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.beginPath();
+    g.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i <= Math.ceil(head) && i < pts.length; i++) {
+        const f = Math.min(1, head - (i - 1));
+        g.lineTo(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f);
+    }
+    g.strokeStyle = '#ffe14d';
+    g.shadowColor = '#ffe14d';
+    g.shadowBlur = 18;
+    g.lineWidth = Math.max(3, 9 * z);
+    g.globalAlpha *= 0.35;
+    g.stroke();
+    g.globalAlpha /= 0.35;
+    g.shadowBlur = 0;
+    g.lineWidth = Math.max(1.5, 3 * z);
+    g.strokeStyle = '#fff6b0';
+    g.stroke();
+    g.restore();
+    return true;
 }
 function netFlash(id, colour) {
     const n = net().nodes[id];
@@ -7541,7 +8520,7 @@ function netFlash(id, colour) {
     const e = document.createElement('i');
     e.style.left = x + 'px';
     e.style.top = y + 'px';
-    e.style.setProperty('--c', colour || NET_RING_COL[Math.min(NET_RING_COL.length - 1, n.ring)]);
+    e.style.setProperty('--c', colour || slotCol(n));
     if (colour) {
         e.className = 'deny';
     }
@@ -7640,7 +8619,7 @@ function renderBonds() {
         if (!moved && e.type === 'pointerup') {
             const [wx, wy] = netToWorld(p[0], p[1]);
             let hit = null;
-            shownNet().nodes.forEach(n => {
+            shownNet().list.forEach(n => {
                 const d = Math.hypot(n.x - wx, n.y - wy);
                 if (d < 30 / Math.min(1, netView.z) && (!hit || d < hit.d)) {
                     hit = { n, d };
@@ -7664,7 +8643,180 @@ function renderBonds() {
     $('netJump').onclick = netJump;
     $('netCentre').onclick = () => netGlideTo(0, 0, innerWidth < 600 ? 0.8 : 1);
     $('netTotalsBtn').onclick = () => $('netTotalsWrap').classList.toggle('open');
+    // remember which groups are open, since the panel is redrawn after every fill
+    $('netTotals').addEventListener('toggle', e => {
+        const g = e.target.dataset && e.target.dataset.g;
+        if (g) {
+            if (e.target.open) {
+                netOpen.add(g);
+            } else {
+                netOpen.delete(g);
+            }
+        }
+    }, true);
 }
+// Synthesised catalysts. Each recipe is a centre element and four arms read clockwise;
+// turning the pattern round doesn't change it. Shop catalysts made here have an 'of'
+const SYNTHS = [
+    { id: 'y_lanth', of: 'lanth', r: 'Mn:La La La Ce' },
+    { id: 'y_actin', of: 'actin', r: 'Mn:Th Th Th Th' },
+    { id: 'y_ignition', of: 'ignition', r: 'Cs:Au Ne Ag Ar' },
+    { id: 'y_linked', of: 'linked', r: 'Tc:I Br Sb As' },
+    { id: 'y_surge', of: 'surge', r: 'Ir:Cu Zn Cr Ti' },
+    { id: 'y_blaze', of: 'blaze', r: 'Ho:Au Ne Ag Ar' },
+    { id: 'y_twin', of: 'twin', r: 'Rh:Sb As Si B' },
+    { id: 'y_lens', of: 'lens', r: 'Tm:Si As Ag B' },
+    { id: 'y_inferno', of: 'inferno', r: 'Ac:Au Ne Ag Ar' },
+    { id: 'y_storm', of: 'storm', r: 'Rn:I Br Se S' },
+    { id: 'y_engine', of: 'engine', r: 'Ac:Cu Zn Cr Ti' },
+    { id: 'y_prism', of: 'prism', r: 'Ac:Si As Ag B' },
+    { id: 'y_fusion', of: 'fusion', r: 'Pa:Au Ne Ag Ar' },
+    { id: 'y_horizon', of: 'horizon', r: 'Tc:Si As Ag B' },
+    { id: 'y_singularity', of: 'singularity', r: 'At:Si As Ag B' },
+    { id: 'y_stone', of: 'stone', r: 'Cm:Au Hg Pb Bi' },
+    { id: 'y_courier', of: 'courier', r: 'Lu:Na Ga Al Zn' },
+    { id: 'y_magnet', of: 'magnet', r: 'Rh:Fe Ni Co Cr' },
+    { id: 'y_grant', of: 'grant', r: 'Pr:Au Ag Pt Zn' },
+    { id: 'y_heavy', of: 'heavy', r: 'Os:Pb Bi Se Th' },
+    { id: 'y_punchline', of: 'punchline', r: 'Tb:Ce Sn Bi Ga' },
+    { id: 'y_accel', of: 'accel', r: 'Tm:I Br Se S' },
+    { id: 'y_bondagent', of: 'bondagent', r: 'Rh:Si B C N' },
+    { id: 'y_logger', of: 'logger', r: 'Tm:C Si Sn Pb' },
+    { id: 'y_laugh', of: 'laugh', r: 'Ra:Ce Sn Bi Ga' },
+    { id: 'y_stormseed', of: 'stormseed', r: 'Rn:Ar Ne He Cl' },
+    { id: 'y_colliderkey', of: 'colliderkey', r: 'At:Mo W V Ti' },
+    { id: 'y_gag', of: 'gag', r: 'Rn:Ce Sn Bi Ga' },
+    { id: 'y_twinhorizon', of: 'twinhorizon', r: 'Pm:Ag Au Ag Au' },
+    { id: 'y_containment', of: 'containment', r: 'Tc:Zr Ce Th V' },
+    { id: 'y_singseed', of: 'singseed', r: 'Pm:Pb Au Pt W' },
+    { id: 'y_insidejoke', of: 'insidejoke', r: 'Cm:Ce Sn Bi Ga' },
+    { id: 'y_conc_transition', name: 'Concentrated Transition Metal Catalyst', tier: 2, min: 20, fx: { fam: 'transition', pct: 200 }, r: 'Co:Ta Ta Ti V' },
+    { id: 'y_pure_transition', name: 'Pure Transition Metal Essence', tier: 2, min: 30, fx: { fam: 'transition', pct: 200 }, r: 'Cd:Ta Ta Ti V' },
+    { id: 'y_conc_metalloid', name: 'Concentrated Metalloid Catalyst', tier: 2, min: 20, fx: { fam: 'metalloid', pct: 200 }, r: 'Co:Te Te Te B' },
+    { id: 'y_pure_metalloid', name: 'Pure Metalloid Essence', tier: 2, min: 30, fx: { fam: 'metalloid', pct: 200 }, r: 'Cd:Te Te Te B' },
+    { id: 'y_conc_post', name: 'Concentrated Post-transition Catalyst', tier: 2, min: 20, fx: { fam: 'post', pct: 200 }, r: 'Co:In In In In' },
+    { id: 'y_pure_post', name: 'Pure Post-transition Essence', tier: 2, min: 30, fx: { fam: 'post', pct: 200 }, r: 'Cd:In In In In' },
+    { id: 'y_slow_lanth', name: 'Slow-release Lanthanide Catalyst', tier: 2, min: 40, fx: { fam: 'lanth', pct: 150 }, r: 'W:Nd Nd Ce La' },
+    { id: 'y_conc_lanth', name: 'Concentrated Lanthanide Catalyst', tier: 2, min: 20, fx: { fam: 'lanth', pct: 200 }, r: 'Co:Nd Nd Ce La' },
+    { id: 'y_pure_lanth', name: 'Pure Lanthanide Essence', tier: 3, min: 30, fx: { fam: 'lanth', pct: 200 }, r: 'Cd:Ce La Pr Tm' },
+    { id: 'y_flash_lanth', name: 'Lanthanide Flash', tier: 2, min: 3, fx: { fam: 'lanth', pct: 200 }, r: 'Pt:Nd Nd Ce La' },
+    { id: 'y_slow_actin', name: 'Slow-release Actinide Catalyst', tier: 2, min: 40, fx: { fam: 'actin', pct: 150 }, r: 'W:Th Th Th Th' },
+    { id: 'y_conc_actin', name: 'Concentrated Actinide Catalyst', tier: 2, min: 20, fx: { fam: 'actin', pct: 200 }, r: 'Co:Th Th Th Th' },
+    { id: 'y_flash_actin', name: 'Actinide Flash', tier: 2, min: 3, fx: { fam: 'actin', pct: 200 }, r: 'Pt:Th Th Th Th' },
+    { id: 'y_bonfire', name: 'Bonfire', tier: 2, min: 20, fx: { luck: 110 }, r: 'Re:Au Ne Ag Ar' },
+    { id: 'y_wildfire', name: 'Wildfire', tier: 3, min: 30, fx: { luck: 200 }, r: 'Rh:Au Ne Ag Ar' },
+    { id: 'y_solarflare', name: 'Solar Flare', tier: 4, min: 45, fx: { luck: 275 }, r: 'Rn:Au Ne Ag Ar' },
+    { id: 'y_hypernova', name: 'Hypernova', tier: 5, min: 20, fx: { luck: 300 }, r: 'Tc:Au Ne Ag Ar' },
+    { id: 'y_kiln', name: 'Kiln', tier: 2, min: 60, fx: { luck: 120 }, r: 'Sm:Au Ne Ag Ar' },
+    { id: 'y_forge', name: 'Star Forge', tier: 4, min: 60, fx: { luck: 200 }, r: 'Ra:Au Ne Ag Ar' },
+    { id: 'y_magflare', name: 'Magnesium Flare', tier: 3, min: 3, fx: { luck: 300 }, r: 'Tm:Au Ne Ag Ar' },
+    { id: 'y_pinhole', name: 'Pinhole Lens', tier: 2, rolls: 1, fx: { rollLuck: 200 }, r: 'Cs:Si As Ag B' },
+    { id: 'y_loupe', name: 'Jeweller\'s Loupe', tier: 4, rolls: 1, fx: { rollLuck: 1000 }, r: 'Rn:Si As Ag B' },
+    { id: 'y_gravlens', name: 'Gravitational Lens', tier: 5, rolls: 1, fx: { rollLuck: 2500 }, r: 'Po:Si As Ag B' },
+    { id: 'y_magnifier', name: 'Burning Glass', tier: 5, rolls: 1, fx: { rollLuck: 3500 }, r: 'Pu:Si As Ag B' },
+    { id: 'y_spring', name: 'Quark Spring', tier: 2, min: 30, fx: { quark: 75 }, r: 'Rb:Cu Zn Cr Ti' },
+    { id: 'y_torrent', name: 'Quark Torrent', tier: 3, min: 30, fx: { quark: 200 }, r: 'Ho:Cu Zn Cr Ti' },
+    { id: 'y_flood', name: 'Quark Flood', tier: 2, min: 60, fx: { quark: 250 }, r: 'Lu:Cu Zn Cr Ti' },
+    { id: 'y_qsing', name: 'Quark Singularity', tier: 5, min: 45, fx: { quark: 400 }, r: 'Pa:Cu Zn Cr Ti' },
+    { id: 'y_booster', name: 'Chain Booster', tier: 3, min: 30, fx: { chain: 2 }, r: 'Os:I Br Se S' },
+    { id: 'y_lattice', name: 'Chain Lattice', tier: 4, min: 30, fx: { chain: 3 }, r: 'Ac:I Br Se S' },
+    { id: 'y_shortaccel', name: 'Bench Accelerator', tier: 2, rolls: 10, fx: { chain3: true }, r: 'Ir:I Br Se S' },
+    { id: 'y_twinspark', name: 'Twin Spark', tier: 2, min: 10, fx: { extra: 1 }, r: 'Tb:Sb As Si B' },
+    { id: 'y_quad', name: 'Reactor Core', tier: 5, min: 20, fx: { extra: 1 }, r: 'Pa:Sb As Si B' },
+    { id: 'y_fridgemag', name: 'Fridge Magnet', tier: 2, rolls: 5, fx: { magnet: true }, r: 'Pr:Fe Ni Co Cr' },
+    { id: 'y_linkedpair', name: 'Linked Pair', tier: 4, rolls: 3, fx: { linked: true }, r: 'Ac:I Br Sb As' },
+    { id: 'y_doubletake', name: 'Double Take', tier: 4, rolls: 1, fx: { twice: true }, r: 'Ac:Ag Au Ag Au' },
+    { id: 'y_gammaseed', name: 'Gamma Seed', tier: 4, instant: true, fx: { start: 'gamma' }, r: 'Ac:Th Pb Bi Hg' },
+    { id: 'y_chargeseed', name: 'Charge Seed', tier: 4, instant: true, fx: { start: 'hyper' }, r: 'Rn:I Br Na Li' },
+    { id: 'y_chest', name: 'Quark Chest', tier: 3, instant: true, fx: { quarks: 50000 }, r: 'Rh:Cu Ag Au Zn' },
+    { id: 'y_vault', name: 'Quark Vault', tier: 5, instant: true, fx: { quarks: 100000 }, r: 'Pm:Cu Ag Au Zn' },
+    { id: 'y_escapement', name: 'Escapement', tier: 2, min: 30, fx: { auto: 50 }, r: 'Re:Mo W Fe V' },
+    { id: 'y_tourbillon', name: 'Tourbillon', tier: 4, min: 30, fx: { auto: 100 }, r: 'Rn:Mo W Fe V' },
+    { id: 'y_voucher', name: 'Voucher', tier: 2, min: 30, fx: { shopcut: 15 }, r: 'Sm:Ag Au Cu Pt' },
+    { id: 'y_clearance', name: 'Clearance Sale', tier: 4, min: 30, fx: { shopcut: 30 }, r: 'Ra:Ag Au Cu Pt' },
+    { id: 'y_haggler', name: 'Haggler\'s Charm', tier: 5, min: 20, fx: { shopcut: 30 }, r: 'Pa:Ag Au Cu Pt' },
+    { id: 'y_chargedplate', name: 'Charged Plate', tier: 2, min: 20, fx: { ionx: 50 }, r: 'Ru:Na Cl Li F' },
+    { id: 'y_vandegraaff', name: 'Van de Graaff', tier: 3, min: 30, fx: { ionx: 100 }, r: 'Ho:Na Cl Li F' },
+    { id: 'y_tesla', name: 'Tesla Coil', tier: 4, min: 30, fx: { ionx: 200 }, r: 'Ac:Na Cl Li F' },
+    { id: 'y_funnel', name: 'Filter Funnel', tier: 2, min: 30, fx: { droprate: 50 }, r: 'Cs:Zr V Ti Cr' },
+    { id: 'y_centrifuge', name: 'Centrifuge', tier: 3, min: 30, fx: { droprate: 100 }, r: 'Tm:Zr V Ti Cr' },
+    { id: 'y_platelec', name: 'Platinum Electrodes', tier: 3, min: 30, fx: { elxcut: 25 }, r: 'Rh:Pt Cu Si As' },
+    { id: 'y_cuckoo', name: 'Cuckoo Clock', tier: 2, min: 40, fx: { auto: 75 }, r: 'Os:Mo W Fe V' },
+    { id: 'y_lightningjar', name: 'Lightning in a Jar', tier: 3, min: 3, fx: { ionx: 200 }, r: 'Tm:Na Cl Li F' },
+    { id: 'y_mint', name: 'Quark Mint', tier: 3, min: 60, fx: { quark: 300 }, r: 'Rh:Cu Zn Cr Ti' },
+    { id: 'y_crystalball', name: 'Crystal Ball', tier: 2, min: 30, fx: { secret: 2 }, r: 'Ir:S Se Sb As' },
+    { id: 'y_tarot', name: 'Tarot Deck', tier: 4, min: 30, fx: { secret: 5 }, r: 'Rn:S Se Sb As' },
+    { id: 'y_reclaimer', name: 'Reclaimer', tier: 3, min: 30, fx: { refund: 10 }, r: 'Ra:Sr Ba Be Ca' },
+    { id: 'y_sameday', name: 'Same-day Delivery', tier: 2, min: 30, fx: { fastrestock: 5 }, r: 'Tb:Na Ga Al Zn' },
+    { id: 'y_duck', name: 'Rubber Duck', tier: 1, min: 30, joke: true, fx: { silly: 'duck' }, r: 'Dy:He He He He' },
+    { id: 'y_flip', name: 'Upside-down Flask', tier: 1, min: 30, joke: true, fx: { silly: 'flip' }, r: 'Er:He He He He' },
+    { id: 'y_popper', name: 'Party Popper', tier: 2, min: 30, joke: true, fx: { silly: 'confetti' }, r: 'Lu:He He He He' },
+    { id: 'y_comic', name: 'Comic Sans Serif', tier: 0, min: 30, joke: true, fx: { silly: 'comic' }, r: 'In:He He He He' },
+    { id: 'y_mirror', name: 'Looking Glass', tier: 2, min: 30, joke: true, fx: { silly: 'mirror' }, r: 'Pr:He He He He' },
+    { id: 'y_jelly', name: 'Jelly Beaker', tier: 1, min: 30, joke: true, fx: { silly: 'wobble' }, r: 'Nd:He He He He' },
+    { id: 'y_disco', name: 'Disco Ball', tier: 3, min: 30, joke: true, fx: { silly: 'disco' }, r: 'Tm:He He He He' },
+    { id: 'y_googly', name: 'Googly Eyes', tier: 2, min: 30, joke: true, fx: { silly: 'googly' }, r: 'Re:He He He He' },
+    { id: 'y_bighead', name: 'Big Head Mode', tier: 3, min: 30, joke: true, fx: { silly: 'bighead' }, r: 'Rh:He He He He' },
+    { id: 'y_slowmo', name: 'Dramatic Pause', tier: 4, min: 30, joke: true, fx: { silly: 'drama' }, r: 'Ac:He He He He' },
+    { id: 'y_typewriter', name: 'Typewriter Ribbon', tier: 1, min: 30, joke: true, fx: { silly: 'typewriter' }, r: 'Ta:He He He He' },
+    { id: 'y_rainbow', name: 'Rainbow Dye', tier: 2, min: 30, joke: true, fx: { silly: 'rainbow' }, r: 'Sm:He He He He' },
+    { id: 'y_shy', name: 'Shy Reagent', tier: 3, min: 30, joke: true, fx: { silly: 'shy' }, r: 'Ho:He He He He' },
+    { id: 'y_vacuumseed', name: 'Vacuum Seed', tier: 6, instant: true, fx: { start: 'vacuum' }, r: 'Cf:He Ne Ar He' },
+    { id: 'y_ionlens', name: 'Ion Lens', tier: 6, rolls: 3, fx: { ionLens: true }, r: 'At:Cl Si F B' },
+    { id: 'y_voidlure', name: 'Void Lure', tier: 6, min: 30, fx: { voidx: 10 }, r: 'Cm:He N He N' },
+    { id: 'y_goldspark', name: 'Golden Spark', tier: 1, min: 10, fx: { luck: 12.5, quark: 25 }, r: 'Eu:Au Cu Ne Zn' },
+    { id: 'y_greenhouse', name: 'Greenhouse', tier: 1, min: 15, fx: { event: 50, quark: 25 }, r: 'Xe:Th Cu Ar Zn' },
+    { id: 'y_beacon', name: 'Beacon', tier: 1, min: 10, fx: { luck: 12.5, event: 50 }, r: 'Dy:Au Th Ne Ar' },
+    { id: 'y_tinker', name: 'Tinker\'s Kit', tier: 1, min: 15, fx: { auto: 10, speed: 10 }, r: 'Gd:Mo Li W Na' },
+    { id: 'y_ocspark', name: 'Overclocked Spark', tier: 2, min: 15, fx: { luck: 30, speed: 25 }, r: 'Os:Au Li Ne Na' },
+    { id: 'y_labassist', name: 'Lab Assistant', tier: 2, min: 15, fx: { speed: 25, auto: 25 }, r: 'Tb:Li Mo Na W' },
+    { id: 'y_perfectstorm', name: 'Perfect Storm', tier: 2, min: 60, fx: { stormx: 25, evlen: 25 }, r: 'Ho:Ar Sr Ne Zr' },
+    { id: 'y_bargain', name: 'Bargain Bin', tier: 2, min: 30, fx: { fastrestock: 2, droprate: 25 }, r: 'Cs:Na Zr Ga V' },
+    { id: 'y_capacitor', name: 'Capacitor Bank', tier: 2, min: 15, fx: { ionx: 25, speed: 25 }, r: 'Os:Na Li Cl Na' },
+    { id: 'y_bellows', name: 'Bellows', tier: 2, min: 15, fx: { luck: 30, stormx: 25 }, r: 'Ir:Au Ar Ne Ne' },
+    { id: 'y_almanac', name: 'Farmer\'s Almanac', tier: 2, min: 15, fx: { evlen: 25, luck: 50 }, r: 'Lu:Sr Au Zr Ne' },
+    { id: 'y_chainreact', name: 'Chain Reaction', tier: 2, min: 15, fx: { chain: 1, heavy: 10 }, r: 'Pr:I Pb Br Bi' },
+    { id: 'y_ledger', name: 'Ledger', tier: 2, min: 20, fx: { refund: 5, quark: 50 }, r: 'Re:Sr Cu Ba Zn' },
+    { id: 'y_midas', name: 'Midas Touch', tier: 3, min: 20, fx: { quark: 100, heavy: 25 }, r: 'Ra:Cu Pb Zn Bi' },
+    { id: 'y_rainmaker', name: 'Rainmaker', tier: 3, min: 30, fx: { droprate: 50, quark: 75 }, r: 'Tm:Zr Cu V Zn' },
+    { id: 'y_alembic', name: 'Alembic', tier: 3, min: 30, fx: { quark: 75, elxcut: 10 }, r: 'Tb:Cu Pt Zn Cu' },
+    { id: 'y_charm', name: 'Lucky Charm', tier: 3, min: 15, fx: { luck: 75, joke: 300 }, r: 'Ra:Au Ce Ne Sn' },
+    { id: 'y_tradewinds', name: 'Trade Winds', tier: 3, min: 30, fx: { shopcut: 15, fastrestock: 5 }, r: 'Ra:Ag Na Au Ga' },
+    { id: 'y_doubleshift', name: 'Double Shift', tier: 3, min: 30, fx: { auto: 50, quark: 75 }, r: 'Rh:Mo Cu W Zn' },
+    { id: 'y_crucible', name: 'Crucible', tier: 3, min: 20, fx: { heavy: 25, elxcut: 10 }, r: 'Ra:Pb Pt Bi Cu' },
+    { id: 'y_ioncannon', name: 'Ion Cannon', tier: 4, min: 30, fx: { ionx: 100, luck: 150 }, r: 'Rn:Na Au Cl Ne' },
+    { id: 'y_windfall', name: 'Windfall', tier: 4, min: 30, fx: { droprate: 100, quark: 200 }, r: 'Pa:Zr Cu V Zn' },
+    { id: 'y_conductor', name: 'Conductor', tier: 4, min: 30, fx: { ionx: 100, auto: 50 }, r: 'Ac:Na Mo Cl W' },
+    { id: 'y_spectrometer', name: 'Spectrometer', tier: 4, min: 30, fx: { ionx: 100, secret: 2 }, r: 'Rn:Na S Cl Se' },
+    { id: 'y_laughgas', name: 'Laughing Gas', tier: 4, min: 15, fx: { joke: 300, laugh: true }, r: 'Pa:Ce Ce Sn Sn' },
+    { id: 'y_particlezoo', name: 'Particle Zoo', tier: 4, min: 30, fx: { extra: 1, chain: 2 }, r: 'Pa:Sb I As Br' },
+    { id: 'y_hivemind', name: 'Hive Mind', tier: 4, min: 30, fx: { auto: 50, luck: 200 }, r: 'Ac:Mo Au W Ne' },
+    { id: 'y_resonator', name: 'Resonator', tier: 5, min: 30, fx: { ionx: 200, chainMax: true }, r: 'Po:Na I Cl Br' },
+    { id: 'y_blackfriday', name: 'Black Friday', tier: 5, min: 30, fx: { shopcut: 30, fastrestock: 5 }, r: 'Pu:Ag Na Au Ga' },
+    { id: 'y_fourleaf', name: 'Four-leaf Clover', tier: 5, min: 30, fx: { luck: 250, secret: 5 }, r: 'Tc:Au S Ne Se' },
+    { id: 'y_aurora', name: 'Aurora', tier: 5, min: 30, fx: { luck: 275, stormx: 50 }, r: 'Am:Au Ar Ne Ne' },
+    { id: 'y_gyroscope', name: 'Gyroscope', tier: 5, min: 30, fx: { auto: 100, chainMax: true }, r: 'Pm:Mo I W Br' },
+    { id: 'y_shrewd', name: 'Shrewd Investor', tier: 5, min: 30, fx: { quark: 400, shopcut: 30 }, r: 'Po:Cu Ag Zn Au' },
+    { id: 'y_eclipse', name: 'Eclipse', tier: 5, min: 30, fx: { luck: 275, gag: true }, r: 'Pu:Au Ce Ne Sn' },
+    { id: 'y_unification', name: 'Grand Unification', tier: 6, min: 30, fx: { luck: 300, quark: 400 }, r: 'Cf:Au Cu Ne Zn' },
+    { id: 'y_supernova', name: 'Supernova Core', tier: 6, min: 20, fx: { luck: 300, extra: 1 }, r: 'Np:Au Sb Ne As' },
+    { id: 'y_solarwind', name: 'Solar Wind', tier: 3, min: 15, fx: { stormx: 50, evlen: 25, event: 50 }, r: 'Ra:Ar Sr Th Ne' },
+    { id: 'y_starforge', name: 'Stellar Nursery', tier: 5, min: 30, fx: { luck: 150, quark: 200, ionx: 100 }, r: 'Tc:Au Cu Na Ne' },
+    { id: 'y_cornucopia', name: 'Cornucopia', tier: 5, min: 30, fx: { droprate: 100, refund: 10, quark: 200 }, r: 'Am:Zr Sr Cu V' },
+    { id: 'y_omnibus', name: 'Omnibus', tier: 4, min: 15, fx: { luck: 30, speed: 25, event: 50, quark: 50 }, r: 'Pa:Au Li Th Cu' },
+    { id: 'y_pair_alkali_halogen', name: 'Salt Bridge', tier: 1, min: 10, fx: { fam: 'alkali', pct: 75, fam2: 'halogen', pct2: 75 }, r: 'Ni:K K Cl F' },
+    { id: 'y_pair_noble_nonmetal', name: 'Inert Atmosphere', tier: 1, min: 10, fx: { fam: 'noble', pct: 75, fam2: 'nonmetal', pct2: 75 }, r: 'Ni:C N Ne Xe' },
+    { id: 'y_pair_alkali_alkaline', name: 'Brine Pool', tier: 1, min: 10, fx: { fam: 'alkali', pct: 75, fam2: 'alkaline', pct2: 75 }, r: 'Ni:K K Be Mg' },
+    { id: 'y_pair_halogen_noble', name: 'Halide Lamp', tier: 1, min: 10, fx: { fam: 'halogen', pct: 75, fam2: 'noble', pct2: 75 }, r: 'Ni:Cl F Ne Xe' },
+    { id: 'y_pair_metalloid_post', name: 'Semiconductor Wafer', tier: 2, min: 15, fx: { fam: 'metalloid', pct: 100, fam2: 'post', pct2: 100 }, r: 'Ni:Tl Tl B Si' },
+    { id: 'y_pair_nonmetal_metalloid', name: 'Chalcogen Bloom', tier: 2, min: 10, fx: { fam: 'nonmetal', pct: 75, fam2: 'metalloid', pct2: 100 }, r: 'Ni:Te Te C N' },
+    { id: 'y_pair_transition_post', name: 'Bronze Age', tier: 2, min: 15, fx: { fam: 'transition', pct: 100, fam2: 'post', pct2: 100 }, r: 'Ni:Ta Ta Al Ga' },
+    { id: 'y_pair_lanth_transition', name: 'Rare Earth Magnet', tier: 3, min: 15, fx: { fam: 'lanth', pct: 150, fam2: 'transition', pct2: 100 }, r: 'Ni:Ce La Rh Ti' },
+    { id: 'y_pair_lanth_actin', name: 'Lanthanide Contraction', tier: 3, min: 20, fx: { fam: 'lanth', pct: 150, fam2: 'actin', pct2: 150 }, r: 'Ni:Tb Th Tb Th' },
+    { id: 'y_saltpan', name: 'Salt Pan', tier: 2, min: 20, fx: { fam: 'alkali', pct: 150, fam2: 'halogen', pct2: 150 }, r: 'Co:Rb Rb Cl F' }
+];
+// the lab book starts with these written in
+const SYNTH_EXAMPLES = ['y_ignition', 'y_conc_transition', 'y_goldspark'];
 // Catalyst shop
 const CAT_TIERS = [
     { name: 'Common', col: '#9fb0a8', p: 60 },
@@ -7731,8 +8883,52 @@ const CATALYSTS = [
     { id: 'insidejoke', name: 'Inside Joke', tier: 6, rolls: 1, joke: true, fx: { jokeNew: true }, price: 12000000 }
 ];
 const CAT = Object.fromEntries(CATALYSTS.map(c => [c.id, c]));
+// synthesised ones sit alongside: copies of shop catalysts take everything but the id from the original
+SYNTHS.forEach((y, i) => {
+    const c = y.of ? Object.assign({}, CAT[y.of], { id: y.id, of: y.of }) : Object.assign({}, y);
+    c.synth = true;
+    c.r = y.r;
+    c.ord = 1000 + i;
+    delete c.price;
+    CAT[y.id] = c;
+});
+const SILLY = {
+    duck: 'A rubber duck keeps you company while you roll', flip: 'Your finds come out upside down', confetti: 'Confetti on every roll, no matter how dull',
+    comic: 'Everything is written in a very serious font', mirror: 'Your finds come out back to front', wobble: 'The scanner has the consistency of jelly',
+    disco: 'The scanner throws a party', googly: 'Your finds have googly eyes', bighead: 'Your finds are enormous', drama: 'The room goes dark for every roll. For effect',
+    typewriter: 'Find names are typed out one letter at a time', rainbow: 'Find names come out in every colour', shy: 'Your finds hide when you look at them'
+};
+// one line for each thing a catalyst does
 function catEffect(c) {
     const f = c.fx;
+    const keys = Object.keys(f).filter(k => !['pct', 'fam2', 'pct2', 'n'].includes(k));
+    if (keys.length > 1 || f.fam2) {
+        const parts = keys.map(k => catEffect({ tier: c.tier, fx: k === 'fam' ? { fam: f.fam, pct: f.pct } : { [k]: f[k] } }));
+        if (f.fam2) {
+            parts.push(catEffect({ fx: { fam: f.fam2, pct: f.pct2 } }));
+        }
+        return parts.join('. ');
+    }
+    const fresh = {
+        auto: `+${f.auto}% autoroll speed`, shopcut: `Shop prices ${f.shopcut}% lower`, ionx: `Ions are ${f.ionx}% more likely`, droprate: `+${f.droprate}% catalyst drops`,
+        evlen: `Events last ${f.evlen}% longer`, stormx: `Quark Storms are ${f.stormx}% bigger`, elxcut: `Electrolysis costs ${f.elxcut}% less`,
+        secret: `+${f.secret}% chance of a secret variant`, refund: `+${f.refund}% chance single-roll catalysts aren't used up`, fastrestock: `The shop restocks ${f.fastrestock} minutes sooner`,
+        quarks: `Gives ${(f.quarks || 0).toLocaleString('en-US')} quarks`, ionLens: 'Every roll is an ion, ² or ³, plus or minus. Needs ionisation unlocked',
+        voidx: `During a Vacuum, void elements are ${f.voidx} times as likely`, agents: `Gives ${f.agents} Bonding Agents`, silly: SILLY[f.silly]
+    };
+    const nk = Object.keys(f).find(x => fresh[x]);
+    if (nk) {
+        return fresh[nk];
+    }
+    if (f.grant && f.n) {
+        return `Your next ${f.n} catalyst purchases cost half`;
+    }
+    if (f.start === 'gamma' || f.start === 'hyper') {
+        return 'Starts a ' + EVENTS[f.start].name + ' now (not while another event is running)';
+    }
+    if (f.start === 'vacuum') {
+        return 'Starts a ' + VACUUM_SEED.toLocaleString('en-US') + '-roll Vacuum now (not while another event is running)';
+    }
     if (f.fam) {
         return `+${f.pct}% chance to roll ${FAMILY_ONE[f.fam] === 'superheavy' ? 'a superheavy (Mt to Lv)' : (/^[aeiou]/.test(FAMILY_ONE[f.fam]) ? 'an ' : 'a ') + FAMILY_ONE[f.fam]}`;
     }
@@ -7746,13 +8942,14 @@ function catEffect(c) {
         return `+${f.speed}% scanner speed`;
     }
     if (f.chain) {
-        return 'Chain chance one step better (1 in 8 to 1 in 7 at base, never past 1 in 5)';
+        const fl = chainFloor(c.tier);
+        return f.chain > 1 ? `Chain chance ${f.chain} steps better (never past 1 in ${fl})` : `Chain chance one step better (1 in 8 to 1 in 7 at base, never past 1 in ${fl})`;
     }
     if (f.chainMax) {
-        return 'Chain chance at its maximum, 1 in 5';
+        return chainFloor(c.tier) < CHAIN_MAX ? `Chain chance at 1 in ${chainFloor(c.tier)}, past the usual best of 1 in ${CHAIN_MAX}` : `Chain chance at its maximum, 1 in ${CHAIN_MAX}`;
     }
     if (f.extra) {
-        return '+1 bonus roll on every roll, up to the maximum of 3';
+        return `+${f.extra} bonus roll${f.extra > 1 ? 's' : ''} on every roll, up to the maximum`;
     }
     if (f.linked) {
         return "Each roll chains at least once. Can't run alongside single-roll luck";
@@ -7857,18 +9054,46 @@ function activeList() {
     pruneActive();
     return Object.keys(catActive).sort((a, b) => parseFloat(a) - parseFloat(b) || a.length - b.length).map(k => ({ key: k, tier: parseInt(k), a: catActive[k], c: CAT[catActive[k].id] }));
 }
-// totals from active timed catalysts, for computeBuffs and weightTable
+// totals from active timed catalysts, for computeBuffs and weightTable.
+// Stacking is tempered: for each effect the strongest catalyst counts in full and every other one at half,
+// and a few effects have a hard ceiling on what catalysts can add between them
+const CAT_STACK = ['quark', 'speed', 'event', 'lens', 'heavy', 'joke', 'auto', 'shopcut', 'ionx', 'droprate', 'evlen', 'stormx', 'elxcut', 'secret', 'refund', 'fastrestock'];
+const CAT_CEIL = { quark: 525, joke: 400, ionx: 200, droprate: 100, refund: 10, shopcut: 30, evlen: 50, event: 100, fam: 200 };
+const stackSum = list => {
+    list.sort((a, b) => b - a);
+    return list.reduce((s, v, i) => s + (i ? v / 2 : v), 0);
+};
 function catBonus() {
     const r = {
-        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, fam: {},
-        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0, level: false
+        luck: 0, speed: 0, quark: 0, extra: 0, chain: 0, chainMax: false, chainFloor: CHAIN_MAX, fam: {},
+        event: 0, lens: 0, heavy: 0, joke: 0, laugh: false, gag: 0, level: false,
+        auto: 0, shopcut: 0, ionx: 0, droprate: 0, evlen: 0, stormx: 0, elxcut: 0, secret: 0, refund: 0, fastrestock: 0, silly: [], voidx: 1
     };
+    const parts = {};
+    const fams = {};
+    const add = (k, v) => (parts[k] = parts[k] || []).push(v);
     activeList().forEach(({ a, c }) => {
-        if (!a.until) {
+        if (!a.until || !c) {
             return;
         }
         const f = c.fx;
-        ['event', 'lens', 'heavy', 'joke'].forEach(k => r[k] += f[k] || 0);
+        CAT_STACK.forEach(k => {
+            if (f[k]) {
+                add(k, f[k]);
+            }
+        });
+        if (f.silly) {
+            r.silly.push(f.silly);
+        }
+        if (f.voidx) {
+            r.voidx = Math.max(r.voidx, f.voidx);
+        }
+        if (f.fam) {
+            (fams[f.fam] = fams[f.fam] || []).push(f.pct);
+        }
+        if (f.fam2) {
+            (fams[f.fam2] = fams[f.fam2] || []).push(f.pct2);
+        }
         if (f.laugh) {
             r.laugh = true;
         }
@@ -7876,16 +9101,11 @@ function catBonus() {
             r.level = true;
         }
         if (f.gag) {
-            r.gag = a.hit ? 10 : 5;
+            r.gag = Math.max(r.gag, a.hit ? 10 : 5);
         }
+        // luck already has its own hidden ceiling; bonus rolls and chain steps have theirs
         if (f.luck) {
             r.luck += f.luck;
-        }
-        if (f.speed) {
-            r.speed += f.speed;
-        }
-        if (f.quark) {
-            r.quark += f.quark;
         }
         if (f.extra) {
             r.extra += f.extra;
@@ -7896,10 +9116,12 @@ function catBonus() {
         if (f.chainMax) {
             r.chainMax = true;
         }
-        if (f.fam) {
-            r.fam[f.fam] = (r.fam[f.fam] || 0) + f.pct;
+        if (f.chain || f.chainMax) {
+            r.chainFloor = Math.min(r.chainFloor, chainFloor(c.tier));
         }
     });
+    Object.keys(parts).forEach(k => r[k] = Math.min(CAT_CEIL[k] || Infinity, stackSum(parts[k])));
+    Object.keys(fams).forEach(k => r.fam[k] = Math.min(CAT_CEIL.fam, stackSum(fams[k])));
     return r;
 }
 // the soonest moment an active catalyst runs out, so cached buffs refresh then
@@ -7913,14 +9135,13 @@ function catNextExpiry() {
     return t;
 }
 // catalysts that boost the same thing can't run together
-const CAT_AREAS = { luck: 'luck', rollLuck: 'single-roll luck', speed: 'roll speed', quark: 'quarks', lens: 'quarks', heavy: 'quarks', laugh: 'quarks', chain: 'chain chance', chainMax: 'chain chance', chain3: 'chain chance', extra: 'bonus rolls', event: 'event chances', joke: 'joke elements', gag: 'joke elements' };
-function catArea(c) {
-    if (c.fx.fam) {
-        return FAMILY_NAMES[c.fx.fam].toLowerCase();
-    }
-    const k = Object.keys(c.fx).find(x => CAT_AREAS[x]);
-    return k ? CAT_AREAS[k] : null;
+const CAT_AREAS = { ionLens: 'ions', voidx: 'void elements', auto: 'autoroll speed', shopcut: 'shop prices', ionx: 'ion chance', droprate: 'catalyst drops', evlen: 'event length', stormx: 'Quark Storms', elxcut: 'Electrolysis costs', secret: 'secret finds', refund: 'refunds', fastrestock: 'shop restocks', silly: 'silliness', luck: 'luck', rollLuck: 'single-roll luck', speed: 'roll speed', quark: 'quarks', lens: 'quarks', heavy: 'quarks', laugh: 'quarks', chain: 'chain chance', chainMax: 'chain chance', chain3: 'chain chance', extra: 'bonus rolls', event: 'event chances', joke: 'joke elements', gag: 'joke elements' };
+function catAreas(c) {
+    const out = Object.keys(c.fx).filter(x => CAT_AREAS[x]).map(x => CAT_AREAS[x]);
+    [c.fx.fam, c.fx.fam2].forEach(f => f && out.push(FAMILY_NAMES[f].toLowerCase()));
+    return out;
 }
+const catArea = c => catAreas(c)[0] || null;
 // Linked Reaction and Family Magnet don't mix with single-roll luck, as together they all but guarantee a top tier find
 const shapesChain = c => !!(c.fx.linked || c.fx.magnet);
 function luckClash(c) {
@@ -7946,14 +9167,18 @@ function useCatalyst(id, n) {
         const o = CAT[cur.id];
         return `${o.name} is already running for ${CAT_TIERS[c.tier].name.toLowerCase()} catalysts (${catLeft(cur)} left). Only one ${CAT_TIERS[c.tier].name.toLowerCase()} catalyst can be active at a time.`;
     }
-    const area = catArea(c);
-    const clash = area && activeList().find(x => x.c && x.c.id !== id && catArea(x.c) === area);
+    const mine = catAreas(c);
+    const clash = activeList().find(x => x.c && x.c.id !== id && catAreas(x.c).some(z => mine.includes(z)));
+    const area = clash && catAreas(clash.c).find(z => mine.includes(z));
     if (clash) {
         return `${clash.c.name} is already boosting ${area} (${catLeft(clash.a)} left). Only one catalyst can boost ${area} at a time.`;
     }
     const mix = luckClash(c);
     if (mix) {
         return mix;
+    }
+    if (c.fx.ionLens && !bondBonus().ion) {
+        return 'Ionisation hasn\'t been unlocked on the bonds tree yet, so there are no ions to roll.';
     }
     if (c.rolls) {
         catActive[catSlot(c)] = { id, rolls: (cur ? cur.rolls : 0) + c.rolls * n, src: (cur && cur.src || []).concat(srcTake(id, n)), h: cur ? cur.h : undefined };
@@ -7972,8 +9197,8 @@ function useCatalyst(id, n) {
 }
 function useInstant(c, n) {
     const f = c.fx;
-    if (f.start) {
-        if (anyEventOn()) {
+    if (f.start === 'storm' || f.start === 'collider' || f.start === 'hole') {
+        if (anyEventOn() || vacOn()) {
             return 'An event is already running. Only one can run at a time.';
         }
         if (f.start === 'collider' && !colliderOn()) {
@@ -7994,6 +9219,33 @@ function useInstant(c, n) {
         shopState.r = (shopState.r || 0) + 1;
         shopState.j = 0;
         shopCheck();
+    } else if (f.start === 'vacuum') {
+        if (anyEventOn() || vacOn()) {
+            return 'An event is already running. Only one can run at a time.';
+        }
+        n = 1;
+        const src = srcTake(c.id, 1);
+        vacStart(acKeys ? acCount : null, VACUUM_SEED);
+        // started by a catalyst, so the server can see where it came from
+        vacRun.src = src;
+        vacSave();
+        renderQStorm();
+    } else if (f.start === 'gamma' || f.start === 'hyper') {
+        if (anyEventOn() || vacOn()) {
+            return 'An event is already running. Only one can run at a time.';
+        }
+        if (f.start === 'hyper' && !bondBonus().hyper) {
+            return 'Hypercharged hasn\'t been unlocked yet.';
+        }
+        n = 1;
+        evStart(f.start, acKeys ? { s: acCount, src: srcTake(c.id, 1) } : {});
+        renderQStorm();
+    } else if (f.quarks) {
+        addQuarks(f.quarks * n);
+    } else if (f.agents) {
+        catInv.bondagent = (catInv.bondagent || 0) + f.agents * n;
+    } else if (f.grant && f.n) {
+        catFlags.grant = (catFlags.grant || 0) + f.n * n;
     } else if (f.bond) {
         return 'Bonding Agents are used on the bonds tree: tap any red slot to fill it.';
     } else if (f.extend) {
@@ -8040,7 +9292,7 @@ function fmtClock(s) {
 // press and k place the roll, so refunds come from the dice too
 function takeRollCharge(press, k) {
     pruneActive();
-    const out = { rollLuck: 0, unfound: false, linked: false, magnet: false, chain3: false, twice: false, jokeNew: false, used: [], src: [] };
+    const out = { rollLuck: 0, unfound: false, linked: false, magnet: false, chain3: false, twice: false, jokeNew: false, ionLens: false, used: [], src: [] };
     Object.keys(catActive).forEach(t => {
         const a = catActive[t];
         if (a.rolls == null || a.rolls <= 0) {
@@ -8055,7 +9307,7 @@ function takeRollCharge(press, k) {
         if (f.unfound) {
             out.unfound = true;
         }
-        ['linked', 'magnet', 'chain3', 'twice', 'jokeNew'].forEach(k => {
+        ['linked', 'magnet', 'chain3', 'twice', 'jokeNew', 'ionLens'].forEach(k => {
             if (f[k]) {
                 out[k] = true;
             }
@@ -8065,7 +9317,7 @@ function takeRollCharge(press, k) {
         if (seen) {
             a.h = (a.h || []).concat([[press, k]]);
         }
-        if ((seen ? acDraw(acKeys.d, press, 3, CATALYSTS.indexOf(CAT[a.id]), k) : Math.random()) >= bondBonus().refund / 100) {
+        if ((seen ? acDraw(acKeys.d, press, 3, CAT[a.id].synth ? CAT[a.id].ord : CATALYSTS.indexOf(CAT[a.id]), k) : Math.random()) >= refundPct() / 100) {
             a.rolls -= 1;
         }
     });
@@ -8073,9 +9325,11 @@ function takeRollCharge(press, k) {
     saveCats();
     return out;
 }
+const refundPct = () => bondBonus().refund + catBonus().refund;
 // catalyst drops from the easy bridge, picked like shop stock
+const dropChance = () => bondBonus().drop * (1 + (bondBonus().droprate + catBonus().droprate) / 100);
 function rollDrop(n) {
-    const p = bondBonus().drop / 100;
+    const p = dropChance() / 100;
     if (!p) {
         return null;
     }
@@ -8084,10 +9338,12 @@ function rollDrop(n) {
         if (rnd() >= p) {
             return null;
         }
+        // drops can lean rarer than the shop
         const g = shopFlags();
+        g[0] = +(g[0] + bondBonus().droplux).toFixed(2);
         const id = shopRoll(g);
         catInv[id] = (catInv[id] || 0) + 1;
-        srcAdd(id, acStream ? ['d', acDev, n, g.join('|'), bondBonus().drop].join('|') : null);
+        srcAdd(id, acStream ? ['d', acDev, n, g.join('|'), +dropChance().toFixed(4)].join('|') : null);
         saveCats();
         return id;
     } finally {
@@ -8121,12 +9377,12 @@ function clearCatalyst(tier) {
 // the shop
 function shopPeriodMs() {
     const b = bondBonus();
-    return Math.max(5, 20 - b.refresh) * 60000;
+    return Math.max(5, 20 - b.refresh - catBonus().fastrestock) * 60000;
 }
 // 2 + bonds, max 6
-const shopSlots = () => Math.min(6, 2 + bondBonus().slots);
+const shopSlots = () => Math.min(8, 2 + bondBonus().slots);
 function shopPrice(c, grant = true) {
-    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price) / 100) * (grant && catFlags.grant ? 0.5 : 1)));
+    return Math.max(1, Math.round(c.price * (1 - Math.min(90, bondBonus().price + catBonus().shopcut) / 100) * (grant && catFlags.grant ? 0.5 : 1)));
 }
 var clockBase = null;
 var clockTried = false;
@@ -8192,7 +9448,7 @@ function shopCheck() {
 // what the stock roll depends on: rarer-stock bonus, joke catalysts, all jokes found, collider, joke rate
 function shopFlags() {
     const b = bondBonus();
-    return [b.stock, (b.jokecat && jokesOn() ? 1 : 0) + (jokesFound().size === JOKES.length ? 2 : 0) + (colliderOn() ? 4 : 0), b.jokerate];
+    return [b.stock, (b.jokecat && jokesOn() ? 1 : 0) + (JOKES_BASE.every(j => jokesFound().has(j[0])) ? 2 : 0) + (colliderOn() ? 4 : 0), b.jokerate];
 }
 function shopRoll(g) {
     const boost = g[0] / 100;
@@ -8309,7 +9565,7 @@ function renderActiveCats() {
     ['catActive', 'rollCats'].forEach(k => {
         const el = $(k);
         if (el) {
-            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' : '') + rows(k === 'catActive') : '';
+            el.innerHTML = list.length || waiting ? (k === 'catActive' ? '<div class="inv-sect"><span>Active</span></div>' + (list.length > 1 ? '<p class="muted stack-note">Where two boost the same thing, the stronger counts in full and the other at half.</p>' : '') : '') + rows(k === 'catActive') : '';
         }
     });
     const cl = $('catClear');
@@ -8342,14 +9598,16 @@ function renderCatInv() {
     if (!$('catInv')) {
         return;
     }
-    const inv = Object.keys(catInv).filter(id => catInv[id] > 0 && CAT[id]).sort((a, b) => CAT[b].tier - CAT[a].tier || CAT[a].name.localeCompare(CAT[b].name));
+    document.querySelectorAll('[data-invtab]').forEach(b => b.classList.toggle('sel', b.dataset.invtab === invTab));
+    const inv = Object.keys(catInv).filter(id => catInv[id] > 0 && CAT[id] && !!CAT[id].synth === (invTab === 'synth')).sort((a, b) => CAT[b].tier - CAT[a].tier || CAT[a].name.localeCompare(CAT[b].name));
     if (!inv.includes(invSel)) {
         invSel = inv[0] || null;
     }
     $('catInv').innerHTML = inv.length ? inv.map(id => {
         const c = CAT[id];
         return `<button class="inv-tile${id === invSel ? ' sel' : ''}" data-sel="${id}" style="--tc:${CAT_TIERS[c.tier].col}"><span class="it-name">${c.name}</span><span class="it-n">×${catInv[id].toLocaleString('en-US')}</span></button>`;
-    }).join('') : '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
+    }).join('') : invTab === 'synth' ? '<p class="muted inv-empty">Nothing here yet. Catalysts you make at the Synthesis table wait here. They can\'t go into upgrades.</p>' :
+        '<p class="muted inv-empty">Nothing here yet. Catalysts you buy in the shop wait here until you use them.</p>';
     renderUpgrade();
     const d = $('invDetail');
     if (!invSel) {
@@ -8369,6 +9627,11 @@ function renderCatInv() {
     }
     renderActiveCats();
 }
+var invTab = 'shop';
+document.querySelectorAll('[data-invtab]').forEach(b => b.addEventListener('click', () => {
+    invTab = b.dataset.invtab;
+    renderCatInv();
+}));
 $('catInv').addEventListener('click', e => {
     const t = e.target.closest('[data-sel]');
     if (!t) {
@@ -8820,14 +10083,15 @@ function computeBuffs() {
     const denom = Math.max(CHAIN_MAX, BASE_CHAIN - (BASE_CHAIN - CHAIN_MAX) / 8 * Math.min(8, chainSteps + bd.chain));
     return {
         // oddsLuck is what the odds use: catalysts can't take it past LUCK_CEILING (your own luck can)
-        found, luck: own + cb.luck, oddsLuck: Math.min(own + cb.luck, Math.max(own, LUCK_CEILING)), speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? CHAIN_MAX : Math.max(CHAIN_MAX, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
+        found, luck: own + cb.luck, oddsLuck: Math.min(own + cb.luck, Math.max(own, LUCK_CEILING)), speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto + cb.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto + cb.auto) / 100)), extra: Math.min(bd.bonusroll ? 4 : 3, extra + bd.extra + cb.extra + (bd.bonusroll ? 1 : 0)), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? cb.chainFloor : Math.max(cb.chainFloor, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
         // reagent/punchline add, running gag multiplies
-        jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), level: cb.level, exp: catNextExpiry()
+        jokeMult: (1 + (cb.joke + bd.jokeup) / 100) * (cb.gag || 1), level: cb.level || (bd.leveller && levellerOn), exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
     const b = activeBuffStats();
-    if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.pool.length === rollPool().length) {
+    const gamma = evOn('gamma');
+    if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.gamma === gamma && weightCache.pool.length === rollPool().length) {
         return weightCache;
     }
     const luck = b.oddsLuck + (extraLuck || 0);
@@ -8840,7 +10104,7 @@ function weightTable(extraLuck, only) {
             flat.push(0);
             return 0;
         }
-        const m = (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1) / e[2];
+        const m = (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1) * (gamma && RADIOACTIVE.has(e[0]) ? GAMMA_MULT : 1) / e[2];
         const v = m * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5);
         flat.push(m);
         total += v;
@@ -8856,11 +10120,31 @@ function weightTable(extraLuck, only) {
             total += w[i];
         }
     }
-    const t = { w, total, b, pool };
+    const t = { w, total, b, pool, gamma };
     if (!extraLuck && !only) {
         weightCache = t;
     }
     return t;
+}
+// a Vacuum adds the void elements to the first pick of each roll. One draw: under their share
+// of the weight it's a void element, otherwise the roll carries on as normal
+function voidPick(extraLuck) {
+    const t = weightTable(extraLuck);
+    const luck = t.b.oddsLuck + (extraLuck || 0);
+    const lure = catBonus().voidx;
+    const vw = VOIDS.map(v => lure * Math.pow(1 + 1.5 * (Math.log10(v[2] + 1) / 3), (luck / 100) / 1.5) / v[2]);
+    const sum = vw.reduce((a, x) => a + x, 0);
+    let r = rnd() * (t.total + sum);
+    for (let i = 0; i < VOIDS.length; i++) {
+        r -= vw[i];
+        if (r < 0) {
+            if (acTrace) {
+                acTrace.push(VOIDS[i][0]);
+            }
+            return VOIDS[i];
+        }
+    }
+    return null;
 }
 // one element, with the active buffs; extraLuck and only come from single-roll catalysts
 function weightedElement(extraLuck, only) {
@@ -8886,7 +10170,7 @@ try {
     jokeHide = localStorage.getItem('elementalJokeHide') === '1';
 } catch (e) { }
 const jokesOn = () => bondBonus().joke;
-const rollPool = () => jokesOn() ? ELEMENTS.concat(JOKES) : ELEMENTS;
+const rollPool = () => jokesOn() ? ELEMENTS.concat(JOKES.filter(jokeOpen)) : ELEMENTS;
 // false = chain stops (mixing off rule)
 function chainStep(elements, e) {
     if (jokeMix || !jokesOn() || isJoke(e[0]) === isJoke(elements[0][0])) {
@@ -8919,11 +10203,11 @@ function rollTwice(make) {
 function quarkMult(elements, buffs) {
     const cb = catBonus();
     const n = elements.length;
-    const pct = (buffs.quark || 0) + (n === 1 ? bondBonus().alone : 0) + (n > 1 ? cb.lens : 0) + cb.heavy * (n - 1);
+    const pct = (buffs.quark || 0) + (n === 1 ? bondBonus().alone : 0) + (n > 1 ? cb.lens : 0) + (cb.heavy + bondBonus().heavy) * (n - 1);
     return (1 + pct / 100) * (cb.laugh && elements.some(e => isJoke(e[0])) ? 3 : 1);
 }
 // + Redactium
-const secretChance = () => SECRET_CHANCE + bondBonus().secret / 100;
+const secretChance = () => SECRET_CHANCE + (bondBonus().secret + catBonus().secret) / 100;
 function hillFormula(elements) {
     const counts = {};
     elements.forEach(e => counts[e[0]] = (counts[e[0]] || 0) + 1);
@@ -8947,6 +10231,8 @@ function hillFormula(elements) {
 }
 const BASE_CHAIN = 8;
 const CHAIN_MAX = 5;
+// Legendary and up can take chain chance past the usual best, so they still matter once the bonds have it maxed
+const chainFloor = tier => tier >= 6 ? 3 : tier === 5 ? 3.5 : tier === 4 ? 4 : CHAIN_MAX;
 // Odds are always base odds: no luck, chain or other buffs are counted
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
@@ -8958,16 +10244,27 @@ function exactRarity(elements, guaranteedExtras = 0) {
 const ION_PLUS = 0.01;
 const ION_MINUS = 0.001;
 const ION_MAX = 3;
+// outer ring 2 lines make every ion a little more likely, and Hypercharged a lot more
+const ionClimb = () => +(1 + bondBonus().ionstep / 100).toFixed(4);
+const ionBoost = () => (1 + (bondBonus().ionup + catBonus().ionx) / 100) * (evOn('hyper') ? HYPER_MULT : 1);
+// Ion Lens: always an ion, ² or ³ either way
+function ionLensRoll() {
+    const sign = rnd() < 0.5 ? 1 : -1;
+    return sign * (rnd() < 0.3 ? 3 : 2);
+}
 function rollIon() {
     if (!bondBonus().ion) {
         return 0;
     }
-    const plus = rnd() < ION_PLUS;
-    const minus = rnd() < ION_MINUS;
+    // the same rounded figure the server is sent
+    const k = +ionBoost().toFixed(4);
+    const plus = rnd() < ION_PLUS * k;
+    const minus = rnd() < ION_MINUS * k;
     if (!plus && !minus) {
         return 0;
     }
-    const p = minus ? ION_MINUS : ION_PLUS;
+    // outer ring 2 makes each step up a little likelier
+    const p = (minus ? ION_MINUS : ION_PLUS) * k * ionClimb();
     let n = 1;
     while (n < ION_MAX && rnd() < p) {
         n++;
@@ -9057,7 +10354,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.9.13';
+const APP_VERSION = '2.2';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -9103,14 +10400,14 @@ function qStormSave() {
 const qStormOn = () => !!(qStorm && qStorm.left > 0);
 // ring 1 raises these
 function qStormRange() {
-    const s = bondBonus().storm / 100;
+    const s = (bondBonus().storm + catBonus().stormx) / 100;
     return [QSTORM_MIN + Math.round(2 * s), QSTORM_MAX + Math.round(20 * s)];
 }
 const eventChanceMult = () => 1 + (bondBonus().event + catBonus().event) / 100;
 const qStormChance = () => QSTORM_CHANCE * eventChanceMult();
 // deja-vium, lightning rod, event logger
 function eventLength(base, storm) {
-    return Math.round(base * (1 + bondBonus().evlen / 100) * (storm && takeFlag('rod') ? 1.5 : 1) * (takeFlag('logger') ? 2 : 1));
+    return Math.round(base * (1 + (bondBonus().evlen + catBonus().evlen) / 100) * (storm && takeFlag('rod') ? 1.5 : 1) * (takeFlag('logger') ? 2 : 1));
 }
 function qStormStart() {
     qStorm = { left: eventLength(QSTORM_PRESSES, true), got: 0 };
@@ -9138,15 +10435,73 @@ function qStormPress(count) {
     return null;
 }
 // supercollider + black hole, one event at a time
+// at: newer events take a fixed draw, so they don't move the older ones' dice about
+const GAMMA_MULT = 3;
+const HYPER_MULT = 4;
 const EVENTS = {
     collider: { name: 'Supercollider', chance: 1 / 16000, presses: 30, what: 'chain chance is 1 in 2' },
-    hole: { name: 'Black Hole', chance: 1 / 12000, presses: 50, what: 'every roll is rolled twice and keeps the rarer' }
+    hole: { name: 'Black Hole', chance: 1 / 12000, presses: 50, what: 'every roll is rolled twice and keeps the rarer' },
+    gamma: { name: 'Gamma Ray Burst', chance: 1 / 16000, presses: 100, what: 'radioactive elements are 3× as common', at: 3 },
+    hyper: { name: 'Hypercharged', chance: 1 / 12000, presses: 100, what: 'ions are 4× as common', at: 4, need: 'hyper' }
 };
+// technetium, promethium and everything from polonium on
+const RADIOACTIVE = new Set(['Tc', 'Pm'].concat(ELEMENTS.slice(83).map(e => e[0])));
 let evRun = null;
 try {
     const v = JSON.parse(localStorage.getItem('elementalEvent') || 'null');
-    evRun = v && EVENTS[v.id] && v.left > 0 ? { id: v.id, left: Math.min(500, Math.floor(v.left)), s: v.s, co: v.co, src: v.src } : null;
+    evRun = v && EVENTS[v.id] && v.left > 0 ? { id: v.id, left: Math.min(EVENTS[v.id].presses * 4, Math.floor(v.left)), s: v.s, co: v.co, src: v.src, got: +v.got || 0 } : null;
 } catch (e) { }
+// the Vacuum runs alongside everything else, for a very long time
+const VACUUM_CHANCE = 1 / 250000;
+const VACUUM_PRESSES = 50000;
+let vacRun = null;
+try {
+    const v = JSON.parse(localStorage.getItem('elementalVacuum') || 'null');
+    vacRun = v && v.left > 0 ? { left: Math.min(VACUUM_PRESSES * 4, Math.floor(v.left)), s: v.s, src: v.src, got: +v.got || 0 } : null;
+} catch (e) { }
+function vacSave() {
+    try {
+        if (vacRun) {
+            localStorage.setItem('elementalVacuum', JSON.stringify(vacRun));
+        } else {
+            localStorage.removeItem('elementalVacuum');
+        }
+    } catch (e) { }
+}
+const vacOn = () => !!vacRun;
+// a Vacuum Seed starts a shorter one
+const VACUUM_SEED = 5000;
+function vacStart(s, len) {
+    vacRun = { left: Math.round((len || VACUUM_PRESSES) * (1 + bondBonus().evlen / 100)), s };
+    vacSave();
+}
+function vacuumPress(n) {
+    if (vacRun) {
+        vacRun.left--;
+        const ended = vacRun.left <= 0;
+        if (ended) {
+            vacRun = null;
+        }
+        vacSave();
+        return ended ? { ended: true } : null;
+    }
+    if (anyEventOn()) {
+        return null;
+    }
+    acOpen(n, 1);
+    try {
+        if (acStream) {
+            acStream.i = 5;
+        }
+        if (rnd() < VACUUM_CHANCE * eventChanceMult()) {
+            vacStart(n);
+            return { started: true };
+        }
+    } finally {
+        acClose();
+    }
+    return null;
+}
 function evSave() {
     try {
         if (evRun) {
@@ -9175,6 +10530,9 @@ function eventsPress(count, n) {
     }
 }
 function eventsRoll(count, n) {
+    if (vacOn()) {
+        return null;
+    }
     if (evOn()) {
         const id = evRun.id;
         evRun.left--;
@@ -9189,17 +10547,51 @@ function eventsRoll(count, n) {
         return st;
     }
     for (const id of Object.keys(EVENTS)) {
-        if (id === 'collider' && !colliderOn()) {
+        const E = EVENTS[id];
+        if ((id === 'collider' && !colliderOn()) || (E.need && !bondBonus()[E.need])) {
             continue;
         }
-        if (rnd() < EVENTS[id].chance * eventChanceMult()) {
+        if (E.at != null && acStream) {
+            acStream.i = E.at;
+        }
+        if (rnd() < E.chance * eventChanceMult()) {
             evStart(id, n == null ? {} : { s: n, co: colliderOn() });
             return { ev: id, started: true };
         }
     }
     return null;
 }
+// what each event has done so far, shown on its bar the way a Quark Storm shows its quarks
+const EV_TALLY = {
+    collider: ['1:2', n => n === 1 ? 'extra element chained' : 'extra elements chained', rolls => rolls.reduce((s, r) => s + r.elements.length - 1, 0)],
+    hole: ['×2', n => n === 1 ? 'roll doubled' : 'rolls doubled', rolls => rolls.length],
+    gamma: ['☢\uFE0E', n => n === 1 ? 'radioactive element' : 'radioactive elements', rolls => rolls.reduce((s, r) => s + r.elements.filter(e => RADIOACTIVE.has(e[0])).length, 0)],
+    hyper: ['±', n => n === 1 ? 'ion' : 'ions', rolls => rolls.filter(r => r.ion).length],
+    vacuum: ['∅', n => n === 1 ? 'void element' : 'void elements', rolls => rolls.filter(r => r.elements.some(e => isVoid(e[0]))).length]
+};
+function eventTally(evId, vac, rolls) {
+    if (evId && EV_TALLY[evId] && evRun) {
+        evRun.got = (evRun.got || 0) + EV_TALLY[evId][2](rolls);
+        evSave();
+    }
+    if (vac && vacRun) {
+        vacRun.got = (vacRun.got || 0) + EV_TALLY.vacuum[2](rolls);
+        vacSave();
+    }
+}
+const tallyHtml = (id, n) => '<span class="qs-got"><span class="ev-sym" aria-hidden="true">' + EV_TALLY[id][0] + '</span>' + formatNumber(n || 0) + ' ' + EV_TALLY[id][1](n || 0) + '</span>';
+function renderVacuum() {
+    const vb = $('vacBar');
+    if (!vb) {
+        return;
+    }
+    vb.hidden = !vacRun;
+    if (vacRun) {
+        vb.innerHTML = '<span class="qs-name">Vacuum</span><span class="qs-left"><b>' + formatNumber(vacRun.left) + '</b> ' + (vacRun.left === 1 ? 'roll' : 'rolls') + ' left</span>' + tallyHtml('vacuum', vacRun.got);
+    }
+}
 function renderQStorm(last) {
+    renderVacuum();
     const bar = $('qStormBar');
     if (!bar) {
         return;
@@ -9207,7 +10599,7 @@ function renderQStorm(last) {
     bar.className = 'qstorm-bar' + (evOn() ? ' ev-' + evRun.id : '');
     if (evOn()) {
         bar.hidden = false;
-        bar.innerHTML = '<span class="qs-name">' + EVENTS[evRun.id].name + '</span><span class="qs-left"><b>' + evRun.left + '</b> ' + (evRun.left === 1 ? 'roll' : 'rolls') + ' left</span><span class="qs-got">' + EVENTS[evRun.id].what + '</span>';
+        bar.innerHTML = '<span class="qs-name">' + EVENTS[evRun.id].name + '</span><span class="qs-left"><b>' + evRun.left + '</b> ' + (evRun.left === 1 ? 'roll' : 'rolls') + ' left</span>' + tallyHtml(evRun.id, evRun.got);
         return;
     }
     bar.hidden = !qStormOn();
@@ -9285,7 +10677,7 @@ const FAMILY_NAMES = {
     set('unknown', ['Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv']);
 })();
 function familyOf(sym) {
-    return isJoke(sym) ? 'joke' : FAMILY[sym] || 'transition';
+    return isJoke(sym) ? 'joke' : isVoid(sym) ? 'void' : FAMILY[sym] || 'transition';
 }
 // Columns and rows in whole pixels: shared out as fractions, tiles land between pixels and the gaps look uneven
 function ptFit(el) {
@@ -9297,7 +10689,7 @@ function ptFit(el) {
     const col = Math.floor((w - 17 * gap) / 18);
     const row = el.classList.contains('compact') ? Math.round(col * .86) : col;
     el.style.gridTemplateColumns = `repeat(18, ${col}px)`;
-    el.style.gridTemplateRows = `repeat(7, ${row}px) 12px repeat(2, ${row}px)`;
+    el.style.gridTemplateRows = el.classList.contains('void-table') ? `${row}px` : `repeat(7, ${row}px) 12px repeat(2, ${row}px)`;
     el.classList.add('fit');
     // the text above can leave the table starting part way into a pixel, so nudge it onto a whole one
     el.style.transform = '';
@@ -9314,8 +10706,8 @@ function buildTable(root, mode, list = ELEMENTS) {
         return;
     }
     root.innerHTML = '';
-    const joke = list === JOKES;
-    const found = joke ? jokesFound() : discoveredSymbols();
+    const joke = isJoke(list[0][0]) || list === VOIDS;
+    const found = isJoke(list[0][0]) ? jokesFound() : list === VOIDS ? voidsFound() : discoveredSymbols();
     // ion marks
     list.forEach((e, i) => {
         const pos = joke ? e[4] : tableLayout[e[0]] || [11, 1];
@@ -9365,7 +10757,7 @@ function ionShowNew() {
 }
 function bonusRows(s) {
     const row = (k, v, cls) => `<div><dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${v}</dd></div>`;
-    let h = row('Elements found', `${s.found.size} / 118`) + row('Luck', `+${s.luck.toFixed(2)}%`) + row('Scanner speed', `+${s.speed.toFixed(2)}%`) + row('Bonus rolls', `${s.extra} of 3`) + row('Chain chance', `1 in ${+s.chainDenom.toFixed(2)}`);
+    let h = row('Elements found', `${s.found.size} / 118`) + row('Luck', `+${s.luck.toFixed(2)}%`) + row('Scanner speed', `+${s.speed.toFixed(2)}%`) + row('Bonus rolls', `${s.extra} of ${bondBonus().bonusroll ? 4 : 3}`) + row('Chain chance', `1 in ${+s.chainDenom.toFixed(2)}`);
     if (s.autoUnlocked) {
         h += row('Autoroll speed', `+${s.autoSpeed.toFixed(1)}%`) + row('Break between rolls', fmtGap(s.autoGap));
     }
@@ -9421,14 +10813,24 @@ function renderPeriodic() {
     // joke table
     $('jokeWrap').hidden = !jokesOn();
     if (jokesOn()) {
-        buildTable($('jokeTable'), 'full', JOKES);
-        $('jokeStats').textContent = `Joke periodic table · ${jokesFound().size} / ${JOKES.length} found`;
+        // the late ones turn up with their connector, and the hidden one only once it's found
+        const jf = jokesFound();
+        const shown = JOKES.filter(j => jf.has(j[0]) || (jokeOpen(j) && j[0] !== JOKE_HIDDEN));
+        buildTable($('jokeTable'), 'full', shown);
+        $('jokeStats').textContent = `Joke periodic table · ${jf.size} / ${shown.length} found`;
     }
-    const joke = isJoke(selectedElementSymbol);
+    // the void table: nothing at all until the first one is found
+    $('voidWrap').hidden = !voidsFound().size;
+    if (voidsFound().size) {
+        buildTable($('voidTable'), 'full', VOIDS);
+        $('voidStats').textContent = `Void elements · ${voidsFound().size} / ${VOIDS.length} found`;
+    }
+    const vd = isVoid(selectedElementSymbol);
+    const joke = isJoke(selectedElementSymbol) || vd;
     const e = joke ? elementBySymbol[selectedElementSymbol] : ELEMENTS.find(x => x[0] === selectedElementSymbol) || ELEMENTS[0];
-    const isFound = joke ? jokesFound().has(e[0]) : found.has(e[0]);
+    const isFound = vd ? voidsFound().has(e[0]) : joke ? jokesFound().has(e[0]) : found.has(e[0]);
     $('buffElementName').textContent = `${e[1]} (${e[0]})`;
-    $('buffElementDesc').textContent = joke ? `${e[3]}. ${jokeBonusText(e[0])}.` : ELEMENT_BUFFS.get(e[0]).desc;
+    $('buffElementDesc').textContent = vd ? `${e[3]}. Only found during a Vacuum.` : joke ? `${e[3]}. ${jokeBonusText(e[0])}.` : ELEMENT_BUFFS.get(e[0]).desc;
     $('buffElementState').textContent = isFound ? 'Active. This bonus always applies.' : 'Locked. Find this element once to activate it.';
     $('buffElementState').classList.toggle('active', isFound);
     if ($('element').classList.contains('active')) {
@@ -9505,12 +10907,13 @@ let elemMode = 'start';
 function renderElemCompounds() {
     const root = $('elemCompounds');
     const sym = selectedElementSymbol;
-    const joke = isJoke(sym);
+    const vd = isVoid(sym);
+    const joke = isJoke(sym) || vd;
     const el = joke ? elementBySymbol[sym] : ELEMENTS.find(x => x[0] === sym) || ELEMENTS[0];
-    const found = joke ? jokesFound().has(sym) : discoveredSymbols().has(el[0]);
+    const found = vd ? voidsFound().has(sym) : joke ? jokesFound().has(sym) : discoveredSymbols().has(el[0]);
     const starts = c => (c.formula.match(/^[A-Z][a-z]?/) || [''])[0] === el[0];
     $('elemTitle').textContent = `${el[1]} (${el[0]})`;
-    $('elemSub').textContent = `${joke ? 'Joke element' : FAMILY_NAMES[familyOf(el[0])] + ', atomic number ' + (ELEMENTS.indexOf(el) + 1)}. ${displayMode === 'score' ? 'Score ' + el[2].toLocaleString() : 'Base odds 1 in ' + el[2].toLocaleString()}. ${found ? 'Found.' : 'Not found yet.'}`;
+    $('elemSub').textContent = `${vd ? 'Void element' : joke ? 'Joke element' : FAMILY_NAMES[familyOf(el[0])] + ', atomic number ' + (ELEMENTS.indexOf(el) + 1)}. ${displayMode === 'score' ? 'Score ' + el[2].toLocaleString() : 'Base odds 1 in ' + el[2].toLocaleString()}. ${found ? 'Found.' : 'Not found yet.'}`;
     const list = !found ? [] : collection.filter(c => elemMode === 'start' ? starts(c) : c.elements.some(x => x[0] === el[0])).sort(findOrder(displayMode));
     root.innerHTML = `<div class="toolbar"><strong>${el[1]} finds, ${displayMode === 'score' ? 'highest score' : 'rarest'} first</strong><span class="stat">${list.length} found</span><button class="ghost" id="elemModeBtn">${elemMode === 'start' ? 'Formula starts with ' + el[0] : 'Formula contains ' + el[0]}</button></div><div class="rank-list" id="elemGrid"></div>`;
     $('elemModeBtn').onclick = () => {
@@ -9615,7 +11018,9 @@ async function doRoll(preset, opts) {
         const press = pre || scripted ? null : acPress();
         // before it counts down
         const evNow = pre || scripted ? null : eventNow();
-        const acEv = evNow === 'collider' || evNow === 'hole' ? acEvent() : null;
+        const acEv = evNow && EVENTS[evNow] ? acEvent() : null;
+        const vacNow = !pre && !scripted && vacOn();
+        const acVac = vacNow && vacRun.s != null ? { s: vacRun.s, c: vacRun.src ? 1 : 0, src: vacRun.src || null } : null;
         const rolls = pre || Array.from({ length: rollCount }, (_, k) => {
             // the catalysts behind this roll, noted before single-roll ones are used up
             const timed = activeList().filter(x => x.a.rolls == null && x.c).map(x => x.c.name);
@@ -9641,14 +11046,16 @@ async function doRoll(preset, opts) {
                 const heads = (press != null && acKeys ? acDraw(acKeys.d, press, 4, 0, k) : Math.random()) < 0.5;
                 if (!first && ch.jokeNew && heads && jokesOn()) {
                     const jf = jokesFound();
-                    if (JOKES.some(j => !jf.has(j[0]))) {
+                    if (rollPool().some(e => isJoke(e[0]) && !jf.has(e[0]))) {
                         only = { k: 'j', l: rollPool().filter(e => isJoke(e[0]) && !jf.has(e[0])).map(e => e[0]) };
                         first = weightedElement(luckUp, e => isJoke(e[0]) && !jf.has(e[0]));
                     }
                 }
+                // during a Vacuum, a void element can come up instead of the whole roll
+                const voidEl = vacNow && !first ? voidPick(luckUp) : null;
                 const denom = evNow === 'collider' ? 2 : ch.chain3 ? Math.min(CHAIN_MAX, buffs.chainDenom) : buffs.chainDenom;
                 const twice = evNow === 'hole' || ch.twice;
-                const make = () => rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
+                const make = () => voidEl ? [voidEl] : rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
                 const elements = scripted ? [elementBySymbol[scripted]] : twice ? rollTwice(make) : make();
                 if (elements.some(e => isJoke(e[0]))) {
                     gagHit();
@@ -9657,9 +11064,9 @@ async function doRoll(preset, opts) {
                 const log = exactRarity(elements, 0);
                 const r = ionise({
                     elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
-                }, rollIon());
+                }, ch.ionLens && bondBonus().ion ? ionLensRoll() : rollIon());
                 if (acStream) {
-                    r.proof = { d: acDev, n: press, k, p: acParams(buffHold, { X: luckUp, D: denom, ln: ch.linked ? 1 : 0, mg: ch.magnet ? 1 : 0, tw: twice ? 1 : 0, o: only, ch: ch.src, R: bondBonus().refund, ev: acEv }), t: acTrace };
+                    r.proof = { d: acDev, n: press, k, p: acParams(buffHold, { X: luckUp, D: denom, ln: ch.linked ? 1 : 0, mg: ch.magnet ? 1 : 0, tw: twice ? 1 : 0, o: only, ch: ch.src, R: refundPct(), ev: acEv, G: evNow === 'gamma' ? 1 : 0, vc: vacNow ? 1 : 0, vs: acVac, Vx: catBonus().voidx, il: ch.ionLens ? 1 : 0 }), t: acTrace };
                 }
                 return r;
             } finally {
@@ -9668,7 +11075,11 @@ async function doRoll(preset, opts) {
                 buffHold = null;
             }
         });
+        if (!pre && !scripted) {
+            eventTally(evNow, vacNow, rolls);
+        }
         const ev = pre || scripted ? null : eventsPress(rolls.length, press);
+        const vac = pre || scripted ? null : vacuumPress(press);
         const storm = ev && !ev.ev ? ev : null;
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();
@@ -9697,7 +11108,7 @@ async function doRoll(preset, opts) {
             await playCutscene(cut.sym, reel, multi ? [withIon(rolls[feat].formula, rolls[feat].ion)] : rolls.map(r => withIon(r.formula, r.ion)), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, evNow);
+            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, evNow || (vacNow ? 'vacuum' : null));
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -9786,6 +11197,16 @@ async function doRoll(preset, opts) {
                 showAchievementToast({ kicker: 'Event over', name: E.name, flavor: 'Rolling is back to normal.' });
             }
         }
+        if (vacNow || vac) {
+            renderVacuum();
+        }
+        if (vac) {
+            if (vac.started) {
+                showAchievementToast({ kicker: 'Rare event', name: 'Vacuum', flavor: 'For the next ' + formatNumber(vacRun.left) + ' rolls, something that isn\'t on any table can turn up.' });
+            } else {
+                showAchievementToast({ kicker: 'Event over', name: 'Vacuum', flavor: 'Whatever was out there has gone quiet again.' });
+            }
+        }
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
@@ -9794,6 +11215,7 @@ async function doRoll(preset, opts) {
                 showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
             }
         }
+        sillyConfetti();
         refreshViews();
         applyCosmetics();
         if (!buffs.autoUnlocked && activeBuffStats().autoUnlocked) {
@@ -9918,6 +11340,11 @@ function updateAutoBtn() {
     }
     b.setAttribute('aria-pressed', autoWanted && s.autoUnlocked ? 'true' : 'false');
     b.classList.toggle('auto-on', autoWanted && s.autoUnlocked);
+    const lv = $('levelBtn');
+    lv.hidden = !bondBonus().leveller;
+    lv.textContent = levellerOn ? 'Leveller on' : 'Leveller off';
+    lv.classList.toggle('on', levellerOn);
+    lv.setAttribute('aria-pressed', levellerOn ? 'true' : 'false');
     document.querySelectorAll('.js-auto').forEach(el => {
         el.textContent = status;
     });
@@ -9969,6 +11396,16 @@ $('autoRollBtn').addEventListener('click', () => {
         autoLoop();
     }
 });
+// the Leveller from outer ring 2, switched on and off here instead of bought
+$('levelBtn').addEventListener('click', () => {
+    levellerOn = !levellerOn;
+    try {
+        localStorage.setItem('elementalLeveller', levellerOn ? '1' : '');
+    } catch (e) { }
+    buffCache = weightCache = null;
+    uiSound('click');
+    updateAutoBtn();
+});
 setInterval(updateAutoBtn, 250);
 updateAutoBtn();
 if (autoWanted) {
@@ -9986,6 +11423,16 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalAutoState');
             localStorage.removeItem('elementalBonds2');
             netState = {};
+            netAgents = {};
+            levellerOn = false;
+            localStorage.removeItem('elementalBondAgents');
+            localStorage.removeItem('elementalMade');
+            localStorage.removeItem('elementalSynthKnown');
+            localStorage.removeItem('elementalSynthHints');
+            syKnown = [];
+            syHints = {};
+            madeStore = {};
+            localStorage.removeItem('elementalLeveller');
             netVer++;
             localStorage.removeItem('elementalNetwork');
             localStorage.removeItem('elementalShop');
@@ -10006,6 +11453,8 @@ $('resetBtn').addEventListener('click', () => {
             qStormSave();
             evRun = null;
             evSave();
+            vacRun = null;
+            vacSave();
             localStorage.removeItem('elementalCosmetics');
             cosState = { owned: [], scanner: '', page: '', effects: '', badge: true };
             applyCosmetics();
@@ -10314,7 +11763,7 @@ function jokeIntroCheck() {
     try {
         localStorage.setItem('elementalJokeIntro', '1');
     } catch (e) { }
-    const w = openDialog('<h2>The joke periodic table</h2><p>' + JOKES.length + ' new elements are now in the pool, every one rarer than Uranium. Find them on the joke table in your Collection.</p>' +
+    const w = openDialog('<h2>The joke periodic table</h2><p>' + JOKES_BASE.length + ' new elements are now in the pool, every one rarer than Uranium. Find them on the joke table in your Collection.</p>' +
         '<p>Mixing is on: joke elements can chain with real ones into joke compounds. You can turn it off now, or any time in Settings.</p>' +
         '<div class="btn-row"><button class="primary" id="jokeKeep">Keep mixing on</button><button class="ghost" id="jokeOff">Turn mixing off</button></div>');
     w.querySelector('#jokeKeep').onclick = closeDialog;
@@ -13758,6 +15207,1956 @@ CUTSCENES.Gg = {
         drawCard(ctx, scene, time, 6500, '#ff4040', '#b30000');
     }
 };
+// Oo: a rolling pencil knocks over a flask, the spill finds the burner, and something forms in the mess
+CUTSCENES.Oo = {
+    z: 0, dur: 9200,
+    snd(audio, start) {
+        for (let x = 0.1; x < 1.5; x += 0.07) {
+            playNoise(audio, start + x, 0.03, 0.012, 2600, 1800, 'bandpass', 3, 0.05, 0.002);
+        }
+        [1.55, 1.85, 2.1, 2.3].forEach((x, i) => playTone(audio, 1760 + i * 90, start + x, 0.12, 0.018, 'triangle', null, 0.3, 0, 0.002));
+        playTone(audio, 900, start + 2.45, 0.5, 0.025, 'sine', 180, 0.2);
+        playNoise(audio, start + 2.9, 0.5, 0.06, 4000, 600, 'bandpass', 1, 0.3, 0.003);
+        playNoise(audio, start + 3.1, 1.2, 0.025, 600, 300, 'lowpass', 2, 0.2, 0.1);
+        playNoise(audio, start + 3.9, 0.9, 0.04, 6000, 9000, 'highpass', 1, 0.2, 0.01);
+        boom(audio, start + 4.3, 0.05, 0.6);
+        playTone(audio, 1400, start + 4.9, 0.7, 0.02, 'sine', 300, 0.3);
+        [392, 523.3, 659.3, 784].forEach((f, i) => playTone(audio, f, start + 6.6 + i * 0.09, 0.3, 0.022, 'triangle', null, 0.3));
+        sparkle(audio, start + 6.7, 10, 1.4, 0.016);
+        padChord(audio, start + 7, [261.6, 329.6, 392, 523.3], 2.2, 0.012, 'triangle', 2400);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const bench = cy + 14 * u;
+        const fade = 1 - smoothstep(6400, 7000, time);
+        ctx.fillStyle = '#0d1a24';
+        ctx.fillRect(0, 0, W, H);
+        // tiles on the back wall
+        ctx.strokeStyle = 'rgba(140,190,210,0.07)';
+        ctx.lineWidth = 0.2 * u;
+        for (let x = (cx % (8 * u)); x < W; x += 8 * u) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, bench);
+            ctx.stroke();
+        }
+        for (let y = bench - 8 * u; y > 0; y -= 8 * u) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#26323b';
+        ctx.fillRect(0, bench, W, H - bench);
+        ctx.fillStyle = '#3a4a55';
+        ctx.fillRect(0, bench, W, 0.8 * u);
+        // the props, drawn bigger round the middle of the bench
+        ctx.save();
+        ctx.translate(cx, bench);
+        ctx.scale(1.7, 1.7);
+        ctx.translate(-cx, -bench);
+        ctx.globalAlpha = fade;
+        // the burner on the right
+        const bx = cx + 22 * u;
+        ctx.fillStyle = '#56646e';
+        ctx.fillRect(bx - 1 * u, bench - 9 * u, 2 * u, 9 * u);
+        ctx.fillRect(bx - 3.5 * u, bench - 1.2 * u, 7 * u, 1.2 * u);
+        const fl = 1 + 0.15 * Math.sin(time / 50) + 0.1 * Math.sin(time / 31);
+        const roar = smoothstep(3900, 4100, time) * (1 - smoothstep(4400, 5200, time));
+        ctx.fillStyle = '#5fa8ff';
+        ctx.beginPath();
+        ctx.ellipse(bx, bench - 11.5 * u, 1.2 * u, 2.6 * u * fl * (1 + roar * 2), 0, 0, TAU);
+        ctx.fill();
+        if (roar > 0) {
+            drawGlow(ctx, bx, bench - 14 * u, 16 * u * roar, '#ffb35c', roar * 0.8);
+        }
+        // the pencil rolls in from the left and stops against the flask
+        const fx = cx - 6 * u;
+        const px = Math.min(fx - 5.5 * u, -8 * u + (fx + 2.5 * u) * easeOutCubic(time / 1500));
+        ctx.save();
+        ctx.translate(px, bench - 0.9 * u);
+        ctx.rotate(time < 1500 ? time / 120 : 1500 / 120);
+        ctx.fillStyle = '#ffcf4a';
+        ctx.fillRect(-7 * u, -0.9 * u, 12 * u, 1.8 * u);
+        ctx.fillStyle = '#ff8fa3';
+        ctx.fillRect(-8 * u, -0.9 * u, 1.2 * u, 1.8 * u);
+        ctx.restore();
+        // the flask wobbles, then goes over
+        const wob = time > 1500 && time < 2450 ? Math.sin((time - 1500) / 70) * 0.12 * (1 - (time - 1500) / 1200) : 0;
+        const tip = smoothstep(2450, 2950, time) * 1.45;
+        const ang = wob + tip;
+        const spill = smoothstep(2850, 3900, time);
+        ctx.save();
+        ctx.translate(fx + 3.5 * u, bench);
+        ctx.rotate(ang);
+        ctx.translate(-3.5 * u, 0);
+        const level = 1 - spill;
+        ctx.fillStyle = 'rgba(120,255,160,0.75)';
+        if (level > 0.02) {
+            ctx.beginPath();
+            ctx.moveTo(-3.2 * u, -0.2 * u);
+            ctx.lineTo(3.2 * u, -0.2 * u);
+            ctx.lineTo(3.2 * u - 1.8 * u * level, -6 * u * level);
+            ctx.lineTo(-3.2 * u + 1.8 * u * level, -6 * u * level);
+            ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(210,240,255,0.85)';
+        ctx.lineWidth = 0.35 * u;
+        ctx.beginPath();
+        ctx.moveTo(-1 * u, -11 * u);
+        ctx.lineTo(-1 * u, -7 * u);
+        ctx.lineTo(-3.5 * u, 0);
+        ctx.lineTo(3.5 * u, 0);
+        ctx.lineTo(1 * u, -7 * u);
+        ctx.lineTo(1 * u, -11 * u);
+        ctx.stroke();
+        ctx.restore();
+        // the spill runs along the bench toward the burner
+        if (spill > 0) {
+            const x0 = fx + 4 * u;
+            const len = (bx - x0 + 1 * u) * spill;
+            ctx.fillStyle = 'rgba(120,255,160,0.7)';
+            ctx.beginPath();
+            ctx.ellipse(x0 + len / 2, bench + 0.1 * u, len / 2 + 1 * u, 0.7 * u, 0, Math.PI, TAU);
+            ctx.fill();
+        }
+        // fizz and sparks where it hits the flame
+        const st = scene.state;
+        if (!st.sp) {
+            const r = seededRandom(404);
+            st.sp = Array.from({ length: 40 }, () => [(r() - 0.5) * 1.2, -0.4 - r() * 0.9, r()]);
+        }
+        const sd = time - 3900;
+        if (sd > 0 && sd < 1400) {
+            st.sp.forEach(([vx, vy, k]) => {
+                const t = sd / 16;
+                const x = bx + vx * t * u * 0.6;
+                const y = bench - 8 * u + vy * t * u * 0.6 + 0.004 * u * t * t;
+                ctx.fillStyle = k > 0.5 ? '#ffe28a' : '#9effc0';
+                ctx.globalAlpha = fade * (1 - sd / 1400);
+                ctx.fillRect(x, y, 0.5 * u, 0.5 * u);
+            });
+            ctx.globalAlpha = fade;
+        }
+        // a puff of smoke that fills the room, then clears
+        const puff = smoothstep(4200, 4700, time) * (1 - smoothstep(5300, 6300, time));
+        if (puff > 0) {
+            const r = seededRandom(99);
+            for (let i = 0; i < 26; i++) {
+                const a = r() * TAU;
+                const d = (8 + r() * 40) * u * easeOutCubic((time - 4200) / 900);
+                drawGlow(ctx, cx + 8 * u + Math.cos(a) * d, cy + Math.sin(a) * d * 0.6, (12 + r() * 10) * u, '#aab4bc', puff * 0.55);
+            }
+        }
+        ctx.restore();
+        drawText(ctx, 'oops', cx + 8 * u, cy - 14 * u, 6 * u * easeOutCubic((time - 4300) / 300), '#ffffff', smoothstep(4300, 4400, time) * (1 - smoothstep(5000, 5400, time)), 800, 0.4 * u);
+        ctx.globalAlpha = 1;
+        // what's left in the mess pulls itself together
+        const blob = smoothstep(5400, 6300, time);
+        if (blob > 0) {
+            const wobb = Math.sin(time / 90) * 0.6 * u * (1 - smoothstep(6000, 6600, time));
+            drawGlow(ctx, cx, cy, 30 * u * blob, '#7dffb0', 0.5 * blob * fade);
+            ctx.fillStyle = 'rgba(160,255,200,' + blob * fade + ')';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + (1 - blob) * 14 * u, Math.max(0.1, 4 * u * blob + wobb * blob), Math.max(0.1, 4 * u * blob - wobb * blob), 0, 0, TAU);
+            ctx.fill();
+        }
+        drawCard(ctx, scene, time, 6600, '#7dffb0', '#1f8f5a');
+    }
+};
+// Bf: the bar gets to 99% and stalls, spins, slips back, and the element arrives in low quality before it sharpens
+CUTSCENES.Bf = {
+    z: 0, dur: 10200,
+    snd(audio, start) {
+        for (let x = 0.2; x < 2.2; x += 0.18) {
+            playTone(audio, 1200, start + x, 0.03, 0.008, 'sine', null, 0.1, 0, 0.002);
+        }
+        for (let x = 2.6; x < 6; x += 0.5) {
+            playTone(audio, 330, start + x, 0.12, 0.01, 'triangle', null, 0.1);
+        }
+        playTone(audio, 523.3, start + 3.6, 0.2, 0.02, 'square', null, 0.1, 0, 0.005);
+        playTone(audio, 392, start + 3.82, 0.35, 0.02, 'square', null, 0.1, 0, 0.005);
+        [523.3, 659.3, 784, 1046.5].forEach((f, i) => playTone(audio, f, start + 6.1 + i * 0.07, 0.15, 0.02, 'triangle', null, 0.2));
+        [0, 1, 2].forEach(i => playNoise(audio, start + 6.6 + i * 0.4, 0.08, 0.025, 3000 + i * 2000, 5000 + i * 2000, 'bandpass', 2, 0.1, 0.002));
+        sparkle(audio, start + 7.9, 10, 1.4, 0.016);
+        padChord(audio, start + 8, [293.7, 370, 440, 587.3], 2.2, 0.012, 'triangle', 2600);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const fade = 1 - smoothstep(6000, 6300, time);
+        ctx.fillStyle = '#07080c';
+        ctx.fillRect(0, 0, W, H);
+        // how full the bar is: up to 99, stuck, back to 97, stuck again, then done
+        let p;
+        if (time < 2200) {
+            p = 99 * easeOutCubic(time / 2200);
+        } else if (time < 3600) {
+            p = 99;
+        } else if (time < 3900) {
+            p = 99 - 2 * smoothstep(3600, 3900, time);
+        } else if (time < 5800) {
+            p = 97 + 2.99 * smoothstep(4300, 5600, time);
+        } else {
+            p = 100;
+        }
+        const bw = Math.min(70 * u, W * 0.7);
+        const by = cy + 12 * u;
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#1b1f2a';
+        ctx.fillRect(cx - bw / 2, by, bw, 1.4 * u);
+        ctx.fillStyle = '#5ec8ff';
+        ctx.fillRect(cx - bw / 2, by, bw * p / 100, 1.4 * u);
+        ctx.globalAlpha = 1;
+        const pct = p >= 100 ? '100%' : p > 99.5 ? '99.9%' : Math.floor(p) + '%';
+        drawText(ctx, pct, cx, by + 5 * u, 3 * u, '#cfe8ff', fade, 600, 0.4 * u);
+        // the spinner while it's stuck
+        const spin = (time > 2300 && time < 3600) || (time > 3950 && time < 5700);
+        if (spin) {
+            for (let i = 0; i < 8; i++) {
+                const a = i / 8 * TAU + time / 140;
+                const k = ((i + Math.floor(time / 90)) % 8) / 8;
+                ctx.fillStyle = 'rgba(94,200,255,' + (0.15 + 0.85 * k) * fade + ')';
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(a) * 6 * u, cy - 4 * u + Math.sin(a) * 6 * u, 0.9 * u, 0, TAU);
+                ctx.fill();
+            }
+            const dots = '.'.repeat(1 + Math.floor(time / 400) % 3);
+            drawText(ctx, 'Still loading' + dots, cx, by - 4 * u, 2.6 * u, '#7c8aa6', fade, 600, 0.3 * u);
+        }
+        // arrives blocky and sharpens a step at a time
+        const st = scene.state;
+        const steps = [[6000, 22], [6500, 12], [7000, 6], [7450, 3]];
+        const step = steps.filter(s => time >= s[0]).pop();
+        if (step && time < 7900) {
+            const px = step[1] * u / 6;
+            if (!st.c) {
+                st.c = document.createElement('canvas');
+            }
+            const sw = Math.max(1, Math.round(W / px));
+            const sh = Math.max(1, Math.round(H / px));
+            st.c.width = sw;
+            st.c.height = sh;
+            const o = st.c.getContext('2d');
+            o.clearRect(0, 0, sw, sh);
+            o.scale(sw / W, sh / H);
+            drawGlow(o, cx, cy, 60 * u, '#1f6fb3', 0.4);
+            drawText(o, scene.sym, cx, cy - 2 * u, 26 * u, '#5ec8ff', 1, 800);
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            ctx.globalAlpha = 1 - smoothstep(7500, 7900, time);
+            ctx.drawImage(st.c, 0, 0, W, H);
+            ctx.restore();
+        }
+        drawCard(ctx, scene, time, 7500, '#5ec8ff', '#1f6fb3');
+    }
+};
+// Fz: a night shift on the cameras. Something gets closer every time the feed comes back, then it's 6 AM
+const FZ_TUNE = [[659.3, 0.3], [784, 0.3], [740, 0.3], [587.3, 0.6], [659.3, 0.3], [523.3, 0.3], [493.9, 0.6], [440, 0.3], [493.9, 0.3], [523.3, 0.3], [440, 0.9]];
+CUTSCENES.Fz = {
+    z: 0, dur: 13400, label: 'HIDDEN ELEMENT',
+    snd(audio, start) {
+        padChord(audio, start, [49, 73.4], 7.4, 0.012, 'sawtooth', 300);
+        [0, 2.4, 4.6].forEach(x => playNoise(audio, start + 1.4 + x, 0.25, 0.03, 5000, 3000, 'bandpass', 0.7, 0.05, 0.002));
+        for (let x = 0.5; x < 7.2; x += 1) {
+            playTone(audio, 2000, start + x, 0.02, 0.006, 'square', null, 0.05, 0, 0.001);
+        }
+        playNoise(audio, start + 7.4, 0.4, 0.05, 400, 60, 'lowpass', 2, 0.2, 0.002);
+        let t = start + 8.2;
+        FZ_TUNE.forEach(([f, d]) => {
+            playTone(audio, f * 2, t, d * 1.6, 0.014, 'triangle', null, 0.5, 0, 0.003);
+            t += d * 0.85;
+        });
+        [0, 0.5, 1].forEach(i => playTone(audio, 1046.5, start + 10.5 + i, 0.8, 0.02, 'sine', null, 0.6));
+        padChord(audio, start + 10.6, [261.6, 329.6, 392, 523.3], 2.6, 0.014, 'triangle', 2200);
+        sparkle(audio, start + 10.7, 12, 1.6, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        const dark = 7400;
+        const dawn = 10400;
+        // which feed is up: the hallway, a quick look elsewhere, then back to the hallway
+        const cuts = [0, 1400, 2400, 3800, 4600, 6000, dark];
+        const ci = cuts.filter(c => time >= c).length - 1;
+        const cam = ci % 2 === 0 ? 'hall' : 'room';
+        const visit = Math.floor(ci / 2);
+        const sinceCut = time - cuts[ci];
+        if (time < dark) {
+            ctx.fillStyle = '#0a0d0b';
+            ctx.fillRect(0, 0, W, H);
+            const flick = calmFx ? 1 : (Math.sin(time / 37) + Math.sin(time / 13)) > 1.6 ? 0.55 : 1;
+            ctx.globalAlpha = flick;
+            if (cam === 'hall') {
+                // a corridor going back to a dark doorway
+                const vx = cx;
+                const vy = cy - 2 * u;
+                const dw = 10 * u;
+                const dh = 16 * u;
+                ctx.strokeStyle = 'rgba(150,175,150,0.35)';
+                ctx.lineWidth = 0.3 * u;
+                [[0, 0], [W, 0], [0, H], [W, H]].forEach(([x, y]) => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(vx + (x ? dw : -dw), vy + (y ? dh : -dh));
+                    ctx.stroke();
+                });
+                for (let k = 1; k < 6; k++) {
+                    const f = Math.pow(k / 6, 1.6);
+                    const x0 = f * (vx - dw);
+                    const x1 = W - f * (W - vx - dw);
+                    ctx.beginPath();
+                    ctx.moveTo(x0, H - f * (H - vy - dh));
+                    ctx.lineTo(x1, H - f * (H - vy - dh));
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#020302';
+                ctx.fillRect(vx - dw, vy - dh, 2 * dw, 2 * dh);
+                // two points of light in the doorway, nearer each visit
+                const near = [0, 0.35, 0.7, 1][visit] || 0;
+                if (visit > 0) {
+                    const s = 1 + near * 1.6;
+                    const ey = vy + (2 - near * 3) * u;
+                    const blink = Math.sin(sinceCut / 160) > 0.97 ? 0.1 : 1;
+                    [-1, 1].forEach(k => drawGlow(ctx, vx + k * 2.2 * u * s, ey, 2.6 * u * s, '#e8fff0', 0.9 * blink));
+                    [-1, 1].forEach(k => {
+                        ctx.fillStyle = 'rgba(255,255,255,' + blink + ')';
+                        ctx.beginPath();
+                        ctx.arc(vx + k * 2.2 * u * s, ey, 0.45 * u * s, 0, TAU);
+                        ctx.fill();
+                    });
+                }
+            } else {
+                // a party room with long tables, all empty
+                ctx.strokeStyle = 'rgba(150,175,150,0.3)';
+                ctx.lineWidth = 0.3 * u;
+                for (let k = 0; k < 3; k++) {
+                    const y = cy + (4 + k * 7) * u;
+                    ctx.strokeRect(cx - (14 + k * 8) * u, y, (28 + k * 16) * u, 2 * u);
+                }
+                for (let k = 0; k < 9; k++) {
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 40 * u + k * 10 * u, cy - 14 * u);
+                    ctx.lineTo(cx - 36 * u + k * 10 * u, cy - 10 * u);
+                    ctx.lineTo(cx - 32 * u + k * 10 * u, cy - 14 * u);
+                    ctx.stroke();
+                }
+            }
+            ctx.globalAlpha = 1;
+            // grain and lines
+            const r = seededRandom(Math.floor(time / 60));
+            ctx.fillStyle = 'rgba(200,230,200,0.06)';
+            for (let i = 0; i < 160; i++) {
+                ctx.fillRect(r() * W, r() * H, 0.4 * u, 0.4 * u);
+            }
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            for (let y = 0; y < H; y += 0.9 * u) {
+                ctx.fillRect(0, y, W, 0.35 * u);
+            }
+            // a burst of static on each cut
+            if (sinceCut < 220 && ci > 0) {
+                const s2 = seededRandom(time | 0);
+                for (let i = 0; i < 500; i++) {
+                    ctx.fillStyle = 'rgba(220,230,220,' + s2() * 0.6 + ')';
+                    ctx.fillRect(s2() * W, s2() * H, 1.4 * u, 0.5 * u);
+                }
+            }
+            // the overlay: camera, recording light, clock and power
+            const hour = Math.min(5, Math.floor(time / 1450));
+            const clock = time > 7000 ? '5:59 AM' : (hour === 0 ? '12' : hour) + ' AM';
+            ctx.save();
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.font = '600 ' + 3 * u + 'px ' + CUTSCENE_FONT;
+            ctx.fillStyle = '#dfe8df';
+            ctx.fillText(cam === 'hall' ? 'CAM 04  HALLWAY' : 'CAM 02  PARTY ROOM', 4 * u, 4 * u);
+            ctx.textAlign = 'right';
+            ctx.fillText(clock, W - 4 * u, 4 * u);
+            ctx.textBaseline = 'bottom';
+            ctx.textAlign = 'left';
+            const power = Math.max(0, Math.round(100 - time / dark * 100));
+            ctx.fillText('POWER ' + power + '%', 4 * u, H - 4 * u);
+            ctx.restore();
+            if (Math.floor(time / 500) % 2 === 0) {
+                ctx.fillStyle = '#ff3b3b';
+                ctx.beginPath();
+                ctx.arc(W - 6 * u, H - 6 * u, 1 * u, 0, TAU);
+                ctx.fill();
+            }
+            return;
+        }
+        // the power's gone: black, and something plays a little tune in the dark
+        const d = time - dark;
+        const morning = smoothstep(dawn, dawn + 900, time);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        if (morning > 0) {
+            const g = ctx.createLinearGradient(0, 0, 0, H);
+            g.addColorStop(0, 'rgba(255,190,120,' + morning * 0.5 + ')');
+            g.addColorStop(1, 'rgba(120,80,160,' + morning * 0.35 + ')');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, W, H);
+        }
+        const eyes = smoothstep(800, 1600, d) * (1 - smoothstep(dawn - dark - 300, dawn - dark + 200, d));
+        if (eyes > 0) {
+            const pulse = 0.8 + 0.2 * Math.sin(d / 300);
+            [-1, 1].forEach(k => drawGlow(ctx, cx + k * 7 * u, cy - 3 * u, 6 * u, '#e8fff0', eyes * pulse));
+            [-1, 1].forEach(k => {
+                ctx.fillStyle = 'rgba(255,255,255,' + eyes + ')';
+                ctx.beginPath();
+                ctx.arc(cx + k * 7 * u, cy - 3 * u, 1.1 * u, 0, TAU);
+                ctx.fill();
+            });
+        }
+        drawText(ctx, '6:00 AM', cx, cy - 2 * u, 12 * u * easeOutCubic((time - dawn) / 400), '#ffe6b0', smoothstep(dawn, dawn + 100, time) * (1 - smoothstep(dawn + 1200, dawn + 1600, time)), 800, 0.5 * u);
+        drawCard(ctx, scene, time, dawn + 1500, '#ffd27a', '#a45cff');
+    }
+};
+// cutscenes for the void elements, the ones a Vacuum turns up. They all start in the dark
+const VOID_BLUE = '#8aa2ff';
+const bounceIn = (p, len) => {
+    const m = ((p % (2 * len)) + 2 * len) % (2 * len);
+    return m > len ? 2 * len - m : m;
+};
+function voidRing(ctx, x, y, r, u, alpha) {
+    if (alpha <= 0.003 || r <= 0) {
+        return;
+    }
+    [[1.6, 0.12], [0.8, 0.25], [0.25, 0.8]].forEach(([w, a]) => {
+        ctx.strokeStyle = 'rgba(138,162,255,' + alpha * a + ')';
+        ctx.lineWidth = w * u;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TAU);
+        ctx.stroke();
+    });
+}
+
+// Kn: atoms drift and collide, then the empty space between them opens up and they all stop
+CUTSCENES.Kn = {
+    z: 0, dur: 10000, label: 'VOID ELEMENT',
+    snd(audio, start) {
+        padChord(audio, start, [41.2, 61.7], 6.4, 0.012, 'sine', 400);
+        for (let x = 0.6; x < 6.2;) {
+            playNoise(audio, start + x, 0.01, 0.03 * (1 - x / 7), 5200, 3000, 'highpass', 1, 0.1, 0.001);
+            x += 0.08 + Math.random() * 0.3;
+        }
+        playTone(audio, 55, start + 3, 3.2, 0.035, 'sine', 30, 0.4, 0, 1.2);
+        padChord(audio, start + 7.8, [196, 293.7, 392, 587.3], 2.6, 0.016, 'sine', 1800);
+        sparkle(audio, start + 7.9, 6, 1.6, 0.012, [1568, 2093, 2349.3, 3136]);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        if (!st.a) {
+            const r = seededRandom(201);
+            st.a = Array.from({ length: 110 }, () => [r() * W, r() * H, (r() - 0.5) * 0.045 * u, (r() - 0.5) * 0.045 * u, (0.8 + r() * 1.4) * u, r()]);
+        }
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        // everything slows to a stop after 6s
+        const tm = time < 6000 ? time : 6000 + 700 * (1 - Math.exp(-(time - 6000) / 700));
+        const R = 34 * u * easeOutCubic((time - 3000) / 2600) * (1 - 0.6 * smoothstep(6800, 7700, time)) + Math.sin(time / 400) * 0.4 * u * smoothstep(3000, 4000, time);
+        const al = smoothstep(0, 2000, time) * (1 - smoothstep(6400, 7500, time));
+        st.a.forEach(([x0, y0, vx, vy, rad, sh]) => {
+            let x = bounceIn(x0 + vx * tm, W);
+            let y = bounceIn(y0 + vy * tm, H);
+            const dx = x - cx;
+            const dy = y - cy;
+            const d = Math.hypot(dx, dy) || 1;
+            if (R > 0) {
+                const nd = Math.sqrt(d * d + R * R);
+                x = cx + dx / d * nd;
+                y = cy + dy / d * nd;
+            }
+            const b = 150 + Math.round(70 * sh);
+            ctx.globalAlpha = al;
+            ctx.fillStyle = 'rgb(' + (b - 30) + ',' + (b - 15) + ',' + b + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, rad, 0, TAU);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,.55)';
+            ctx.beginPath();
+            ctx.arc(x - rad * 0.3, y - rad * 0.3, rad * 0.35, 0, TAU);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        if (R > 0.5) {
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(cx, cy, R, 0, TAU);
+            ctx.fill();
+            voidRing(ctx, cx, cy, R, u, smoothstep(3000, 3800, time) * (1 - smoothstep(7300, 7900, time)));
+        }
+        const q = smoothstep(1400, 2400, time) * (1 - smoothstep(5000, 5600, time));
+        drawText(ctx, 'NOTHING EXISTS EXCEPT ATOMS AND EMPTY SPACE', cx, H - 5 * u, 1.9 * u, '#9aa8d8', q * 0.8, 600, 0.45 * u);
+        drawText(ctx, 'EMPTY SPACE', cx, H - 5 * u, 1.9 * u, VOID_BLUE, smoothstep(5000, 5600, time) * (1 - smoothstep(6800, 7400, time)), 600, 0.45 * u);
+        drawCard(ctx, scene, time, 7800, '#c9d4ff', '#5b6cff');
+    }
+};
+
+// Lq: a steady pulse skips beats, the gaps spread through a page of writing, then gather into one missing page
+CUTSCENES.Lq = {
+    z: 0, dur: 10400, label: 'VOID ELEMENT',
+    snd(audio, start) {
+        padChord(audio, start, [49, 73.4], 6.6, 0.01, 'sine', 500);
+        for (let k = 0; k < 7; k++) {
+            if (k === 3 || k === 5) {
+                continue;
+            }
+            const t = start + 0.8 + k * 0.6;
+            playTone(audio, 72, t, 0.2, 0.07, 'sine', 40, 0.1, 0, 0.004);
+            playTone(audio, 1250, t, 0.04, 0.015, 'sine', null, 0.2, 0, 0.002);
+        }
+        playNoise(audio, start + 4.5, 1.8, 0.03, 2000, 6000, 'bandpass', 0.7, 0.3, 0.4);
+        riser(audio, start + 6.4, 1.8, 0.02, 200, 900);
+        padChord(audio, start + 8.4, [174.6, 261.6, 349.2], 2.6, 0.016, 'triangle', 1600);
+        playTone(audio, 523.3, start + 8.45, 1.6, 0.02, 'sine');
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        const BEATS = [0, 1, 2, 3, 4, 5, 6].map(k => 800 + k * 600);
+        const SKIP = new Set([3, 5]);
+        if (!st.rows) {
+            const r = seededRandom(202);
+            // a page of writing: rows of word bars, a few of them missing
+            st.rows = [];
+            const rowH = 3.2 * u;
+            for (let y = 6 * u; y < H - 4 * u; y += rowH) {
+                let x = 6 * u;
+                const row = [];
+                while (x < W - 6 * u) {
+                    const w = (2 + r() * 7) * u;
+                    row.push([x, y, Math.min(w, W - 6 * u - x), r() < 0.11]);
+                    x += w + 1.2 * u;
+                }
+                st.rows.push(row);
+            }
+            st.gaps = [];
+            st.rows.forEach(row => row.forEach(b => {
+                if (b[3]) {
+                    st.gaps.push(b);
+                }
+            }));
+            // where each gap ends up: tiles of one blank page
+            const n = st.gaps.length;
+            const cols = Math.max(1, Math.round(Math.sqrt(n * 0.75)));
+            const rowsN = Math.ceil(n / cols);
+            const pw = 26 * u;
+            const ph = 34 * u;
+            st.gaps.forEach((g, i) => {
+                g.push(cx - pw / 2 + (i % cols + 0.5) * pw / cols, cy - ph / 2 + (Math.floor(i / cols) + 0.5) * ph / rowsN, pw / cols, ph / rowsN, r() * 400);
+            });
+            st.pw = pw;
+            st.ph = ph;
+        }
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        // the pulse line, scrolling until 4.4s then holding still
+        const head = Math.min(time, 4400);
+        const span = 2400;
+        const lineA = smoothstep(0, 600, time) * (1 - smoothstep(4600, 5400, time));
+        if (lineA > 0) {
+            ctx.strokeStyle = 'rgba(160,190,255,' + lineA + ')';
+            ctx.lineWidth = 0.35 * u;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            let pen = false;
+            for (let x = 0; x <= W; x += 2) {
+                const ts = head - (W - x) / W * span;
+                let y = cy;
+                let gap = false;
+                BEATS.forEach((b, k) => {
+                    const d = ts - b;
+                    if (Math.abs(d) < 160 && SKIP.has(k)) {
+                        gap = true;
+                    } else if (Math.abs(d) < 110) {
+                        const ph = (d + 110) / 220 * TAU;
+                        y = cy - Math.sin(ph) * (ph < Math.PI ? 9 : 3.5) * u;
+                    }
+                });
+                if (gap || ts < 0) {
+                    pen = false;
+                    continue;
+                }
+                if (pen) {
+                    ctx.lineTo(x, y);
+                } else {
+                    ctx.moveTo(x, y);
+                    pen = true;
+                }
+            }
+            ctx.stroke();
+            drawGlow(ctx, W, cy, 10 * u, '#a8c0ff', 0.5 * lineA * (time < 4400 ? 1 : 0));
+        }
+        // the page of writing, with its gaps
+        const pageA = smoothstep(4400, 5400, time) * (1 - smoothstep(6600, 7400, time));
+        if (pageA > 0) {
+            st.rows.forEach((row, ri) => {
+                const ra = pageA * clamp((time - 4400 - ri * 35) / 500);
+                ctx.fillStyle = 'rgba(120,135,180,' + 0.45 * ra + ')';
+                row.forEach(([x, y, w, gap]) => {
+                    if (!gap) {
+                        ctx.fillRect(x, y, w, 1.1 * u);
+                    }
+                });
+            });
+        }
+        // the gaps: outlined holes that drift together into one blank page
+        const gA = smoothstep(4700, 5600, time) * (1 - smoothstep(8300, 8900, time));
+        st.gaps.forEach(([x, y, w, , tx, ty, tw, th, delay]) => {
+            const k = smoothstep(6400 + delay, 7900 + delay, time);
+            const X = x + (tx - tw / 2 - x) * k;
+            const Y = y - 0.6 * u + (ty - th / 2 - y + 0.6 * u) * k;
+            const ww = w + (tw - w) * k;
+            const hh = 2.3 * u + (th - 2.3 * u) * k;
+            ctx.strokeStyle = 'rgba(138,162,255,' + gA * (0.7 - 0.4 * k) + ')';
+            ctx.lineWidth = 0.22 * u;
+            ctx.strokeRect(X, Y, ww, hh);
+        });
+        const merged = smoothstep(7700, 8300, time) * (1 - smoothstep(8500, 9100, time));
+        if (merged > 0) {
+            drawGlow(ctx, cx, cy, 30 * u, '#5b46c9', 0.5 * merged);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(cx - st.pw / 2, cy - st.ph / 2, st.pw, st.ph);
+            ctx.strokeStyle = 'rgba(184,198,255,' + merged + ')';
+            ctx.lineWidth = 0.35 * u;
+            ctx.strokeRect(cx - st.pw / 2, cy - st.ph / 2, st.pw, st.ph);
+        }
+        drawCard(ctx, scene, time, 8400, '#b8c6ff', '#7a5cff');
+    }
+};
+
+// Tw: unsorted stuff tries to arrange itself into a periodic table, fails, and sinks back into formless murk
+CUTSCENES.Tw = {
+    z: 0, dur: 10800, label: 'VOID ELEMENT',
+    snd(audio, start) {
+        playNoise(audio, start + 0.1, 5.3, 0.05, 300, 900, 'bandpass', 2, 0.3, 1.2);
+        [261.6, 293.7, 329.6, 349.2, 392, 440, 493.9, 523.3, 587.3].forEach((f, i) => playTone(audio, f, start + 2.6 + i * 0.24, 0.3, 0.016, 'triangle', null, 0.3));
+        playNoise(audio, start + 5.15, 0.5, 0.08, 4000, 300, 'lowpass', 3, 0.2, 0.005);
+        [311, 330, 349].forEach((f, i) => playTone(audio, f, start + 5.2 + i * 0.07, 0.18, 0.02, 'square', f * 0.7, 0.2, 0, 0.004));
+        playTone(audio, 220, start + 5.4, 3, 0.03, 'triangle', 40, 0.3, 0, 0.3);
+        playNoise(audio, start + 6.2, 2.6, 0.04, 800, 150, 'lowpass', 2, 0.3, 0.6);
+        padChord(audio, start + 8.6, [146.8, 220, 293.7], 2.6, 0.016, 'sine', 1400);
+        sparkle(audio, start + 8.7, 5, 1.5, 0.012);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        const cw = Math.min(W * 0.9 / 18, H * 0.7 / 7);
+        const gx = cx - 9 * cw;
+        const gy = cy - 3.5 * cw;
+        if (!st.p) {
+            const r = seededRandom(203);
+            // real periodic table cells, so the attempt looks like the table
+            const cells = ELEMENTS.map(e => tableLayout[e[0]]).filter(p => p && p[0] <= 7).map(p => [p[1] - 1, p[0] - 1]);
+            st.cells = cells;
+            st.p = Array.from({ length: 240 }, (_, i) => {
+                const c = cells[i % cells.length];
+                return [r() * TAU, 0.2 + r() * 0.8, 0.3 + r() * 0.7, r() * 360, c[0], c[1], r(), r() * TAU];
+            });
+        }
+        ctx.fillStyle = '#030208';
+        ctx.fillRect(0, 0, W, H);
+        const sortK = smoothstep(2500, 4600, time) * (1 - smoothstep(5200, 5900, time));
+        const glitch = smoothstep(4700, 5200, time) * (1 - smoothstep(5800, 6200, time));
+        const grey = smoothstep(5200, 6400, time);
+        const sink = smoothstep(6200, 8400, time);
+        const fade = smoothstep(0, 1200, time);
+        // murk underneath
+        for (let i = 0; i < 4; i++) {
+            const a = time / (1800 + i * 500) + i * 1.7;
+            drawGlow(ctx, cx + Math.cos(a) * 18 * u * (1 - sink), cy + Math.sin(a * 1.3) * 12 * u * (1 - sink), (26 + 8 * i) * u * (1 - 0.4 * sink), ['#2a1840', '#1a2440', '#33203a', '#1c1830'][i], 0.6 * fade);
+        }
+        // the grid it tries to fill
+        const gridA = smoothstep(2600, 3800, time) * (1 - smoothstep(5100, 5800, time));
+        if (gridA > 0) {
+            ctx.lineWidth = 0.15 * u;
+            st.cells.forEach(([c, r]) => {
+                const jx = glitch ? Math.sin(r * 9.1 + Math.floor(time / 70)) * glitch * 3 * u : 0;
+                ctx.strokeStyle = 'rgba(150,160,220,' + gridA * (0.35 + (glitch ? 0.3 * Math.sin(time / 40 + c) : 0)) + ')';
+                ctx.strokeRect(gx + c * cw + jx, gy + r * cw, cw * 0.92, cw * 0.92);
+            });
+        }
+        st.p.forEach(([ph, a, b, hue, col, row, sz, ph2]) => {
+            const t = time / 1000;
+            const chaosX = cx + Math.sin(t * a * 1.3 + ph) * W * 0.36 + Math.sin(t * 2.1 * b + ph2) * 6 * u;
+            const chaosY = cy + Math.cos(t * b * 1.1 + ph * 1.7) * H * 0.32 + Math.cos(t * 1.7 * a + ph) * 5 * u;
+            const jit = glitch * 4 * u;
+            const sx = gx + (col + 0.46) * cw + Math.sin(time / 60 + ph * 7) * jit;
+            const sy = gy + (row + 0.46) * cw + Math.cos(time / 55 + ph * 5) * jit;
+            let x = chaosX + (sx - chaosX) * sortK;
+            let y = chaosY + (sy - chaosY) * sortK;
+            // pulled in on a slow spiral
+            if (sink > 0) {
+                const dx = x - cx;
+                const dy = y - cy;
+                const ang = Math.atan2(dy, dx) + sink * 2.4;
+                const d = Math.hypot(dx, dy) * (1 - 0.92 * sink);
+                x = cx + Math.cos(ang) * d;
+                y = cy + Math.sin(ang) * d;
+            }
+            const s = Math.round(70 * (1 - grey));
+            const l = 62 - 22 * grey;
+            ctx.globalAlpha = fade * (1 - smoothstep(7400, 8500, time)) * (0.55 + 0.45 * sz);
+            ctx.fillStyle = 'hsl(' + hue + ',' + s + '%,' + l + '%)';
+            ctx.beginPath();
+            ctx.arc(x, y, (0.5 + sz * 0.9) * u, 0, TAU);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        drawGlow(ctx, cx, cy, 22 * u, '#6a4c9c', 0.5 * smoothstep(6800, 8200, time) * (1 - smoothstep(8600, 9400, time)));
+        drawText(ctx, 'SORTING', cx, H - 5 * u, 1.9 * u, '#a99ad8', smoothstep(2600, 3000, time) * (1 - smoothstep(4900, 5100, time)) * (0.6 + 0.4 * Math.sin(time / 120)), 600, 0.6 * u);
+        drawText(ctx, 'NOTHING TO SORT', cx, H - 5 * u, 1.9 * u, '#d7c2ff', smoothstep(5500, 6000, time) * (1 - smoothstep(7600, 8200, time)), 600, 0.6 * u);
+        drawCard(ctx, scene, time, 8600, '#d7c2ff', '#6a4c9c');
+    }
+};
+
+// Ap: element tiles are cut out of an endless sheet, then the view pulls back to show it never ends
+CUTSCENES.Ap = {
+    z: 0, dur: 11200, label: 'VOID ELEMENT',
+    snd(audio, start) {
+        padChord(audio, start, [65.4, 98, 130.8], 8.2, 0.01, 'triangle', 700);
+        [2.0, 2.9, 3.6, 4.15, 4.6, 5.0].forEach((x, i) => {
+            playNoise(audio, start + x, 0.32, 0.05, 1500, 7000, 'highpass', 2, 0.2, 0.01);
+            playTone(audio, [392, 440, 523.3, 587.3, 659.3, 784][i], start + x + 0.4, 0.5, 0.014, 'sine', null, 0.4);
+        });
+        riser(audio, start + 5.6, 2.4, 0.02, 900, 140);
+        playNoise(audio, start + 8.05, 0.5, 0.08, 1200, 8000, 'highpass', 2, 0.3, 0.01);
+        boom(audio, start + 8.3, 0.12, 2);
+        padChord(audio, start + 8.8, [130.8, 196, 261.6, 329.6], 2.6, 0.018, 'sine', 2200);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        const T = 9 * u;
+        if (!st.cuts) {
+            st.cuts = [[-26, -12, 'H', 2000], [22, 10, 'O', 2900], [-6, 16, 'Fe', 3600], [30, -16, 'Au', 4150], [-34, 14, 'C', 4600], [6, -20, 'U', 5000]]
+                .map(([x, y, s, t]) => [x * u, y * u, s, t]);
+        }
+        const fadeIn = smoothstep(0, 1800, time);
+        // pull back: everything in world units shrinks around the centre
+        const zoom = time < 5600 ? 1 : Math.exp(-2.3 * smoothstep(5600, 8000, time));
+        const sheetA = fadeIn * (1 - smoothstep(8200, 9000, time));
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        // the sheet: a dim violet weave with slow bands moving through it
+        ctx.globalAlpha = sheetA;
+        ctx.fillStyle = '#17142a';
+        ctx.fillRect(0, 0, W, H);
+        for (let i = 0; i < 5; i++) {
+            const x = ((time * 0.012 * u + i * W / 2.5) % (W * 1.6)) - W * 0.3;
+            drawGlow(ctx, x, cy + Math.sin(time / 1500 + i) * H * 0.3, 30 * u, '#2c2650', 0.5 * sheetA);
+        }
+        ctx.globalAlpha = sheetA * 0.25;
+        ctx.strokeStyle = '#4a4380';
+        ctx.lineWidth = 1;
+        const step = 3 * u * zoom;
+        if (step > 2) {
+            for (let x = cx % step; x < W; x += step) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, H);
+                ctx.stroke();
+            }
+            for (let y = cy % step; y < H; y += step) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(W, y);
+                ctx.stroke();
+            }
+        }
+        ctx.globalAlpha = 1;
+        // the holes left by everything ever cut from it, only seen as the view pulls back
+        const latA = smoothstep(5800, 7000, time) * sheetA;
+        if (latA > 0) {
+            const sp = 22 * u * zoom;
+            const hs = T * zoom;
+            const nx = Math.ceil(W / sp / 2) + 1;
+            const ny = Math.ceil(H / sp / 2) + 1;
+            ctx.fillStyle = '#000';
+            ctx.strokeStyle = 'rgba(138,162,255,' + 0.5 * latA + ')';
+            ctx.lineWidth = Math.max(0.5, 0.2 * u * zoom);
+            for (let i = -nx; i <= nx; i++) {
+                for (let j = -ny; j <= ny; j++) {
+                    if (Math.abs(i) < 3 && Math.abs(j) < 2) {
+                        continue;
+                    }
+                    const X = cx + (i * 22 + (j % 2) * 11) * u * zoom;
+                    const Y = cy + j * 22 * u * zoom;
+                    ctx.globalAlpha = latA;
+                    ctx.fillRect(X - hs / 2, Y - hs / 2, hs, hs);
+                    ctx.strokeRect(X - hs / 2, Y - hs / 2, hs, hs);
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+        // each cut: a bright point runs round the edge, then the tile lifts away and leaves a hole
+        st.cuts.forEach(([x, y, sym, t0], i) => {
+            const X = cx + x * zoom;
+            const Y = cy + y * zoom;
+            const s = T * zoom;
+            const d = time - t0;
+            if (d < 0) {
+                return;
+            }
+            const run = clamp(d / 380);
+            const lift = smoothstep(420, 1300, d);
+            if (lift > 0) {
+                ctx.fillStyle = '#000';
+                ctx.globalAlpha = sheetA;
+                ctx.fillRect(X - s / 2, Y - s / 2, s, s);
+                ctx.globalAlpha = 1;
+            }
+            const per = [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]];
+            ctx.strokeStyle = 'rgba(230,226,255,' + sheetA * (1 - 0.6 * lift) + ')';
+            ctx.lineWidth = Math.max(0.5, 0.25 * u * zoom);
+            ctx.beginPath();
+            ctx.moveTo(X - s / 2, Y - s / 2);
+            const segs = run * 4;
+            let hx = X - s / 2;
+            let hy = Y - s / 2;
+            for (let k = 0; k < 4 && k < segs; k++) {
+                const f = Math.min(1, segs - k);
+                hx = X + (per[k][0] + (per[k + 1][0] - per[k][0]) * f) * s / 2;
+                hy = Y + (per[k][1] + (per[k + 1][1] - per[k][1]) * f) * s / 2;
+                ctx.lineTo(hx, hy);
+            }
+            ctx.stroke();
+            if (run < 1) {
+                drawGlow(ctx, hx, hy, 3 * u, '#ffffff', 0.9 * sheetA);
+            }
+            // the cut tile floats off with its element on it
+            if (lift > 0 && lift < 1) {
+                const fx = X + Math.cos(i * 2.1) * lift * 14 * u;
+                const fy = Y - lift * 10 * u;
+                const sc = 1 - 0.5 * lift;
+                ctx.save();
+                ctx.translate(fx, fy);
+                ctx.rotate(lift * (i % 2 ? 0.5 : -0.5));
+                ctx.globalAlpha = (1 - lift) * sheetA;
+                ctx.fillStyle = '#2a2550';
+                ctx.fillRect(-s * sc / 2, -s * sc / 2, s * sc, s * sc);
+                ctx.restore();
+                drawText(ctx, sym, fx, fy, 4 * u * sc * zoom, '#e6e2ff', (1 - lift) * sheetA, 700);
+            }
+        });
+        const fin = smoothstep(8000, 8500, time) * (1 - smoothstep(8900, 9500, time));
+        if (fin > 0) {
+            const s = 24 * u * easeOutCubic((time - 8000) / 450);
+            ctx.strokeStyle = 'rgba(230,226,255,' + fin + ')';
+            ctx.lineWidth = 0.35 * u;
+            ctx.strokeRect(cx - s, cy - s * 1.2, 2 * s, 2.4 * s);
+            drawGlow(ctx, cx, cy, 40 * u, '#ffffff', 0.35 * fin * (calmFx ? 0.4 : 1));
+        }
+        drawText(ctx, 'NO EDGE FOUND', cx, H - 5 * u, 1.9 * u, '#b7b0ff', smoothstep(6400, 6900, time) * (1 - smoothstep(7900, 8300, time)), 600, 0.6 * u);
+        drawCard(ctx, scene, time, 8800, '#e6e2ff', VOID_BLUE);
+    }
+};
+
+// Ix: something slips through the gaps of a crystal lattice, dodging the scan, until the view closes in on it
+CUTSCENES.Ix = {
+    z: 0, dur: 11200, label: 'VOID ELEMENT',
+    snd(audio, start) {
+        padChord(audio, start, [261.6, 392, 523.3], 7.2, 0.007, 'sine', 3000);
+        for (let k = 0; k < 11; k++) {
+            playTone(audio, 1700 + Math.random() * 900, start + 1.8 + k * 0.32, 0.08, 0.018, 'sine', null, 0.4, 0, 0.003);
+        }
+        [2.2, 4.2].forEach(x => playNoise(audio, start + x, 0.9, 0.022, 500, 3200, 'bandpass', 4, 0.2, 0.1));
+        riser(audio, start + 5.2, 2, 0.02, 300, 1200);
+        boom(audio, start + 7.2, 0.1, 1.8);
+        padChord(audio, start + 8.8, [196, 246.9, 293.7, 392], 2.4, 0.016, 'sine', 2400);
+        sparkle(audio, start + 8.9, 7, 1.6, 0.012);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        const a = 14 * u;
+        if (!st.path) {
+            const r = seededRandom(204);
+            // the gaps it hops between, ending on the one next to the centre
+            const path = [[-3, 1], [-2, 1], [-2, 0], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [2, 0], [1, 0], [0, 0], [0, 0]];
+            st.path = path.map(([i, j]) => [(i + 0.5) * a, (j + 0.5) * a]);
+            st.jit = Array.from({ length: 400 }, () => r() * TAU);
+        }
+        ctx.fillStyle = '#02030a';
+        ctx.fillRect(0, 0, W, H);
+        // where the visitor is: a quick hop every 320ms, then still
+        const hopT = (time - 1800) / 320;
+        const k = clamp(Math.floor(hopT), 0, st.path.length - 2);
+        const f = hopT < 0 ? 0 : easeOutCubic(clamp(hopT - k) * 1.6);
+        const p0 = st.path[hopT < 0 ? 0 : k];
+        const p1 = st.path[hopT < 0 ? 0 : k + 1];
+        const vx = p0[0] + (p1[0] - p0[0]) * f;
+        const vy = p0[1] + (p1[1] - p0[1]) * f;
+        // close in on it, then it pushes the lattice apart
+        const zk = smoothstep(5200, 7200, time);
+        const zoom = 1 + 2.6 * zk;
+        const fx = vx * zk;
+        const fy = vy * zk;
+        const push = smoothstep(7200, 8400, time);
+        const latA = smoothstep(0, 1600, time) * (1 - smoothstep(8200, 9200, time));
+        const toScreen = (x, y) => [cx + (x - fx) * zoom, cy + (y - fy) * zoom];
+        const nx = Math.ceil(W / a / 2) + 1;
+        const ny = Math.ceil(H / a / 2) + 1;
+        const atoms = [];
+        for (let i = -nx; i <= nx; i++) {
+            for (let j = -ny; j <= ny; j++) {
+                let x = i * a;
+                let y = j * a;
+                const n = (i + 40) * 9 + j + 40;
+                // thermal wobble, and a flinch when the visitor goes past
+                const dv = Math.hypot(x - vx, y - vy);
+                const flinch = Math.max(0, 1 - dv / (1.2 * a)) * 1.4 * u * (time > 1800 && time < 5400 ? 1 : 0);
+                x += Math.cos(time / 170 + st.jit[n % 400]) * 0.35 * u + (x - vx) / (dv || 1) * flinch;
+                y += Math.sin(time / 190 + st.jit[(n * 7) % 400]) * 0.35 * u + (y - vy) / (dv || 1) * flinch;
+                if (push > 0) {
+                    const d = Math.hypot(x - vx, y - vy) || 1;
+                    const m = push * 10 * u * Math.exp(-d / (3 * a));
+                    x += (x - vx) / d * m;
+                    y += (y - vy) / d * m;
+                }
+                atoms.push(toScreen(x, y));
+            }
+        }
+        if (latA > 0) {
+            ctx.globalAlpha = latA;
+            ctx.strokeStyle = 'rgba(90,120,200,.35)';
+            ctx.lineWidth = Math.max(0.5, 0.15 * u * zoom);
+            const rows = 2 * ny + 1;
+            atoms.forEach((p, n) => {
+                if ((n + 1) % rows) {
+                    const q = atoms[n + 1];
+                    ctx.beginPath();
+                    ctx.moveTo(p[0], p[1]);
+                    ctx.lineTo(q[0], q[1]);
+                    ctx.stroke();
+                }
+                const q = atoms[n + rows];
+                if (q) {
+                    ctx.beginPath();
+                    ctx.moveTo(p[0], p[1]);
+                    ctx.lineTo(q[0], q[1]);
+                    ctx.stroke();
+                }
+            });
+            atoms.forEach(([x, y]) => {
+                if (x < -10 * u || x > W + 10 * u || y < -10 * u || y > H + 10 * u) {
+                    return;
+                }
+                ctx.fillStyle = '#5d7fd6';
+                ctx.beginPath();
+                ctx.arc(x, y, 2.4 * u * zoom, 0, TAU);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(210,225,255,.6)';
+                ctx.beginPath();
+                ctx.arc(x - 0.7 * u * zoom, y - 0.7 * u * zoom, 0.8 * u * zoom, 0, TAU);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+        // the scan: a line that sweeps down twice; the visitor goes dark when it passes
+        let hidden = 0;
+        [[2200, 2000], [4200, 2000]].forEach(([t0, len]) => {
+            const s = (time - t0) / len;
+            if (s > 0 && s < 1) {
+                const y = s * H;
+                ctx.fillStyle = 'rgba(120,200,255,.18)';
+                ctx.fillRect(0, y - 0.3 * u, W, 0.6 * u);
+                drawGlow(ctx, cx, y, 30 * u, '#4fd1ff', 0.08);
+                const [, sy] = toScreen(vx, vy);
+                hidden = Math.max(hidden, 1 - clamp(Math.abs(y - sy) / (6 * u)));
+            }
+        });
+        const [sx, sy] = toScreen(vx, vy);
+        const vis = smoothstep(1500, 1900, time) * (1 - hidden) * (1 - smoothstep(8600, 9200, time));
+        const size = (1 + 3 * push) * zoom;
+        drawGlow(ctx, sx, sy, 5 * u * size, '#c6b8ff', 0.7 * vis);
+        if (time > 1800 && time < 5400) {
+            const [tx, ty] = toScreen(p0[0], p0[1]);
+            ctx.strokeStyle = 'rgba(198,184,255,' + 0.4 * (1 - f) * vis + ')';
+            ctx.lineWidth = 0.3 * u;
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            ctx.lineTo(sx, sy);
+            ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(240,236,255,' + vis + ')';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 0.6 * u * size, 0, TAU);
+        ctx.fill();
+        if (push > 0) {
+            drawGlow(ctx, sx, sy, 50 * u * push, '#4fd1ff', 0.3 * push * (1 - smoothstep(8400, 9400, time)) * (calmFx ? 0.5 : 1));
+        }
+        const txt = time < 5000 ? 'LATTICE SCAN  ·  ALL SITES ACCOUNTED FOR' : 'UNREGISTERED OCCUPANT';
+        drawText(ctx, txt, cx, H - 5 * u, 1.9 * u, time < 5000 ? '#7fa6e8' : '#c6b8ff', smoothstep(600, 1200, time) * (1 - smoothstep(4700, 5000, time)) + smoothstep(5200, 5600, time) * (1 - smoothstep(7400, 7900, time)), 600, 0.5 * u);
+        drawCard(ctx, scene, time, 8800, '#c6b8ff', '#4fd1ff');
+    }
+};
+
+// Gx: frost on one side, fire on the other, and a gap between them that keeps yawning wider until something forms in it
+CUTSCENES.Gx = {
+    z: 0, dur: 12500, label: 'VOID ELEMENT',
+    snd(audio, start) {
+        playNoise(audio, start, 9.4, 0.05, 400, 900, 'bandpass', 1.5, 0.4, 2);
+        for (let x = 0.8; x < 8.4;) {
+            playNoise(audio, start + x, 0.02, 0.025, 2600, 1200, 'bandpass', 2, 0.1, 0.001);
+            x += 0.05 + Math.random() * 0.22;
+        }
+        [1.2, 3.4, 5.6].forEach(x => sparkle(audio, start + x, 4, 1.2, 0.01, [2349.3, 2637, 3136, 3520]));
+        playTone(audio, 62, start + 2.5, 4.2, 0.05, 'sine', 28, 0.3, 0, 1);
+        [5.6, 6.8, 7.8].forEach((x, i) => boom(audio, start + x, 0.06 + i * 0.03, 1.4));
+        riser(audio, start + 8.4, 1, 0.03, 120, 1600);
+        boom(audio, start + 9.4, 0.22, 2.6);
+        padChord(audio, start + 10, [110, 164.8, 220, 277.2, 329.6], 2.4, 0.02, 'sine', 2600);
+        sparkle(audio, start + 10.1, 9, 1.8, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        if (!st.frost) {
+            const r = seededRandom(205);
+            // frost: branching lines growing in from the left edge
+            st.frost = [];
+            const grow = (x, y, ang, len, depth, t) => {
+                const x2 = x + Math.cos(ang) * len;
+                const y2 = y + Math.sin(ang) * len;
+                st.frost.push([x, y, x2, y2, t]);
+                if (depth > 0) {
+                    [-0.6, 0.6].forEach(s => r() < 0.85 && grow(x2, y2, ang + s * (0.6 + r() * 0.4), len * 0.68, depth - 1, t + 260));
+                    grow(x2, y2, ang + (r() - 0.5) * 0.3, len * 0.8, depth - 1, t + 220);
+                }
+            };
+            for (let i = 0; i < 7; i++) {
+                grow(0, H * (0.08 + i * 0.14), (r() - 0.5) * 0.6, 7 * u, 4, 600 + r() * 900);
+            }
+            st.emb = Array.from({ length: 70 }, () => [r(), r(), 0.4 + r() * 0.8, r() * TAU]);
+            st.rime = Array.from({ length: 50 }, () => [r(), r(), 0.3 + r() * 0.6, r() * TAU]);
+            st.jag = Array.from({ length: 200 }, () => r());
+            st.mist = Array.from({ length: 60 }, () => [r() * TAU, r(), r() * 3000, 0.5 + r()]);
+        }
+        const shakeAmt = (smoothstep(5400, 6200, time) * (1 - smoothstep(8400, 8800, time)) * 0.5 + (time > 9400 && time < 9900 ? 1 - (time - 9400) / 500 : 0)) * u * (calmFx ? 0.25 : 1);
+        const sx = Math.sin(time / 21) * shakeAmt;
+        const sy = Math.cos(time / 17) * shakeAmt;
+        ctx.fillStyle = '#010104';
+        ctx.fillRect(0, 0, W, H);
+        ctx.save();
+        ctx.translate(sx, sy);
+        const reveal = smoothstep(200, 2600, time);
+        const end = 1 - smoothstep(8600, 9400, time);
+        // the gap's half-width, yawning open
+        const gap = (3 + 20 * easeOutCubic((time - 2500) / 3200) + Math.sin(time / 600) * 0.8 * smoothstep(3000, 4000, time)) * u;
+        const iceEdge = cx - gap;
+        const fireEdge = cx + gap;
+        // frost side
+        drawGlow(ctx, 0, cy, W * 0.55, '#3b6fd6', 0.45 * reveal * end);
+        // a jagged wall of ice
+        const step = 2.4 * u;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (let y = 0, i = 0; y <= H + step; y += step, i++) {
+            ctx.lineTo(iceEdge - st.jag[i % 200] * 2.6 * u - (i % 2) * 1.2 * u, y);
+        }
+        ctx.lineTo(0, H);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(12,30,66,' + 0.85 * reveal * end + ')';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(200,232,255,' + 0.75 * reveal * end * (0.85 + 0.15 * Math.sin(time / 300)) + ')';
+        ctx.lineWidth = 0.25 * u;
+        ctx.stroke();
+        const shrinkL = Math.max(0.2, iceEdge / (cx - 3 * u));
+        ctx.lineWidth = 0.22 * u;
+        st.frost.forEach(([x, y, x2, y2, t]) => {
+            const g = clamp((time - t) / 260);
+            if (g <= 0) {
+                return;
+            }
+            ctx.strokeStyle = 'rgba(200,230,255,' + 0.7 * reveal * end + ')';
+            ctx.beginPath();
+            ctx.moveTo(x * shrinkL, y);
+            ctx.lineTo((x + (x2 - x) * g) * shrinkL, y + (y2 - y) * g);
+            ctx.stroke();
+        });
+        // fire side
+        drawGlow(ctx, W, cy, W * 0.55, '#ff6a1f', 0.5 * reveal * end);
+        // a flickering wall of flame, three layers deep
+        drawGlow(ctx, fireEdge, cy, 30 * u, '#ff7a2a', 0.25 * reveal * end);
+        ctx.fillStyle = 'rgba(34,9,3,' + 0.85 * reveal * end + ')';
+        ctx.fillRect(Math.min(W, fireEdge), 0, W, H);
+        ['#7a1c06', '#d4530f', '#ffa53d', '#ffe08a'].forEach((col, k) => {
+            const back = fireEdge + (9 - 2 * k) * u;
+            ctx.beginPath();
+            ctx.moveTo(back, 0);
+            for (let y = 0; y <= H + u; y += u) {
+                const tongue = (1.6 + 1.2 * Math.sin(y / (3.1 * u) + time / 120 + k * 1.3) + 0.7 * Math.sin(y / (1.2 * u) - time / 65 + k)) * u * (1 - k * 0.22);
+                ctx.lineTo(fireEdge + k * 1.4 * u - tongue, y);
+            }
+            ctx.lineTo(back, H);
+            ctx.closePath();
+            ctx.globalAlpha = reveal * end * (0.95 - k * 0.1);
+            ctx.fillStyle = col;
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        // embers drift off the fire into the gap; rime drifts off the ice
+        const cross = smoothstep(3000, 4500, time) * end;
+        st.emb.forEach(([a, b, sp, ph]) => {
+            const t = ((time / 1000) * sp + a) % 1;
+            const x = W - t * (W - cx + gap * 0.2) * (0.6 + 0.4 * cross);
+            const y = H * b + Math.sin(time / 400 + ph) * 3 * u - t * 8 * u;
+            ctx.fillStyle = 'rgba(255,' + Math.round(150 + 80 * b) + ',80,' + reveal * end * (1 - t) + ')';
+            ctx.fillRect(x, y, 0.5 * u, 0.5 * u);
+        });
+        st.rime.forEach(([a, b, sp, ph]) => {
+            const t = ((time / 1000) * sp + a) % 1;
+            const x = t * (cx + gap * 0.2) * (0.6 + 0.4 * cross);
+            const y = H * b + Math.cos(time / 500 + ph) * 3 * u + t * 4 * u;
+            ctx.fillStyle = 'rgba(210,235,255,' + reveal * end * (1 - t) * 0.8 + ')';
+            ctx.beginPath();
+            ctx.arc(x, y, 0.35 * u, 0, TAU);
+            ctx.fill();
+        });
+        // where they meet: mist gathering in the middle of the gap, then drawn into a point
+        const mistA = smoothstep(5200, 7200, time);
+        const pull = smoothstep(8300, 9400, time);
+        st.mist.forEach(([ang, rr, ph, sz]) => {
+            const swirl = ang + time / (1600 + rr * 1400);
+            const d = (4 + rr * 14) * u * (1 - pull);
+            const x = cx + Math.cos(swirl) * d * Math.min(1, gap / (16 * u));
+            const y = cy + Math.sin(swirl) * d * 1.4;
+            drawGlow(ctx, x, y, (3 + 3 * sz) * u * (1 - 0.7 * pull), '#cfc4ff', 0.22 * mistA * (0.5 + 0.5 * Math.sin(time / 500 + ph)));
+        });
+        ctx.restore();
+        // the moment it forms
+        const flash = time > 9400 ? 1 - smoothstep(9400, 10300, time) : 0;
+        drawGlow(ctx, cx, cy, 12 * u * (1 + pull), '#ffffff', 0.8 * pull * (time < 9400 ? 1 : 0));
+        if (flash > 0) {
+            ctx.fillStyle = 'rgba(240,238,255,' + flash * (calmFx ? 0.3 : 0.85) + ')';
+            ctx.fillRect(0, 0, W, H);
+        }
+        drawText(ctx, 'BEFORE THE FIRST WORLD', cx, H - 5 * u, 1.9 * u, '#cfc4ff', smoothstep(1800, 2600, time) * (1 - smoothstep(5000, 5600, time)), 600, 0.7 * u);
+        drawCard(ctx, scene, time, 10000, '#f2f4ff', '#9d7bff');
+    }
+};
+// Electrolysis, from outer ring 2. Fusion builds a compound the bonds tree asks for out of
+// elements you hold, fission splits a compound back into its elements. Both cost quarks.
+// What they make isn't a roll: it goes in its own store, can pay for bond slots, and never
+// counts as found or towards your rolls
+var madeStore = {};
+try {
+    const v = JSON.parse(localStorage.getItem('elementalMade') || '{}');
+    Object.keys(v).forEach(f => {
+        const m = v[f];
+        const els = [];
+        Object.entries(parseFormula(f)).forEach(([s, n]) => {
+            for (let i = 0; i < n && elementBySymbol[s]; i++) {
+                els.push(elementBySymbol[s]);
+            }
+        });
+        if (els.length && m.count > (m.spent || 0)) {
+            madeStore[f] = { formula: f, elements: els, count: m.count, spent: m.spent || 0, made: true };
+        }
+    });
+} catch (e) { }
+function madeSave() {
+    const out = {};
+    Object.values(madeStore).forEach(m => {
+        if (m.count > (m.spent || 0)) {
+            out[m.formula] = { count: m.count, spent: m.spent || 0 };
+        } else {
+            delete madeStore[m.formula];
+        }
+    });
+    try {
+        localStorage.setItem('elementalMade', JSON.stringify(out));
+    } catch (e) { }
+}
+function madeAdd(formula, els, n) {
+    const m = madeStore[formula] || (madeStore[formula] = { formula, elements: els, count: 0, spent: 0, made: true });
+    m.count += n;
+}
+// made things that could pay for a bond requirement
+function madeFor(q) {
+    // the bonds tree can ask before this file has loaded
+    if (!madeStore) {
+        return [];
+    }
+    return Object.values(madeStore).filter(m => {
+        if (q.t === 'el') {
+            return m.formula === q.k;
+        }
+        if (q.t === 'fam') {
+            return m.elements.length === 1 && familyOf(m.elements[0][0]) === q.k;
+        }
+        if (q.t === 'has') {
+            return m.elements.length > 1 && m.elements.some(e => e[0] === q.k);
+        }
+        return q.t === 'cp' && (m.norm || (m.norm = normalizeFormula(m.formula))) === q.k;
+    });
+}
+const elxOn = () => bondBonus().electrolysis;
+const elsOf = f => {
+    const out = [];
+    Object.entries(parseFormula(f)).forEach(([s, n]) => {
+        for (let i = 0; i < n; i++) {
+            out.push(elementBySymbol[s]);
+        }
+    });
+    return out;
+};
+// from about 100,000 for the easy ones to 500,000 for the hardest; splitting is far cheaper
+const r5k = n => Math.round(n / 5000) * 5000;
+function fusePrice(els) {
+    const f = Math.max(0, Math.min(1, (-exactRarity(els) - 2) / 8));
+    return r5k(100000 + 400000 * Math.pow(f, 1.2));
+}
+const splitPrice = els => Math.max(10000, r5k(fusePrice(els) * 0.15 * elxCut()));
+// catalysts can make Electrolysis cheaper while they run
+const elxCut = () => 1 - Math.min(75, catBonus().elxcut + bondBonus().elxcut) / 100;
+// the compounds the tree asks for, and how many open slots want each
+let elxMemo = null;
+function fusable() {
+    if (elxMemo && elxMemo.v === netVer) {
+        elxMemo.list.forEach(x => x.price = r5k(x.base * elxCut()));
+        return elxMemo.list;
+    }
+    const m = new Map();
+    net().nodes.forEach(n => {
+        if (n.req.t !== 'cp') {
+            return;
+        }
+        const x = m.get(n.req.k) || { k: n.req.k, f: n.req.l, name: n.req.nm, open: 0 };
+        if (!netFilled(n.id)) {
+            x.open++;
+        }
+        m.set(n.req.k, x);
+    });
+    const list = [...m.values()];
+    list.forEach(x => {
+        x.els = elsOf(x.f);
+        x.base = fusePrice(x.els);
+        x.price = r5k(x.base * elxCut());
+        x.need = parseFormula(x.f);
+    });
+    // ones an open slot still wants come first
+    list.sort((a, b) => (b.open > 0) - (a.open > 0) || a.price - b.price || a.f.localeCompare(b.f));
+    elxMemo = { v: netVer, list };
+    return list;
+}
+// spare copies of an element: rolled ones not spent on bonds, plus made ones
+const spareEl = sym => eligible({ t: 'el', k: sym }).reduce((s, x) => s + x.n, 0);
+function fuse(x) {
+    if (!elxOn() || !canAfford(x.price)) {
+        return false;
+    }
+    const plans = Object.entries(x.need).map(([s, n]) => payPlan({ t: 'el', k: s, n }));
+    if (plans.some(p => !p)) {
+        return false;
+    }
+    plans.forEach(p => p.forEach(y => y.c.spent = (y.c.spent || 0) + y.take));
+    addQuarks(-x.price);
+    madeAdd(x.f, x.els, 1);
+    madeSave();
+    save();
+    return true;
+}
+// compounds you could split: rolled ones with copies to spare, and made ones
+function splittable() {
+    const out = [];
+    collection.forEach(c => {
+        const n = (c.count || 1) - (c.spent || 0);
+        if (c.elements && c.elements.length > 1 && n > 0 && !c.elements.some(e => isJoke(e[0]) || isVoid(e[0]))) {
+            out.push({ c, n });
+        }
+    });
+    Object.values(madeStore).forEach(m => {
+        const n = m.count - m.spent;
+        if (m.elements.length > 1 && n > 0) {
+            out.push({ c: m, n });
+        }
+    });
+    return out;
+}
+function split(c) {
+    const price = splitPrice(c.elements);
+    if (!elxOn() || !canAfford(price) || (c.count || 1) - (c.spent || 0) < 1) {
+        return false;
+    }
+    c.spent = (c.spent || 0) + 1;
+    addQuarks(-price);
+    const counts = {};
+    c.elements.forEach(e => counts[e[0]] = (counts[e[0]] || 0) + 1);
+    Object.entries(counts).forEach(([s, n]) => madeAdd(s, [elementBySymbol[s]], n));
+    madeSave();
+    save();
+    return true;
+}
+// the page
+let elxTab = 'fuse';
+let elxFind = '';
+const ELX_SHOW = 60;
+// sort and filter choices for each tab, kept between visits
+const ELX_SORTS = {
+    fuse: [['need', 'Needed by open slots'], ['near', 'Closest to ready'], ['cheap', 'Cheapest first'], ['dear', 'Dearest first'], ['slots', 'Most open slots'], ['az', 'Formula A to Z']],
+    split: [['most', 'Most of it back'], ['rare', 'Rarest first'], ['spare', 'Most spare copies'], ['helps', 'Helps fusion most'], ['cheap', 'Cheapest first'], ['gives', 'Most elements back'], ['az', 'Formula A to Z']]
+};
+const ELX_FILTERS = {
+    fuse: [['ready', 'Ready to fuse'], ['open', 'Wanted by an open slot'], ['afford', 'Can afford'], ['madeone', 'Already made one']],
+    split: [['afford', 'Can afford'], ['rolled', 'Rolled finds only'], ['made', 'Made by Electrolysis only'], ['useful', 'Gives an element fusion is short of']]
+};
+let elxView = { fuse: { sort: 'need', f: {} }, split: { sort: 'most', f: {}, el: null }, open: false };
+try {
+    const v = JSON.parse(localStorage.getItem('elementalElxView') || 'null');
+    if (v && v.fuse && v.split) {
+        elxView = v;
+    }
+} catch (e) { }
+const elxViewSave = () => {
+    try {
+        localStorage.setItem('elementalElxView', JSON.stringify(elxView));
+    } catch (e) { }
+};
+function elxNavSync() {
+    $('bondsElxBtn').hidden = !elxOn();
+}
+// how many of each element the compounds open slots want are still short by
+function elxShort() {
+    const short = {};
+    fusable().filter(x => x.open).forEach(x => Object.entries(x.need).forEach(([s, n]) => {
+        const miss = n - spareEl(s);
+        if (miss > 0) {
+            short[s] = (short[s] || 0) + miss;
+        }
+    }));
+    return short;
+}
+function elxControls() {
+    const V = elxView[elxTab];
+    const sel = $('elxSort');
+    sel.innerHTML = ELX_SORTS[elxTab].map(([k, t]) => `<option value="${k}"${k === V.sort ? ' selected' : ''}>${t}</option>`).join('');
+    const on = ELX_FILTERS[elxTab].filter(([k]) => V.f[k]).length;
+    $('elxOptCount').textContent = on ? '(' + on + ')' : '';
+    $('elxOptBtn').setAttribute('aria-expanded', elxView.open ? 'true' : 'false');
+    $('elxOptBtn').classList.toggle('open', elxView.open);
+    const box = $('elxOpts');
+    box.hidden = !elxView.open;
+    box.innerHTML = ELX_FILTERS[elxTab].map(([k, t]) => `<label class="elx-chk"><input type="checkbox" data-filt="${k}"${V.f[k] ? ' checked' : ''}> ${t}</label>`).join('') +
+        (on ? '<button class="linkish" id="elxClear">Clear filters</button>' : '');
+    box.querySelectorAll('[data-filt]').forEach(c => c.onchange = () => {
+        V.f[c.dataset.filt] = c.checked;
+        // rolled only and made only can't both be on
+        if (c.checked && c.dataset.filt === 'rolled') {
+            V.f.made = false;
+        }
+        if (c.checked && c.dataset.filt === 'made') {
+            V.f.rolled = false;
+        }
+        elxViewSave();
+        renderElx();
+    });
+    const clr = $('elxClear');
+    if (clr) {
+        clr.onclick = () => {
+            V.f = {};
+            elxViewSave();
+            renderElx();
+        };
+    }
+}
+function renderElx() {
+    $('elxLocked').hidden = elxOn();
+    $('elxBody').hidden = !elxOn();
+    if (!elxOn()) {
+        return;
+    }
+    document.querySelectorAll('[data-elx]').forEach(b => b.classList.toggle('sel', b.dataset.elx === elxTab));
+    elxControls();
+    const V = elxView[elxTab];
+    const want = elxFind.trim().toLowerCase();
+    const hit = (f, name) => !want || f.toLowerCase().includes(want) || (name || '').toLowerCase().includes(want);
+    const list = $('elxList');
+    let html = '';
+    let rows;
+    $('elxSearch').hidden = elxTab !== 'fuse';
+    $('elxPtWrap').hidden = elxTab === 'fuse';
+    $('elxPick').hidden = elxTab === 'fuse';
+    if (elxTab === 'fuse') {
+        $('elxHelp').textContent = 'Fuse a compound the bonds tree asks for. It uses up the elements in it and the quarks shown. What you make can fill bond slots, but it doesn\'t count as a find.';
+        // missing: how many elements short in total
+        rows = fusable().filter(x => hit(x.f, x.name)).map(x => {
+            const missing = Object.entries(x.need).reduce((s, [sym, n]) => s + Math.max(0, n - spareEl(sym)), 0);
+            const made = madeStore[x.f] ? madeStore[x.f].count - madeStore[x.f].spent : 0;
+            return { x, missing, made };
+        }).filter(r => (!V.f.ready || !r.missing) && (!V.f.open || r.x.open) && (!V.f.afford || canAfford(r.x.price)) && (!V.f.madeone || r.made));
+        const by = {
+            need: (a, b) => (b.x.open > 0) - (a.x.open > 0) || a.missing - b.missing || a.x.price - b.x.price,
+            near: (a, b) => a.missing - b.missing || a.x.price - b.x.price,
+            cheap: (a, b) => a.x.price - b.x.price,
+            dear: (a, b) => b.x.price - a.x.price,
+            slots: (a, b) => b.x.open - a.x.open || a.x.price - b.x.price,
+            az: (a, b) => a.x.f.localeCompare(b.x.f)
+        }[V.sort] || (() => 0);
+        rows.sort((a, b) => by(a, b) || a.x.f.localeCompare(b.x.f));
+        rows.slice(0, ELX_SHOW).forEach(({ x, missing, made }, i) => {
+            const parts = Object.entries(x.need).map(([s, n]) => {
+                const have = spareEl(s);
+                return `<span class="elx-el ${have >= n ? 'ok' : 'short'}"><b>${s}</b> ${have}/${n}</span>`;
+            }).join('');
+            html += `<div class="elx-row"><div class="elx-f"><strong>${esc(x.f)}</strong><small>${esc(x.name || '')}</small></div>` +
+                `<div class="elx-els">${parts}</div>` +
+                `<div class="elx-tag">${x.open ? x.open + ' open slot' + (x.open === 1 ? '' : 's') : 'no open slots'}${made ? ' · ' + made + ' made' : ''}</div>` +
+                `<button class="primary" data-fuse="${i}" ${!missing && canAfford(x.price) ? '' : 'disabled'}><span class="q-sym" aria-hidden="true">q</span> ${formatNumber(x.price)}</button></div>`;
+        });
+        list.innerHTML = html || '<p class="muted">Nothing matches.</p>';
+        list.querySelectorAll('[data-fuse]').forEach(b => b.onclick = () => {
+            const x = rows[+b.dataset.fuse].x;
+            if (fuse(x)) {
+                elxDone('Fused ' + x.f, x.f);
+            }
+        });
+    } else {
+        $('elxHelp').textContent = 'Pick the element you want out, then split a compound that has it. You keep the find; one spare copy is used up, and the elements it gives can go into fusion or fill bond slots.';
+        const short = elxShort();
+        const all = splittable();
+        elxTable(all, short);
+        const pick = V.el;
+        $('elxPick').innerHTML = pick ? `Compounds with <b>${esc(elementBySymbol[pick][1])} (${pick})</b> you could split` : 'Tap an element to see the compounds you could get it from. Lit ones are in at least one spare compound; a green mark means fusion is short of it.';
+        rows = (pick ? all.filter(x => x.c.elements.some(e => e[0] === pick)) : []).map(x => {
+            const counts = {};
+            x.c.elements.forEach(e => counts[e[0]] = (counts[e[0]] || 0) + 1);
+            const helps = Object.entries(counts).reduce((s, [sym, n]) => s + Math.min(n, short[sym] || 0), 0);
+            return { c: x.c, n: x.n, counts, helps, price: splitPrice(x.c.elements), rare: exactRarity(x.c.elements) };
+        }).filter(r => (!V.f.afford || canAfford(r.price)) && (!V.f.rolled || !r.c.made) && (!V.f.made || r.c.made) && (!V.f.useful || r.helps));
+        const by = {
+            most: (a, b) => (b.counts[pick] || 0) - (a.counts[pick] || 0) || a.price - b.price,
+            rare: (a, b) => a.rare - b.rare,
+            spare: (a, b) => b.n - a.n,
+            helps: (a, b) => b.helps - a.helps || a.price - b.price,
+            cheap: (a, b) => a.price - b.price,
+            gives: (a, b) => b.c.elements.length - a.c.elements.length,
+            az: (a, b) => a.c.formula.localeCompare(b.c.formula)
+        }[V.sort] || (() => 0);
+        rows.sort((a, b) => by(a, b) || a.c.formula.localeCompare(b.c.formula));
+        rows.slice(0, ELX_SHOW).forEach((r, i) => {
+            const gives = Object.entries(r.counts).map(([s, n]) => `<span class="elx-el ${s === pick ? 'pick' : short[s] ? 'want' : 'ok'}"><b>${s}</b> +${n}</span>`).join('');
+            html += `<div class="elx-row"><div class="elx-f"><strong>${esc(r.c.formula)}</strong><small>${r.c.made ? 'made' : esc(r.c.name || '')}</small></div>` +
+                `<div class="elx-els">${gives}</div>` +
+                `<div class="elx-tag">${r.n} spare</div>` +
+                `<button class="primary" data-split="${i}" ${canAfford(r.price) ? '' : 'disabled'}><span class="q-sym" aria-hidden="true">q</span> ${formatNumber(r.price)}</button></div>`;
+        });
+        list.innerHTML = !pick ? '' : html || '<p class="muted">' + (Object.values(V.f).some(Boolean) ? 'Nothing matches these filters.' : 'No spare compounds with this element. Bond slots use copies up, so only the ones left over can be split.') + '</p>';
+        list.querySelectorAll('[data-split]').forEach(b => b.onclick = () => {
+            const c = rows[+b.dataset.split].c;
+            if (split(c)) {
+                elxDone('Split ' + c.formula, c.formula);
+            }
+        });
+    }
+    if (elxTab === 'split' && !elxView.split.el) {
+        $('elxMore').textContent = '';
+        return;
+    }
+    $('elxMore').textContent = rows.length > ELX_SHOW ? 'Showing ' + ELX_SHOW + ' of ' + formatNumber(rows.length) + '. Search or filter to narrow it down.' : '';
+}
+// the periodic table on the Fission tab: tap an element to list what it can be split out of
+function elxTable(all, short) {
+    const have = {};
+    all.forEach(x => new Set(x.c.elements.map(e => e[0])).forEach(s => have[s] = (have[s] || 0) + 1));
+    const pick = elxView.split.el;
+    const root = $('elxPt');
+    root.innerHTML = ELEMENTS.map(e => {
+        const pos = tableLayout[e[0]] || [11, 1];
+        const n = have[e[0]] || 0;
+        return `<button type="button" class="element-tile${n ? ' discovered fam-' + familyOf(e[0]) : ' none'}${e[0] === pick ? ' picked' : ''}${short[e[0]] ? ' wanted' : ''}" data-pick="${e[0]}" style="grid-row:${pos[0]};grid-column:${pos[1]}" title="${esc(e[1])}${n ? ', in ' + n + ' spare compound' + (n === 1 ? '' : 's') : ', in no spare compounds'}"><span class="sym">${e[0]}</span></button>`;
+    }).join('');
+    root.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => {
+        elxView.split.el = b.dataset.pick === pick ? null : b.dataset.pick;
+        elxViewSave();
+        $('elxMsg').textContent = '';
+        renderElx();
+    });
+    ptFit(root);
+}
+function elxDone(msg, f) {
+    uiSound('bond');
+    const cell = $('elxCell');
+    cell.classList.remove('run');
+    void cell.offsetWidth;
+    cell.classList.add('run');
+    cell.querySelector('.elx-out').textContent = f;
+    $('elxMsg').textContent = msg + '.';
+    renderElx();
+    renderRollStats();
+}
+document.querySelectorAll('[data-elx]').forEach(b => b.addEventListener('click', () => {
+    elxTab = b.dataset.elx;
+    $('elxMsg').textContent = '';
+    renderElx();
+}));
+$('elxSearch').addEventListener('input', e => {
+    elxFind = e.target.value;
+    renderElx();
+});
+$('elxSort').addEventListener('change', e => {
+    elxView[elxTab].sort = e.target.value;
+    elxViewSave();
+    renderElx();
+});
+$('elxOptBtn').addEventListener('click', () => {
+    elxView.open = !elxView.open;
+    elxViewSave();
+    renderElx();
+});
+// Catalyst Synthesis, from outer ring 2. Five elements on an X: a centre and four arms read
+// clockwise from the top left. Turning the pattern round makes no difference
+const SY_ARMS = ['tl', 'tr', 'br', 'bl'];
+const syParse = r => {
+    const [c, arms] = r.split(':');
+    return { c, arms: arms.split(' ') };
+};
+const syKey = (c, arms) => c + '|' + [0, 1, 2, 3].map(i => arms.slice(i).concat(arms.slice(0, i)).join(' ')).sort()[0];
+const SY_BY_KEY = new Map();
+SYNTHS.forEach(y => {
+    const p = syParse(y.r);
+    SY_BY_KEY.set(syKey(p.c, p.arms), y.id);
+});
+// the lab book's page order: examples first, the rest shuffled so the pages give nothing away
+const SY_PAGES = (() => {
+    const rest = SYNTHS.map(y => y.id).filter(id => !SYNTH_EXAMPLES.includes(id));
+    let h = 20261103;
+    const rnd = () => (h = Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9 >>> 0) / 4294967296;
+    for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    return SYNTH_EXAMPLES.concat(rest);
+})();
+let syKnown = [];
+try {
+    syKnown = JSON.parse(localStorage.getItem('elementalSynthKnown') || '[]').filter(id => CAT[id]);
+} catch (e) { }
+const syKnows = id => SYNTH_EXAMPLES.includes(id) || syKnown.includes(id);
+// the best check so far against each unwritten page, lined up with the recipe: [[symbol, mark] x 5], centre first
+let syHints = {};
+try {
+    syHints = JSON.parse(localStorage.getItem('elementalSynthHints') || '{}');
+} catch (e) { }
+// greens count most, then yellows, purples, blues and greys
+const SY_RANK = { g: 10000, y: 1000, p: 100, b: 10, x: 1 };
+const syScore = h => h.reduce((s, [, m]) => s + (SY_RANK[m] || 0), 0);
+function syHintsSave() {
+    try {
+        localStorage.setItem('elementalSynthHints', JSON.stringify(syHints));
+    } catch (e) { }
+}
+function sySave() {
+    try {
+        localStorage.setItem('elementalSynthKnown', JSON.stringify(syKnown));
+    } catch (e) { }
+}
+const syOn = () => bondBonus().synthesis;
+let syTable = { c: null, arms: [null, null, null, null] };
+let syPick = null;
+let syPage = 0;
+// spare copies of each element, after what's already on the table
+function sySpare(sym) {
+    const on = [syTable.c].concat(syTable.arms).filter(s => s === sym).length;
+    return spareEl(sym) - on;
+}
+// checks a mix against the recipe on the open page, Wordle style: green for the right element
+// in the right slot, yellow for one that's in the recipe somewhere else, purple for the right
+// family in the right slot, blue for the right family somewhere else, grey for none of those.
+// The pattern can be turned round, so it lines the arms up whichever way matches best
+let syMarks = null;
+function syCheck(c, arms, r) {
+    const p = syParse(r);
+    let rot = 0;
+    let best = -1;
+    for (let k = 0; k < 4; k++) {
+        const hits = [0, 1, 2, 3].reduce((n, i) => n + (arms[(i + k) % 4] === p.arms[i] ? 10 : familyOf(arms[(i + k) % 4]) === familyOf(p.arms[i]) ? 1 : 0), 0);
+        if (hits > best) {
+            best = hits;
+            rot = k;
+        }
+    }
+    // mine[i] is the element in my slot i; want[i] is what the recipe has in that slot
+    const mine = [c].concat([0, 1, 2, 3].map(i => arms[i]));
+    const want = [p.c].concat([0, 1, 2, 3].map(i => p.arms[(i - rot + 4) % 4]));
+    const marks = mine.map((s, i) => s === want[i] ? 'g' : null);
+    syCheck.rot = rot;
+    const left = {};
+    want.forEach((s, i) => {
+        if (!marks[i]) {
+            left[s] = (left[s] || 0) + 1;
+        }
+    });
+    mine.forEach((s, i) => {
+        if (!marks[i] && left[s]) {
+            marks[i] = 'y';
+            left[s]--;
+        }
+    });
+    // what's left of the recipe, for the family checks
+    const rest = [];
+    Object.entries(left).forEach(([s, n]) => {
+        for (let j = 0; j < n; j++) {
+            rest.push(s);
+        }
+    });
+    const take = s => rest.splice(rest.indexOf(s), 1);
+    mine.forEach((s, i) => {
+        if (!marks[i] && rest.includes(want[i]) && familyOf(want[i]) === familyOf(s)) {
+            marks[i] = 'p';
+            take(want[i]);
+        }
+    });
+    mine.forEach((s, i) => {
+        if (marks[i]) {
+            return;
+        }
+        const f = rest.find(r => familyOf(r) === familyOf(s));
+        if (f) {
+            marks[i] = 'b';
+            take(f);
+        } else {
+            marks[i] = 'x';
+        }
+    });
+    return marks;
+}
+function synthesise() {
+    const { c, arms } = syTable;
+    if (!syOn() || !c || arms.some(a => !a)) {
+        return;
+    }
+    const id = SY_BY_KEY.get(syKey(c, arms));
+    const cell = $('syTable');
+    cell.classList.remove('ok');
+    void cell.offsetWidth;
+    if (!id) {
+        // nothing made: check it against the page the lab book is open at
+        const pid = SY_PAGES[syPage];
+        syMarks = syCheck(c, arms, CAT[pid].r);
+        // write it on the page, lined up with the recipe, if it tells you more than what's there
+        const rot = syCheck.rot;
+        const mine = [c].concat(arms);
+        const h = [[c, syMarks[0]]].concat([0, 1, 2, 3].map(j => {
+            const i = (j + rot) % 4;
+            return [mine[i + 1], syMarks[i + 1]];
+        }));
+        if (!syKnows(pid) && (!syHints[pid] || syScore(h) > syScore(syHints[pid]))) {
+            syHints[pid] = h;
+            syHintsSave();
+        }
+        $('syMsg').textContent = '';
+        $('syMsg').className = 'sy-msg';
+        uiSound('deny');
+        renderSynth();
+        syPulse();
+        return;
+    }
+    syMarks = null;
+    // uses one spare copy of each element on the table
+    const need = {};
+    [c].concat(arms).forEach(s => need[s] = (need[s] || 0) + 1);
+    const plans = Object.entries(need).map(([s, n]) => payPlan({ t: 'el', k: s, n }));
+    if (plans.some(p => !p)) {
+        $('syMsg').textContent = 'You don\'t have enough spare copies of those elements.';
+        $('syMsg').className = 'sy-msg';
+        return;
+    }
+    // outer ring 2: now and then one of them isn't used up
+    let kept = null;
+    if (Math.random() < bondBonus().synthkeep / 100) {
+        const i = Math.floor(Math.random() * plans.length);
+        kept = Object.keys(need)[i];
+        plans[i][plans[i].length - 1].take--;
+    }
+    plans.forEach(p => p.forEach(x => x.c.spent = (x.c.spent || 0) + x.take));
+    if (typeof madeSave === 'function') {
+        madeSave();
+    }
+    save();
+    catInv[id] = (catInv[id] || 0) + 1;
+    const cat = CAT[id];
+    if (cat.rolls || (cat.fx.start)) {
+        const src = 'y|' + acDev + '|' + Date.now().toString(36);
+        srcAdd(id, src);
+        synthLog(id, src);
+    }
+    saveCats();
+    const fresh = !syKnows(id);
+    if (fresh) {
+        syKnown.push(id);
+        sySave();
+        syPage = SY_PAGES.indexOf(id);
+    }
+    cell.classList.add('ok');
+    uiSound('bond');
+    $('syMsg').innerHTML = (fresh ? 'New recipe! ' : '') + '<b>' + esc(cat.name) + '</b> made. It\'s waiting in your inventory.' + (kept ? ' One ' + esc(elementBySymbol[kept][1]) + ' was left over.' : '');
+    $('syMsg').className = 'sy-msg ok';
+    if (fresh) {
+        showAchievementToast({ kicker: 'New recipe', name: cat.name, flavor: 'Written into your lab book.' });
+    }
+    renderSynth();
+}
+function renderSynth() {
+    $('syLocked').hidden = syOn();
+    $('syBody').hidden = !syOn();
+    if (!syOn()) {
+        return;
+    }
+    ['c'].concat(SY_ARMS).forEach((k, i) => {
+        const sym = i ? syTable.arms[i - 1] : syTable.c;
+        const b = $('sySlot_' + k);
+        b.classList.toggle('on', !!sym);
+        b.classList.toggle('pick', syPick === k);
+        ['g', 'y', 'p', 'b', 'x'].forEach(m => b.classList.toggle('m-' + m, !!syMarks && syMarks[i] === m));
+        // the slot's rim takes the element's family colour
+        b.style.setProperty('--fc', sym ? 'var(--' + familyOf(sym) + ')' : '');
+        b.innerHTML = sym ? `<b>${sym}</b><small>${Math.max(0, sySpare(sym) + 1)} spare</small>` : '<i>+</i>';
+    });
+    const full = syTable.c && syTable.arms.every(Boolean);
+    $('syGo').disabled = !full;
+    syPicker();
+    syBook();
+}
+// choosing an element for a slot: only ones you have a spare copy of light up
+function syPicker() {
+    const box = $('syPickWrap');
+    box.hidden = !syPick;
+    if (!syPick) {
+        return;
+    }
+    const cur = syPick === 'c' ? syTable.c : syTable.arms[SY_ARMS.indexOf(syPick)];
+    $('syPickHead').textContent = (syPick === 'c' ? 'Centre' : 'Arm') + ': pick an element';
+    $('syPickClear').hidden = !cur;
+    const root = $('syPt');
+    root.innerHTML = ELEMENTS.map(e => {
+        const pos = tableLayout[e[0]] || [11, 1];
+        const n = sySpare(e[0]) + (e[0] === cur ? 1 : 0);
+        return `<button type="button" class="element-tile${n > 0 ? ' discovered fam-' + familyOf(e[0]) : ' none'}${e[0] === cur ? ' picked' : ''}" data-sy="${e[0]}" ${n > 0 ? '' : 'disabled'} style="grid-row:${pos[0]};grid-column:${pos[1]}" title="${esc(e[1])}: ${Math.max(0, n)} spare"><span class="sym">${e[0]}</span></button>`;
+    }).join('');
+    root.querySelectorAll('[data-sy]').forEach(b => b.onclick = () => sySet(b.dataset.sy));
+    ptFit(root);
+}
+// the colours pulse in one slot at a time, centre first
+function syPulse() {
+    ['c'].concat(SY_ARMS).forEach((k, i) => {
+        const b = $('sySlot_' + k);
+        b.classList.remove('pulse');
+        b.style.animationDelay = (i * 140) + 'ms';
+        void b.offsetWidth;
+        b.classList.add('pulse');
+    });
+}
+function sySet(sym) {
+    syMarks = null;
+    if (syPick === 'c') {
+        syTable.c = sym;
+    } else {
+        syTable.arms[SY_ARMS.indexOf(syPick)] = sym;
+    }
+    // straight on to the next empty slot
+    const order = ['c'].concat(SY_ARMS);
+    const next = order.find(k => !(k === 'c' ? syTable.c : syTable.arms[SY_ARMS.indexOf(k)]));
+    syPick = sym ? next || null : syPick;
+    $('syMsg').textContent = '';
+    renderSynth();
+}
+// the lab book, one page at a time. A failed mix is checked against whichever page is open
+function syBook() {
+    syPage = Math.max(0, Math.min(SY_PAGES.length - 1, syPage));
+    const found = SYNTHS.filter(y => syKnows(y.id)).length;
+    $('syBookCount').textContent = found + ' of ' + SY_PAGES.length + ' written';
+    const id = SY_PAGES[syPage];
+    const c = CAT[id];
+    const mini = r => {
+        const p = r ? syParse(r) : { c: '', arms: ['', '', '', ''] };
+        const cell = (k, s) => `<span class="sy-mini-${k}${s ? ' fam-' + familyOf(s) : ''}">${s || '?'}</span>`;
+        return `<div class="sy-mini">${cell('c', p.c)}${SY_ARMS.map((k, j) => cell(k, p.arms[j])).join('')}</div>`;
+    };
+    // an unwritten page shows the best check against it so far
+    const hinted = h => {
+        const cell = (k, x) => x ? `<span class="sy-mini-${k} m-${x[1]}">${x[0]}</span>` : `<span class="sy-mini-${k}">?</span>`;
+        return `<div class="sy-mini">${cell('c', h && h[0])}${SY_ARMS.map((k, j) => cell(k, h && h[j + 1])).join('')}</div>`;
+    };
+    if (!syKnows(id)) {
+        $('syPages').innerHTML = `<div class="sy-page blank"><p class="sy-pno">Page ${syPage + 1}</p><h3>Unknown Catalyst #${syPage + 1}</h3>${hinted(syHints[id])}` +
+            `<p class="muted">${syHints[id] ? 'Your closest mix so far.' : 'Nothing tried against this page yet.'}</p>` +
+            (syHints[id] ? '<button class="ghost" id="syGuess">Put best guess on the table</button>' : '') + '</div>';
+        // greens and yellows go back where they were tried; greys are left empty
+        const gb = $('syGuess');
+        if (gb) {
+            gb.onclick = () => {
+                const h = syHints[id];
+                const keep = x => x[1] === 'x' ? null : x[0];
+                syTable = { c: keep(h[0]), arms: [1, 2, 3, 4].map(i => keep(h[i])) };
+                syPick = null;
+                syMarks = null;
+                $('syMsg').textContent = '';
+                renderSynth();
+            };
+        }
+    } else {
+        const T = CAT_TIERS[c.tier];
+        $('syPages').innerHTML = `<div class="sy-page" style="--tc:${T.col}"><p class="sy-pno">Page ${syPage + 1}</p><h3>${esc(c.name)}</h3>${tierChip(c.tier)}${c.joke ? ' <span class="sy-joke">Joke</span>' : ''}` +
+            mini(c.r) + `<p class="ip-effect">${catEffect(c)}</p><dl class="stats"><div><dt>Lasts</dt><dd>${catLength(c)}</dd></div><div><dt>You have</dt><dd>×${(catInv[id] || 0).toLocaleString('en-US')}</dd></div></dl>` +
+            `<button class="ghost" data-load="${id}">Put on the table</button></div>`;
+        $('syPages').querySelector('[data-load]').onclick = () => {
+            const p = syParse(c.r);
+            syTable = { c: p.c, arms: p.arms.slice() };
+            syPick = null;
+            syMarks = null;
+            $('syMsg').textContent = '';
+            renderSynth();
+        };
+    }
+    $('syPrev').disabled = syPage === 0;
+    $('syNext').disabled = syPage + 1 >= SY_PAGES.length;
+    $('syPageNo').value = syPage + 1;
+}
+function syFlip(d) {
+    syPage = Math.max(0, Math.min(SY_PAGES.length - 1, syPage + d));
+    syMarks = null;
+    renderSynth();
+}
+// jump to the next page that has something written on it
+function syNextWritten(d) {
+    for (let i = syPage + d; i >= 0 && i < SY_PAGES.length; i += d) {
+        if (syKnows(SY_PAGES[i])) {
+            syPage = i;
+            syMarks = null;
+            renderSynth();
+            return;
+        }
+    }
+}
+['c'].concat(SY_ARMS).forEach(k => {
+    $('sySlot_' + k).addEventListener('click', () => {
+        syPick = syPick === k ? null : k;
+        renderSynth();
+    });
+    // a double click takes the element back off
+    $('sySlot_' + k).addEventListener('dblclick', () => {
+        if (k === 'c') {
+            syTable.c = null;
+        } else {
+            syTable.arms[SY_ARMS.indexOf(k)] = null;
+        }
+        syPick = null;
+        syMarks = null;
+        renderSynth();
+    });
+});
+$('syPickClear').addEventListener('click', () => {
+    syMarks = null;
+    if (syPick === 'c') {
+        syTable.c = null;
+    } else {
+        syTable.arms[SY_ARMS.indexOf(syPick)] = null;
+    }
+    renderSynth();
+});
+$('syPickClose').addEventListener('click', () => {
+    syPick = null;
+    renderSynth();
+});
+$('syGo').addEventListener('click', synthesise);
+$('syClear').addEventListener('click', () => {
+    syTable = { c: null, arms: [null, null, null, null] };
+    syPick = null;
+    syMarks = null;
+    $('syMsg').textContent = '';
+    $('syTable').classList.remove('ok');
+    renderSynth();
+});
+$('syPageNo').addEventListener('change', e => {
+    syPage = Math.max(0, Math.min(SY_PAGES.length - 1, (parseInt(e.target.value, 10) || 1) - 1));
+    syMarks = null;
+    renderSynth();
+});
+$('syPrev').addEventListener('click', () => syFlip(-1));
+$('syNext').addEventListener('click', () => syFlip(1));
+$('syPrevW').addEventListener('click', () => syNextWritten(-1));
+$('syNextW').addEventListener('click', () => syNextWritten(1));
+function syNavSync() {
+    $('invSyBtn').hidden = !syOn();
+}
+// the silly catalysts: a class on the page for each one running
+let sySillyOn = '';
+function sillySync() {
+    const on = catBonus().silly.slice().sort().join(' ');
+    if (on === sySillyOn) {
+        return;
+    }
+    sySillyOn = on;
+    [...document.body.classList].filter(c => c.startsWith('silly-')).forEach(c => document.body.classList.remove(c));
+    catBonus().silly.forEach(k => document.body.classList.add('silly-' + k));
+    let duck = document.querySelector('.sy-duck');
+    if (on.includes('duck') && !duck) {
+        duck = document.createElement('div');
+        duck.className = 'sy-duck';
+        duck.textContent = '\u{1F986}';
+        document.body.appendChild(duck);
+    } else if (!on.includes('duck') && duck) {
+        duck.remove();
+    }
+}
+setInterval(sillySync, 1000);
+function sillyConfetti() {
+    if (!catBonus().silly.includes('confetti')) {
+        return;
+    }
+    const cols = ['#ff4f4f', '#ffb84f', '#f5e642', '#4fd17a', '#4fa8ff', '#b46bff'];
+    for (let i = 0; i < 40; i++) {
+        const c = document.createElement('i');
+        c.className = 'sy-confetti';
+        c.style.left = (20 + Math.random() * 60) + 'vw';
+        c.style.top = '-12px';
+        c.style.background = cols[i % cols.length];
+        c.style.setProperty('--dx', ((Math.random() - 0.5) * 300) + 'px');
+        c.style.setProperty('--r', (Math.random() * 900) + 'deg');
+        c.style.animationDelay = (Math.random() * 0.4) + 's';
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 2200);
+    }
+}
 const STORE_LIMIT = 5 * 1024 * 1024;
 function storageBytes() {
     let n = 0;
@@ -13946,7 +17345,7 @@ function seenAdd(kind, v) {
         seenSave();
     }
 }
-const VIEW_ORDER = (jokes = false) => Object.keys(CUTSCENES).filter(s => isJoke(s) === jokes).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
+const VIEW_ORDER = (jokes = false) => Object.keys(CUTSCENES).filter(s => !isVoid(s) && isJoke(s) === jokes).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
 function renderViewer() {
     const s = seenLoad();
     const cuts = $('vwCuts');
@@ -13954,7 +17353,14 @@ function renderViewer() {
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
     $('vwJokeWrap').hidden = !jokesOn();
-    $('vwJokes').innerHTML = VIEW_ORDER(true).map(sym => s.cut.includes(sym) ?
+    // the late jokes show once their connector is lit, the hidden one only once it's been seen
+    $('vwJokes').innerHTML = VIEW_ORDER(true).filter(x => s.cut.includes(x) || (jokeOpen(elementBySymbol[x]) && x !== JOKE_HIDDEN)).map(sym => s.cut.includes(sym) ?
+        '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
+        '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
+    // void elements, once you've seen one
+    const voids = VOIDS.map(v => v[0]).filter(x => CUTSCENES[x]);
+    $('vwVoidWrap').hidden = !voids.some(x => s.cut.includes(x));
+    $('vwVoids').innerHTML = voids.map(sym => s.cut.includes(sym) ?
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
     const tiers = Math.max(9, tierTop());
@@ -13989,7 +17395,7 @@ async function viewerPlay(btn) {
         playRarityFx(t, dark);
     }, 250);
 }
-['vwCuts', 'vwJokes', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
+['vwCuts', 'vwJokes', 'vwVoids', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
     const b = e.target.closest('button[data-cut], button[data-fx], button[data-dark]');
     if (b) {
         viewerPlay(b);
@@ -14002,7 +17408,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks', 'elementalBondAgents', 'elementalMade', 'elementalSynthKnown', 'elementalSynthHints'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;
@@ -14382,7 +17788,42 @@ function cloudMerge(a, b) {
     const [ca2, cb2] = both('elementalClaimed', []);
     out.elementalClaimed = JSON.stringify(union(ca2, cb2));
     const [na, nb] = both('elementalNetwork', {});
-    out.elementalNetwork = JSON.stringify(Object.assign({}, na, nb));
+    const nets = Object.assign({}, na, nb);
+    out.elementalNetwork = JSON.stringify(nets);
+    // agents half way into a slot: keep the higher count, unless the slot has since been filled
+    const [ga, gb] = both('elementalBondAgents', {});
+    const agents = {};
+    Object.keys(Object.assign({}, ga, gb)).forEach(id => {
+        if (!nets[id]) {
+            agents[id] = Math.max(ga[id] || 0, gb[id] || 0);
+        }
+    });
+    out.elementalBondAgents = JSON.stringify(agents);
+    // made by Electrolysis: per formula, whichever side has made more, and the most spent
+    const [ma, mb] = both('elementalMade', {});
+    const made = {};
+    Object.keys(Object.assign({}, ma, mb)).forEach(f => {
+        const x = ma[f] || { count: 0, spent: 0 };
+        const y = mb[f] || { count: 0, spent: 0 };
+        const m = { count: Math.max(x.count || 0, y.count || 0), spent: Math.max(x.spent || 0, y.spent || 0) };
+        if (m.count > m.spent) {
+            made[f] = m;
+        }
+    });
+    out.elementalMade = JSON.stringify(made);
+    const [ya, yb] = both('elementalSynthKnown', []);
+    out.elementalSynthKnown = JSON.stringify(union(ya, yb));
+    // checks written on unknown pages: keep whichever tells you more
+    const [ha, hb] = both('elementalSynthHints', {});
+    const rank = { g: 10000, y: 1000, p: 100, b: 10, x: 1 };
+    const score = h => Array.isArray(h) ? h.reduce((s, x) => s + (rank[x[1]] || 0), 0) : 0;
+    const hints = Object.assign({}, ha);
+    Object.keys(hb).forEach(id => {
+        if (score(hb[id]) > score(hints[id])) {
+            hints[id] = hb[id];
+        }
+    });
+    out.elementalSynthHints = JSON.stringify(hints);
     const [sa, sb2] = both('elementalSeen', {});
     out.elementalSeen = JSON.stringify({ cut: union(sa.cut, sb2.cut), fx: union(sa.fx, sb2.fx), dark: union(sa.dark, sb2.dark) });
     const [ia, ib] = both('elementalIons', {});
@@ -14704,7 +18145,7 @@ function globalConsider(rec) {
     const st = activeBuffStats();
     const ev = eventNow();
     globalSubmit({
-        ev: ev ? (ev === 'storm' ? 'Quark Storm' : EVENTS[ev].name) : '',
+        ev: ev ? (ev === 'storm' ? 'Quark Storm' : EVENTS[ev].name) : vacOn() ? 'Vacuum' : '',
         f: rec.formula,
         ion: rec.ion || 0,
         label: rec.name || globalName(rec.formula),
@@ -14722,6 +18163,8 @@ async function globalSubmit(p) {
     if (!p.pf) {
         return;
     }
+    // a find made with a synthesised catalyst only counts once the server has the catalyst logged
+    await syLogFlush();
     const args = { p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_proof: p.pf };
     if (p.ion) {
         args.p_ion = p.ion;

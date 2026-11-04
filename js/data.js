@@ -182,11 +182,32 @@ const JOKES = [
     ['Xx', 'Redactium', 500000000, '[DATA EXPUNGED]', [3, 2]],
     ['Uo', 'Unobtainium', 700000000, 'The one every scientist is after', [3, 16]],
     ['Zo', 'Zoomium', 1000000000, 'Already gone before you see it', [3, 17]],
-    ['Gg', 'Gameoverium', 1500000000, 'The last element there will ever be', [3, 18]]
+    ['Gg', 'Gameoverium', 1500000000, 'The last element there will ever be', [3, 18]],
+    // from the outer ring 2 connector
+    ['Oo', 'Oopsium', 400000000, 'Made entirely by accident, and never the same way twice', [3, 13]],
+    ['Bf', 'Bufferium', 800000000, 'Still loading', [3, 15]],
+    ['Fz', 'Freddy Fazbearium', 2500000000, "It's been here the whole time", [1, 10]]
 ];
 JOKES.forEach(j => elementBySymbol[j[0]] = j);
 const JOKE_SYMS = new Set(JOKES.map(j => j[0]));
 const isJoke = sym => JOKE_SYMS.has(sym);
+const JOKES_LATE = new Set(['Oo', 'Bf', 'Fz']);
+// nobody sees this one on the table until they've found it
+const JOKE_HIDDEN = 'Fz';
+const JOKES_BASE = JOKES.filter(j => !JOKES_LATE.has(j[0]));
+const jokeOpen = j => !JOKES_LATE.has(j[0]) || bondBonus().jokes3;
+// only ever rolled during a Vacuum. Their table stays hidden until one turns up
+const VOIDS = [
+    ['Kn', 'Kenonium', 20000000, 'Named after the kenon, the empty space Democritus said atoms move through', [1, 7]],
+    ['Lq', 'Lacunium', 60000000, 'Turns up in the gaps of things: a missing page, a skipped beat', [1, 8]],
+    ['Tw', 'Tohuvium', 150000000, 'Formless and empty, left over from before anything was sorted', [1, 9]],
+    ['Ap', 'Apeiron', 400000000, 'The boundless stuff everything else was cut from', [1, 10]],
+    ['Ix', 'Interstitium', 800000000, 'Lives between the atoms of other elements and pays no rent', [1, 11]],
+    ['Gx', 'Ginnungium', 1500000000, 'Scooped from the yawning gap before the first world', [1, 12]]
+];
+VOIDS.forEach(v => elementBySymbol[v[0]] = v);
+const VOID_SYMS = new Set(VOIDS.map(v => v[0]));
+const isVoid = sym => VOID_SYMS.has(sym);
 const tableLayout = {};
 function placeRow(p, a) {
     a.forEach(([s, c]) => tableLayout[s] = [p, c]);

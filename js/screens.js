@@ -67,7 +67,7 @@ const FAMILY_NAMES = {
     set('unknown', ['Mt', 'Ds', 'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv']);
 })();
 function familyOf(sym) {
-    return isJoke(sym) ? 'joke' : FAMILY[sym] || 'transition';
+    return isJoke(sym) ? 'joke' : isVoid(sym) ? 'void' : FAMILY[sym] || 'transition';
 }
 // Columns and rows in whole pixels: shared out as fractions, tiles land between pixels and the gaps look uneven
 function ptFit(el) {
@@ -79,7 +79,7 @@ function ptFit(el) {
     const col = Math.floor((w - 17 * gap) / 18);
     const row = el.classList.contains('compact') ? Math.round(col * .86) : col;
     el.style.gridTemplateColumns = `repeat(18, ${col}px)`;
-    el.style.gridTemplateRows = `repeat(7, ${row}px) 12px repeat(2, ${row}px)`;
+    el.style.gridTemplateRows = el.classList.contains('void-table') ? `${row}px` : `repeat(7, ${row}px) 12px repeat(2, ${row}px)`;
     el.classList.add('fit');
     // the text above can leave the table starting part way into a pixel, so nudge it onto a whole one
     el.style.transform = '';
@@ -96,8 +96,8 @@ function buildTable(root, mode, list = ELEMENTS) {
         return;
     }
     root.innerHTML = '';
-    const joke = list === JOKES;
-    const found = joke ? jokesFound() : discoveredSymbols();
+    const joke = isJoke(list[0][0]) || list === VOIDS;
+    const found = isJoke(list[0][0]) ? jokesFound() : list === VOIDS ? voidsFound() : discoveredSymbols();
     // ion marks
     list.forEach((e, i) => {
         const pos = joke ? e[4] : tableLayout[e[0]] || [11, 1];
@@ -147,7 +147,7 @@ function ionShowNew() {
 }
 function bonusRows(s) {
     const row = (k, v, cls) => `<div><dt>${k}</dt><dd${cls ? ` class="${cls}"` : ''}>${v}</dd></div>`;
-    let h = row('Elements found', `${s.found.size} / 118`) + row('Luck', `+${s.luck.toFixed(2)}%`) + row('Scanner speed', `+${s.speed.toFixed(2)}%`) + row('Bonus rolls', `${s.extra} of 3`) + row('Chain chance', `1 in ${+s.chainDenom.toFixed(2)}`);
+    let h = row('Elements found', `${s.found.size} / 118`) + row('Luck', `+${s.luck.toFixed(2)}%`) + row('Scanner speed', `+${s.speed.toFixed(2)}%`) + row('Bonus rolls', `${s.extra} of ${bondBonus().bonusroll ? 4 : 3}`) + row('Chain chance', `1 in ${+s.chainDenom.toFixed(2)}`);
     if (s.autoUnlocked) {
         h += row('Autoroll speed', `+${s.autoSpeed.toFixed(1)}%`) + row('Break between rolls', fmtGap(s.autoGap));
     }
@@ -203,14 +203,24 @@ function renderPeriodic() {
     // joke table
     $('jokeWrap').hidden = !jokesOn();
     if (jokesOn()) {
-        buildTable($('jokeTable'), 'full', JOKES);
-        $('jokeStats').textContent = `Joke periodic table · ${jokesFound().size} / ${JOKES.length} found`;
+        // the late ones turn up with their connector, and the hidden one only once it's found
+        const jf = jokesFound();
+        const shown = JOKES.filter(j => jf.has(j[0]) || (jokeOpen(j) && j[0] !== JOKE_HIDDEN));
+        buildTable($('jokeTable'), 'full', shown);
+        $('jokeStats').textContent = `Joke periodic table · ${jf.size} / ${shown.length} found`;
     }
-    const joke = isJoke(selectedElementSymbol);
+    // the void table: nothing at all until the first one is found
+    $('voidWrap').hidden = !voidsFound().size;
+    if (voidsFound().size) {
+        buildTable($('voidTable'), 'full', VOIDS);
+        $('voidStats').textContent = `Void elements · ${voidsFound().size} / ${VOIDS.length} found`;
+    }
+    const vd = isVoid(selectedElementSymbol);
+    const joke = isJoke(selectedElementSymbol) || vd;
     const e = joke ? elementBySymbol[selectedElementSymbol] : ELEMENTS.find(x => x[0] === selectedElementSymbol) || ELEMENTS[0];
-    const isFound = joke ? jokesFound().has(e[0]) : found.has(e[0]);
+    const isFound = vd ? voidsFound().has(e[0]) : joke ? jokesFound().has(e[0]) : found.has(e[0]);
     $('buffElementName').textContent = `${e[1]} (${e[0]})`;
-    $('buffElementDesc').textContent = joke ? `${e[3]}. ${jokeBonusText(e[0])}.` : ELEMENT_BUFFS.get(e[0]).desc;
+    $('buffElementDesc').textContent = vd ? `${e[3]}. Only found during a Vacuum.` : joke ? `${e[3]}. ${jokeBonusText(e[0])}.` : ELEMENT_BUFFS.get(e[0]).desc;
     $('buffElementState').textContent = isFound ? 'Active. This bonus always applies.' : 'Locked. Find this element once to activate it.';
     $('buffElementState').classList.toggle('active', isFound);
     if ($('element').classList.contains('active')) {
@@ -287,12 +297,13 @@ let elemMode = 'start';
 function renderElemCompounds() {
     const root = $('elemCompounds');
     const sym = selectedElementSymbol;
-    const joke = isJoke(sym);
+    const vd = isVoid(sym);
+    const joke = isJoke(sym) || vd;
     const el = joke ? elementBySymbol[sym] : ELEMENTS.find(x => x[0] === sym) || ELEMENTS[0];
-    const found = joke ? jokesFound().has(sym) : discoveredSymbols().has(el[0]);
+    const found = vd ? voidsFound().has(sym) : joke ? jokesFound().has(sym) : discoveredSymbols().has(el[0]);
     const starts = c => (c.formula.match(/^[A-Z][a-z]?/) || [''])[0] === el[0];
     $('elemTitle').textContent = `${el[1]} (${el[0]})`;
-    $('elemSub').textContent = `${joke ? 'Joke element' : FAMILY_NAMES[familyOf(el[0])] + ', atomic number ' + (ELEMENTS.indexOf(el) + 1)}. ${displayMode === 'score' ? 'Score ' + el[2].toLocaleString() : 'Base odds 1 in ' + el[2].toLocaleString()}. ${found ? 'Found.' : 'Not found yet.'}`;
+    $('elemSub').textContent = `${vd ? 'Void element' : joke ? 'Joke element' : FAMILY_NAMES[familyOf(el[0])] + ', atomic number ' + (ELEMENTS.indexOf(el) + 1)}. ${displayMode === 'score' ? 'Score ' + el[2].toLocaleString() : 'Base odds 1 in ' + el[2].toLocaleString()}. ${found ? 'Found.' : 'Not found yet.'}`;
     const list = !found ? [] : collection.filter(c => elemMode === 'start' ? starts(c) : c.elements.some(x => x[0] === el[0])).sort(findOrder(displayMode));
     root.innerHTML = `<div class="toolbar"><strong>${el[1]} finds, ${displayMode === 'score' ? 'highest score' : 'rarest'} first</strong><span class="stat">${list.length} found</span><button class="ghost" id="elemModeBtn">${elemMode === 'start' ? 'Formula starts with ' + el[0] : 'Formula contains ' + el[0]}</button></div><div class="rank-list" id="elemGrid"></div>`;
     $('elemModeBtn').onclick = () => {

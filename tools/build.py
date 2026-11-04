@@ -24,6 +24,7 @@ JS_FILES = [
     'core.js',       # achievement toasts, the compact collection, saving, navigation, element buffs
     'dice.js',       # dice the server can check: seeds, the press counter
     'bonds.js',      # the bond network
+    'synthdata.js',  # the synthesis catalogue and recipes
     'shop.js',       # catalyst shop, inventory, active catalysts
     'odds.js',       # buffs, element weights, odds, score, quarks, Quark Storm rules
     'screens.js',    # roll history, periodic table, home, collection and rankings
@@ -32,6 +33,9 @@ JS_FILES = [
     'cosmetics.js',  # scanner and page skins, the Final Element badge, the shop's Cosmetics tab
     'cutscenes.js',  # the 15 element cutscenes
     'jokecuts.js',   # the 16 joke element cutscenes
+    'voidcuts.js',   # the 6 void element cutscenes
+    'electro.js',    # Electrolysis: fusion and fission
+    'synth.js',      # Catalyst Synthesis: the table and the lab book
     'storage.js',    # storage use and "Clear redundant finds"
     'viewer.js',     # cutscene and effect viewer
     'cloud.js',      # accounts and cloud saves

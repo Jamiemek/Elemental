@@ -36,7 +36,7 @@ function seenAdd(kind, v) {
         seenSave();
     }
 }
-const VIEW_ORDER = (jokes = false) => Object.keys(CUTSCENES).filter(s => isJoke(s) === jokes).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
+const VIEW_ORDER = (jokes = false) => Object.keys(CUTSCENES).filter(s => !isVoid(s) && isJoke(s) === jokes).sort((a, b) => CUTSCENES[b].z - CUTSCENES[a].z === 0 ? 0 : elementBySymbol[b][2] - elementBySymbol[a][2]);
 function renderViewer() {
     const s = seenLoad();
     const cuts = $('vwCuts');
@@ -44,7 +44,14 @@ function renderViewer() {
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
     $('vwJokeWrap').hidden = !jokesOn();
-    $('vwJokes').innerHTML = VIEW_ORDER(true).map(sym => s.cut.includes(sym) ?
+    // the late jokes show once their connector is lit, the hidden one only once it's been seen
+    $('vwJokes').innerHTML = VIEW_ORDER(true).filter(x => s.cut.includes(x) || (jokeOpen(elementBySymbol[x]) && x !== JOKE_HIDDEN)).map(sym => s.cut.includes(sym) ?
+        '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
+        '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
+    // void elements, once you've seen one
+    const voids = VOIDS.map(v => v[0]).filter(x => CUTSCENES[x]);
+    $('vwVoidWrap').hidden = !voids.some(x => s.cut.includes(x));
+    $('vwVoids').innerHTML = voids.map(sym => s.cut.includes(sym) ?
         '<button class="vw-tile" data-cut="' + sym + '"><b>' + sym + '</b><span>' + esc(elementBySymbol[sym][1]) + '</span></button>' :
         '<button class="vw-tile locked" disabled><b>?</b><span>Not seen yet</span></button>').join('');
     const tiers = Math.max(9, tierTop());
@@ -79,7 +86,7 @@ async function viewerPlay(btn) {
         playRarityFx(t, dark);
     }, 250);
 }
-['vwCuts', 'vwJokes', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
+['vwCuts', 'vwJokes', 'vwVoids', 'vwFx', 'vwDark'].forEach(id => $(id).addEventListener('click', e => {
     const b = e.target.closest('button[data-cut], button[data-fx], button[data-dark]');
     if (b) {
         viewerPlay(b);

@@ -1309,3 +1309,419 @@ CUTSCENES.Gg = {
         drawCard(ctx, scene, time, 6500, '#ff4040', '#b30000');
     }
 };
+// Oo: a rolling pencil knocks over a flask, the spill finds the burner, and something forms in the mess
+CUTSCENES.Oo = {
+    z: 0, dur: 9200,
+    snd(audio, start) {
+        for (let x = 0.1; x < 1.5; x += 0.07) {
+            playNoise(audio, start + x, 0.03, 0.012, 2600, 1800, 'bandpass', 3, 0.05, 0.002);
+        }
+        [1.55, 1.85, 2.1, 2.3].forEach((x, i) => playTone(audio, 1760 + i * 90, start + x, 0.12, 0.018, 'triangle', null, 0.3, 0, 0.002));
+        playTone(audio, 900, start + 2.45, 0.5, 0.025, 'sine', 180, 0.2);
+        playNoise(audio, start + 2.9, 0.5, 0.06, 4000, 600, 'bandpass', 1, 0.3, 0.003);
+        playNoise(audio, start + 3.1, 1.2, 0.025, 600, 300, 'lowpass', 2, 0.2, 0.1);
+        playNoise(audio, start + 3.9, 0.9, 0.04, 6000, 9000, 'highpass', 1, 0.2, 0.01);
+        boom(audio, start + 4.3, 0.05, 0.6);
+        playTone(audio, 1400, start + 4.9, 0.7, 0.02, 'sine', 300, 0.3);
+        [392, 523.3, 659.3, 784].forEach((f, i) => playTone(audio, f, start + 6.6 + i * 0.09, 0.3, 0.022, 'triangle', null, 0.3));
+        sparkle(audio, start + 6.7, 10, 1.4, 0.016);
+        padChord(audio, start + 7, [261.6, 329.6, 392, 523.3], 2.2, 0.012, 'triangle', 2400);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const bench = cy + 14 * u;
+        const fade = 1 - smoothstep(6400, 7000, time);
+        ctx.fillStyle = '#0d1a24';
+        ctx.fillRect(0, 0, W, H);
+        // tiles on the back wall
+        ctx.strokeStyle = 'rgba(140,190,210,0.07)';
+        ctx.lineWidth = 0.2 * u;
+        for (let x = (cx % (8 * u)); x < W; x += 8 * u) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, bench);
+            ctx.stroke();
+        }
+        for (let y = bench - 8 * u; y > 0; y -= 8 * u) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#26323b';
+        ctx.fillRect(0, bench, W, H - bench);
+        ctx.fillStyle = '#3a4a55';
+        ctx.fillRect(0, bench, W, 0.8 * u);
+        // the props, drawn bigger round the middle of the bench
+        ctx.save();
+        ctx.translate(cx, bench);
+        ctx.scale(1.7, 1.7);
+        ctx.translate(-cx, -bench);
+        ctx.globalAlpha = fade;
+        // the burner on the right
+        const bx = cx + 22 * u;
+        ctx.fillStyle = '#56646e';
+        ctx.fillRect(bx - 1 * u, bench - 9 * u, 2 * u, 9 * u);
+        ctx.fillRect(bx - 3.5 * u, bench - 1.2 * u, 7 * u, 1.2 * u);
+        const fl = 1 + 0.15 * Math.sin(time / 50) + 0.1 * Math.sin(time / 31);
+        const roar = smoothstep(3900, 4100, time) * (1 - smoothstep(4400, 5200, time));
+        ctx.fillStyle = '#5fa8ff';
+        ctx.beginPath();
+        ctx.ellipse(bx, bench - 11.5 * u, 1.2 * u, 2.6 * u * fl * (1 + roar * 2), 0, 0, TAU);
+        ctx.fill();
+        if (roar > 0) {
+            drawGlow(ctx, bx, bench - 14 * u, 16 * u * roar, '#ffb35c', roar * 0.8);
+        }
+        // the pencil rolls in from the left and stops against the flask
+        const fx = cx - 6 * u;
+        const px = Math.min(fx - 5.5 * u, -8 * u + (fx + 2.5 * u) * easeOutCubic(time / 1500));
+        ctx.save();
+        ctx.translate(px, bench - 0.9 * u);
+        ctx.rotate(time < 1500 ? time / 120 : 1500 / 120);
+        ctx.fillStyle = '#ffcf4a';
+        ctx.fillRect(-7 * u, -0.9 * u, 12 * u, 1.8 * u);
+        ctx.fillStyle = '#ff8fa3';
+        ctx.fillRect(-8 * u, -0.9 * u, 1.2 * u, 1.8 * u);
+        ctx.restore();
+        // the flask wobbles, then goes over
+        const wob = time > 1500 && time < 2450 ? Math.sin((time - 1500) / 70) * 0.12 * (1 - (time - 1500) / 1200) : 0;
+        const tip = smoothstep(2450, 2950, time) * 1.45;
+        const ang = wob + tip;
+        const spill = smoothstep(2850, 3900, time);
+        ctx.save();
+        ctx.translate(fx + 3.5 * u, bench);
+        ctx.rotate(ang);
+        ctx.translate(-3.5 * u, 0);
+        const level = 1 - spill;
+        ctx.fillStyle = 'rgba(120,255,160,0.75)';
+        if (level > 0.02) {
+            ctx.beginPath();
+            ctx.moveTo(-3.2 * u, -0.2 * u);
+            ctx.lineTo(3.2 * u, -0.2 * u);
+            ctx.lineTo(3.2 * u - 1.8 * u * level, -6 * u * level);
+            ctx.lineTo(-3.2 * u + 1.8 * u * level, -6 * u * level);
+            ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(210,240,255,0.85)';
+        ctx.lineWidth = 0.35 * u;
+        ctx.beginPath();
+        ctx.moveTo(-1 * u, -11 * u);
+        ctx.lineTo(-1 * u, -7 * u);
+        ctx.lineTo(-3.5 * u, 0);
+        ctx.lineTo(3.5 * u, 0);
+        ctx.lineTo(1 * u, -7 * u);
+        ctx.lineTo(1 * u, -11 * u);
+        ctx.stroke();
+        ctx.restore();
+        // the spill runs along the bench toward the burner
+        if (spill > 0) {
+            const x0 = fx + 4 * u;
+            const len = (bx - x0 + 1 * u) * spill;
+            ctx.fillStyle = 'rgba(120,255,160,0.7)';
+            ctx.beginPath();
+            ctx.ellipse(x0 + len / 2, bench + 0.1 * u, len / 2 + 1 * u, 0.7 * u, 0, Math.PI, TAU);
+            ctx.fill();
+        }
+        // fizz and sparks where it hits the flame
+        const st = scene.state;
+        if (!st.sp) {
+            const r = seededRandom(404);
+            st.sp = Array.from({ length: 40 }, () => [(r() - 0.5) * 1.2, -0.4 - r() * 0.9, r()]);
+        }
+        const sd = time - 3900;
+        if (sd > 0 && sd < 1400) {
+            st.sp.forEach(([vx, vy, k]) => {
+                const t = sd / 16;
+                const x = bx + vx * t * u * 0.6;
+                const y = bench - 8 * u + vy * t * u * 0.6 + 0.004 * u * t * t;
+                ctx.fillStyle = k > 0.5 ? '#ffe28a' : '#9effc0';
+                ctx.globalAlpha = fade * (1 - sd / 1400);
+                ctx.fillRect(x, y, 0.5 * u, 0.5 * u);
+            });
+            ctx.globalAlpha = fade;
+        }
+        // a puff of smoke that fills the room, then clears
+        const puff = smoothstep(4200, 4700, time) * (1 - smoothstep(5300, 6300, time));
+        if (puff > 0) {
+            const r = seededRandom(99);
+            for (let i = 0; i < 26; i++) {
+                const a = r() * TAU;
+                const d = (8 + r() * 40) * u * easeOutCubic((time - 4200) / 900);
+                drawGlow(ctx, cx + 8 * u + Math.cos(a) * d, cy + Math.sin(a) * d * 0.6, (12 + r() * 10) * u, '#aab4bc', puff * 0.55);
+            }
+        }
+        ctx.restore();
+        drawText(ctx, 'oops', cx + 8 * u, cy - 14 * u, 6 * u * easeOutCubic((time - 4300) / 300), '#ffffff', smoothstep(4300, 4400, time) * (1 - smoothstep(5000, 5400, time)), 800, 0.4 * u);
+        ctx.globalAlpha = 1;
+        // what's left in the mess pulls itself together
+        const blob = smoothstep(5400, 6300, time);
+        if (blob > 0) {
+            const wobb = Math.sin(time / 90) * 0.6 * u * (1 - smoothstep(6000, 6600, time));
+            drawGlow(ctx, cx, cy, 30 * u * blob, '#7dffb0', 0.5 * blob * fade);
+            ctx.fillStyle = 'rgba(160,255,200,' + blob * fade + ')';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + (1 - blob) * 14 * u, Math.max(0.1, 4 * u * blob + wobb * blob), Math.max(0.1, 4 * u * blob - wobb * blob), 0, 0, TAU);
+            ctx.fill();
+        }
+        drawCard(ctx, scene, time, 6600, '#7dffb0', '#1f8f5a');
+    }
+};
+// Bf: the bar gets to 99% and stalls, spins, slips back, and the element arrives in low quality before it sharpens
+CUTSCENES.Bf = {
+    z: 0, dur: 10200,
+    snd(audio, start) {
+        for (let x = 0.2; x < 2.2; x += 0.18) {
+            playTone(audio, 1200, start + x, 0.03, 0.008, 'sine', null, 0.1, 0, 0.002);
+        }
+        for (let x = 2.6; x < 6; x += 0.5) {
+            playTone(audio, 330, start + x, 0.12, 0.01, 'triangle', null, 0.1);
+        }
+        playTone(audio, 523.3, start + 3.6, 0.2, 0.02, 'square', null, 0.1, 0, 0.005);
+        playTone(audio, 392, start + 3.82, 0.35, 0.02, 'square', null, 0.1, 0, 0.005);
+        [523.3, 659.3, 784, 1046.5].forEach((f, i) => playTone(audio, f, start + 6.1 + i * 0.07, 0.15, 0.02, 'triangle', null, 0.2));
+        [0, 1, 2].forEach(i => playNoise(audio, start + 6.6 + i * 0.4, 0.08, 0.025, 3000 + i * 2000, 5000 + i * 2000, 'bandpass', 2, 0.1, 0.002));
+        sparkle(audio, start + 7.9, 10, 1.4, 0.016);
+        padChord(audio, start + 8, [293.7, 370, 440, 587.3], 2.2, 0.012, 'triangle', 2600);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const fade = 1 - smoothstep(6000, 6300, time);
+        ctx.fillStyle = '#07080c';
+        ctx.fillRect(0, 0, W, H);
+        // how full the bar is: up to 99, stuck, back to 97, stuck again, then done
+        let p;
+        if (time < 2200) {
+            p = 99 * easeOutCubic(time / 2200);
+        } else if (time < 3600) {
+            p = 99;
+        } else if (time < 3900) {
+            p = 99 - 2 * smoothstep(3600, 3900, time);
+        } else if (time < 5800) {
+            p = 97 + 2.99 * smoothstep(4300, 5600, time);
+        } else {
+            p = 100;
+        }
+        const bw = Math.min(70 * u, W * 0.7);
+        const by = cy + 12 * u;
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = '#1b1f2a';
+        ctx.fillRect(cx - bw / 2, by, bw, 1.4 * u);
+        ctx.fillStyle = '#5ec8ff';
+        ctx.fillRect(cx - bw / 2, by, bw * p / 100, 1.4 * u);
+        ctx.globalAlpha = 1;
+        const pct = p >= 100 ? '100%' : p > 99.5 ? '99.9%' : Math.floor(p) + '%';
+        drawText(ctx, pct, cx, by + 5 * u, 3 * u, '#cfe8ff', fade, 600, 0.4 * u);
+        // the spinner while it's stuck
+        const spin = (time > 2300 && time < 3600) || (time > 3950 && time < 5700);
+        if (spin) {
+            for (let i = 0; i < 8; i++) {
+                const a = i / 8 * TAU + time / 140;
+                const k = ((i + Math.floor(time / 90)) % 8) / 8;
+                ctx.fillStyle = 'rgba(94,200,255,' + (0.15 + 0.85 * k) * fade + ')';
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(a) * 6 * u, cy - 4 * u + Math.sin(a) * 6 * u, 0.9 * u, 0, TAU);
+                ctx.fill();
+            }
+            const dots = '.'.repeat(1 + Math.floor(time / 400) % 3);
+            drawText(ctx, 'Still loading' + dots, cx, by - 4 * u, 2.6 * u, '#7c8aa6', fade, 600, 0.3 * u);
+        }
+        // arrives blocky and sharpens a step at a time
+        const st = scene.state;
+        const steps = [[6000, 22], [6500, 12], [7000, 6], [7450, 3]];
+        const step = steps.filter(s => time >= s[0]).pop();
+        if (step && time < 7900) {
+            const px = step[1] * u / 6;
+            if (!st.c) {
+                st.c = document.createElement('canvas');
+            }
+            const sw = Math.max(1, Math.round(W / px));
+            const sh = Math.max(1, Math.round(H / px));
+            st.c.width = sw;
+            st.c.height = sh;
+            const o = st.c.getContext('2d');
+            o.clearRect(0, 0, sw, sh);
+            o.scale(sw / W, sh / H);
+            drawGlow(o, cx, cy, 60 * u, '#1f6fb3', 0.4);
+            drawText(o, scene.sym, cx, cy - 2 * u, 26 * u, '#5ec8ff', 1, 800);
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            ctx.globalAlpha = 1 - smoothstep(7500, 7900, time);
+            ctx.drawImage(st.c, 0, 0, W, H);
+            ctx.restore();
+        }
+        drawCard(ctx, scene, time, 7500, '#5ec8ff', '#1f6fb3');
+    }
+};
+// Fz: a night shift on the cameras. Something gets closer every time the feed comes back, then it's 6 AM
+const FZ_TUNE = [[659.3, 0.3], [784, 0.3], [740, 0.3], [587.3, 0.6], [659.3, 0.3], [523.3, 0.3], [493.9, 0.6], [440, 0.3], [493.9, 0.3], [523.3, 0.3], [440, 0.9]];
+CUTSCENES.Fz = {
+    z: 0, dur: 13400, label: 'HIDDEN ELEMENT',
+    snd(audio, start) {
+        padChord(audio, start, [49, 73.4], 7.4, 0.012, 'sawtooth', 300);
+        [0, 2.4, 4.6].forEach(x => playNoise(audio, start + 1.4 + x, 0.25, 0.03, 5000, 3000, 'bandpass', 0.7, 0.05, 0.002));
+        for (let x = 0.5; x < 7.2; x += 1) {
+            playTone(audio, 2000, start + x, 0.02, 0.006, 'square', null, 0.05, 0, 0.001);
+        }
+        playNoise(audio, start + 7.4, 0.4, 0.05, 400, 60, 'lowpass', 2, 0.2, 0.002);
+        let t = start + 8.2;
+        FZ_TUNE.forEach(([f, d]) => {
+            playTone(audio, f * 2, t, d * 1.6, 0.014, 'triangle', null, 0.5, 0, 0.003);
+            t += d * 0.85;
+        });
+        [0, 0.5, 1].forEach(i => playTone(audio, 1046.5, start + 10.5 + i, 0.8, 0.02, 'sine', null, 0.6));
+        padChord(audio, start + 10.6, [261.6, 329.6, 392, 523.3], 2.6, 0.014, 'triangle', 2200);
+        sparkle(audio, start + 10.7, 12, 1.6, 0.016);
+    },
+    draw(ctx, scene, time) {
+        const W = scene.width;
+        const H = scene.height;
+        const u = scene.unit;
+        const cx = W / 2;
+        const cy = H / 2;
+        const st = scene.state;
+        const dark = 7400;
+        const dawn = 10400;
+        // which feed is up: the hallway, a quick look elsewhere, then back to the hallway
+        const cuts = [0, 1400, 2400, 3800, 4600, 6000, dark];
+        const ci = cuts.filter(c => time >= c).length - 1;
+        const cam = ci % 2 === 0 ? 'hall' : 'room';
+        const visit = Math.floor(ci / 2);
+        const sinceCut = time - cuts[ci];
+        if (time < dark) {
+            ctx.fillStyle = '#0a0d0b';
+            ctx.fillRect(0, 0, W, H);
+            const flick = calmFx ? 1 : (Math.sin(time / 37) + Math.sin(time / 13)) > 1.6 ? 0.55 : 1;
+            ctx.globalAlpha = flick;
+            if (cam === 'hall') {
+                // a corridor going back to a dark doorway
+                const vx = cx;
+                const vy = cy - 2 * u;
+                const dw = 10 * u;
+                const dh = 16 * u;
+                ctx.strokeStyle = 'rgba(150,175,150,0.35)';
+                ctx.lineWidth = 0.3 * u;
+                [[0, 0], [W, 0], [0, H], [W, H]].forEach(([x, y]) => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(vx + (x ? dw : -dw), vy + (y ? dh : -dh));
+                    ctx.stroke();
+                });
+                for (let k = 1; k < 6; k++) {
+                    const f = Math.pow(k / 6, 1.6);
+                    const x0 = f * (vx - dw);
+                    const x1 = W - f * (W - vx - dw);
+                    ctx.beginPath();
+                    ctx.moveTo(x0, H - f * (H - vy - dh));
+                    ctx.lineTo(x1, H - f * (H - vy - dh));
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#020302';
+                ctx.fillRect(vx - dw, vy - dh, 2 * dw, 2 * dh);
+                // two points of light in the doorway, nearer each visit
+                const near = [0, 0.35, 0.7, 1][visit] || 0;
+                if (visit > 0) {
+                    const s = 1 + near * 1.6;
+                    const ey = vy + (2 - near * 3) * u;
+                    const blink = Math.sin(sinceCut / 160) > 0.97 ? 0.1 : 1;
+                    [-1, 1].forEach(k => drawGlow(ctx, vx + k * 2.2 * u * s, ey, 2.6 * u * s, '#e8fff0', 0.9 * blink));
+                    [-1, 1].forEach(k => {
+                        ctx.fillStyle = 'rgba(255,255,255,' + blink + ')';
+                        ctx.beginPath();
+                        ctx.arc(vx + k * 2.2 * u * s, ey, 0.45 * u * s, 0, TAU);
+                        ctx.fill();
+                    });
+                }
+            } else {
+                // a party room with long tables, all empty
+                ctx.strokeStyle = 'rgba(150,175,150,0.3)';
+                ctx.lineWidth = 0.3 * u;
+                for (let k = 0; k < 3; k++) {
+                    const y = cy + (4 + k * 7) * u;
+                    ctx.strokeRect(cx - (14 + k * 8) * u, y, (28 + k * 16) * u, 2 * u);
+                }
+                for (let k = 0; k < 9; k++) {
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 40 * u + k * 10 * u, cy - 14 * u);
+                    ctx.lineTo(cx - 36 * u + k * 10 * u, cy - 10 * u);
+                    ctx.lineTo(cx - 32 * u + k * 10 * u, cy - 14 * u);
+                    ctx.stroke();
+                }
+            }
+            ctx.globalAlpha = 1;
+            // grain and lines
+            const r = seededRandom(Math.floor(time / 60));
+            ctx.fillStyle = 'rgba(200,230,200,0.06)';
+            for (let i = 0; i < 160; i++) {
+                ctx.fillRect(r() * W, r() * H, 0.4 * u, 0.4 * u);
+            }
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            for (let y = 0; y < H; y += 0.9 * u) {
+                ctx.fillRect(0, y, W, 0.35 * u);
+            }
+            // a burst of static on each cut
+            if (sinceCut < 220 && ci > 0) {
+                const s2 = seededRandom(time | 0);
+                for (let i = 0; i < 500; i++) {
+                    ctx.fillStyle = 'rgba(220,230,220,' + s2() * 0.6 + ')';
+                    ctx.fillRect(s2() * W, s2() * H, 1.4 * u, 0.5 * u);
+                }
+            }
+            // the overlay: camera, recording light, clock and power
+            const hour = Math.min(5, Math.floor(time / 1450));
+            const clock = time > 7000 ? '5:59 AM' : (hour === 0 ? '12' : hour) + ' AM';
+            ctx.save();
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.font = '600 ' + 3 * u + 'px ' + CUTSCENE_FONT;
+            ctx.fillStyle = '#dfe8df';
+            ctx.fillText(cam === 'hall' ? 'CAM 04  HALLWAY' : 'CAM 02  PARTY ROOM', 4 * u, 4 * u);
+            ctx.textAlign = 'right';
+            ctx.fillText(clock, W - 4 * u, 4 * u);
+            ctx.textBaseline = 'bottom';
+            ctx.textAlign = 'left';
+            const power = Math.max(0, Math.round(100 - time / dark * 100));
+            ctx.fillText('POWER ' + power + '%', 4 * u, H - 4 * u);
+            ctx.restore();
+            if (Math.floor(time / 500) % 2 === 0) {
+                ctx.fillStyle = '#ff3b3b';
+                ctx.beginPath();
+                ctx.arc(W - 6 * u, H - 6 * u, 1 * u, 0, TAU);
+                ctx.fill();
+            }
+            return;
+        }
+        // the power's gone: black, and something plays a little tune in the dark
+        const d = time - dark;
+        const morning = smoothstep(dawn, dawn + 900, time);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        if (morning > 0) {
+            const g = ctx.createLinearGradient(0, 0, 0, H);
+            g.addColorStop(0, 'rgba(255,190,120,' + morning * 0.5 + ')');
+            g.addColorStop(1, 'rgba(120,80,160,' + morning * 0.35 + ')');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, W, H);
+        }
+        const eyes = smoothstep(800, 1600, d) * (1 - smoothstep(dawn - dark - 300, dawn - dark + 200, d));
+        if (eyes > 0) {
+            const pulse = 0.8 + 0.2 * Math.sin(d / 300);
+            [-1, 1].forEach(k => drawGlow(ctx, cx + k * 7 * u, cy - 3 * u, 6 * u, '#e8fff0', eyes * pulse));
+            [-1, 1].forEach(k => {
+                ctx.fillStyle = 'rgba(255,255,255,' + eyes + ')';
+                ctx.beginPath();
+                ctx.arc(cx + k * 7 * u, cy - 3 * u, 1.1 * u, 0, TAU);
+                ctx.fill();
+            });
+        }
+        drawText(ctx, '6:00 AM', cx, cy - 2 * u, 12 * u * easeOutCubic((time - dawn) / 400), '#ffe6b0', smoothstep(dawn, dawn + 100, time) * (1 - smoothstep(dawn + 1200, dawn + 1600, time)), 800, 0.5 * u);
+        drawCard(ctx, scene, time, dawn + 1500, '#ffd27a', '#a45cff');
+    }
+};

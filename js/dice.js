@@ -83,7 +83,7 @@ function acParams(b, more) {
             F[k] = b.fam[k];
         }
     });
-    return Object.assign({ L: b.oddsLuck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0 }, more);
+    return Object.assign({ L: b.oddsLuck, F, J: b.jokeMult, V: b.level ? 1 : 0, P: jokesOn() ? 1 : 0, M: jokeMix ? 1 : 0, I: bondBonus().ion ? 1 : 0, P3: bondBonus().jokes3 ? 1 : 0, Q: +ionBoost().toFixed(4), Qc: ionClimb() }, more);
 }
 // the event behind a press, if it's one that changes rolls
 function acEvent() {
@@ -166,4 +166,39 @@ async function acLoad() {
     if (data.legacy) {
         acLegacyApply(data.legacy);
     }
+    syLogFlush();
 }
+// synthesised copies the rolls can check get logged with the server as they're made, or as soon as it can be reached
+let syLogQ = [];
+try {
+    syLogQ = JSON.parse(localStorage.getItem('elementalSynthLog') || '[]');
+} catch (e) { }
+function syLogSave() {
+    try {
+        localStorage.setItem('elementalSynthLog', JSON.stringify(syLogQ));
+    } catch (e) { }
+}
+function synthLog(id, src) {
+    syLogQ.push({ s: src, c: id });
+    syLogSave();
+    syLogFlush();
+}
+let syLogBusy = null;
+function syLogFlush() {
+    if (!syLogBusy && sb && cloudUser && syLogQ.length) {
+        syLogBusy = syLogSend().finally(() => syLogBusy = null);
+    }
+    return syLogBusy || Promise.resolve();
+}
+async function syLogSend() {
+    const batch = syLogQ.slice(0, 20);
+    const { data, error } = await sb.rpc('synth_log', { p_items: batch });
+    if (error || !data || data.error) {
+        return;
+    }
+    // logged or turned down are done with; anything told to wait stays for the next try
+    const done = new Set((data.ok || []).concat(data.no || []));
+    syLogQ = syLogQ.filter(x => !done.has(x.s));
+    syLogSave();
+}
+setInterval(syLogFlush, 60000);

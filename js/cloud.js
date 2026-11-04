@@ -5,7 +5,7 @@ const CLOUD = {
     key: 'sb_publishable_TF1DqFy8EPLwXOuZjPv_CQ_jgk2_oYf',
     lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js'
 };
-const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks'];
+const CLOUD_KEYS = ['elementalCollection', 'elementalCleared', 'elementalSeen', 'elementalAchievements', 'elementalClaimed', 'elementalQuarks', 'elementalHistory', 'elementalNetwork', 'elementalShop', 'elementalCatInv', 'elementalCatActive', 'elementalCatFlags', 'elementalCatSrc', 'elementalIons', 'elementalCosmetics', 'elementalUpLocks', 'elementalBondAgents', 'elementalMade', 'elementalSynthKnown', 'elementalSynthHints'];
 // while playing; it also goes up on leaving, signing out and after a verified global
 const CLOUD_EVERY = 15 * 60000;
 let sb = null;
@@ -385,7 +385,42 @@ function cloudMerge(a, b) {
     const [ca2, cb2] = both('elementalClaimed', []);
     out.elementalClaimed = JSON.stringify(union(ca2, cb2));
     const [na, nb] = both('elementalNetwork', {});
-    out.elementalNetwork = JSON.stringify(Object.assign({}, na, nb));
+    const nets = Object.assign({}, na, nb);
+    out.elementalNetwork = JSON.stringify(nets);
+    // agents half way into a slot: keep the higher count, unless the slot has since been filled
+    const [ga, gb] = both('elementalBondAgents', {});
+    const agents = {};
+    Object.keys(Object.assign({}, ga, gb)).forEach(id => {
+        if (!nets[id]) {
+            agents[id] = Math.max(ga[id] || 0, gb[id] || 0);
+        }
+    });
+    out.elementalBondAgents = JSON.stringify(agents);
+    // made by Electrolysis: per formula, whichever side has made more, and the most spent
+    const [ma, mb] = both('elementalMade', {});
+    const made = {};
+    Object.keys(Object.assign({}, ma, mb)).forEach(f => {
+        const x = ma[f] || { count: 0, spent: 0 };
+        const y = mb[f] || { count: 0, spent: 0 };
+        const m = { count: Math.max(x.count || 0, y.count || 0), spent: Math.max(x.spent || 0, y.spent || 0) };
+        if (m.count > m.spent) {
+            made[f] = m;
+        }
+    });
+    out.elementalMade = JSON.stringify(made);
+    const [ya, yb] = both('elementalSynthKnown', []);
+    out.elementalSynthKnown = JSON.stringify(union(ya, yb));
+    // checks written on unknown pages: keep whichever tells you more
+    const [ha, hb] = both('elementalSynthHints', {});
+    const rank = { g: 10000, y: 1000, p: 100, b: 10, x: 1 };
+    const score = h => Array.isArray(h) ? h.reduce((s, x) => s + (rank[x[1]] || 0), 0) : 0;
+    const hints = Object.assign({}, ha);
+    Object.keys(hb).forEach(id => {
+        if (score(hb[id]) > score(hints[id])) {
+            hints[id] = hb[id];
+        }
+    });
+    out.elementalSynthHints = JSON.stringify(hints);
     const [sa, sb2] = both('elementalSeen', {});
     out.elementalSeen = JSON.stringify({ cut: union(sa.cut, sb2.cut), fx: union(sa.fx, sb2.fx), dark: union(sa.dark, sb2.dark) });
     const [ia, ib] = both('elementalIons', {});

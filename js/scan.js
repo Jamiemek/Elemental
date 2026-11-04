@@ -19,6 +19,24 @@ function qsSprite(i) {
     }
     return qsSprites[i];
 }
+// soft round glow in any colour, for event particles
+const glowSprites = {};
+function glowSprite(c) {
+    if (!glowSprites[c]) {
+        const s = document.createElement('canvas');
+        s.width = s.height = 64;
+        const x = s.getContext('2d');
+        const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gr.addColorStop(0, c + 'aa');
+        gr.addColorStop(0.4, c + '44');
+        gr.addColorStop(1, c + '00');
+        x.fillStyle = gr;
+        x.fillRect(0, 0, 64, 64);
+        glowSprites[c] = s;
+    }
+    return glowSprites[c];
+}
+const RAD_SYMS = ['Tc', 'Pm'].concat(ELEMENTS.slice(83).map(e => e[0]));
 // text sprites, setting the font per particle was too slow
 const GLYPH = 128;
 let glyphs = new Map();
@@ -137,7 +155,7 @@ function skinLayer(g, sk, t, W, H, q) {
     }
     g.restore();
 }
-const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'] };
+const EV_HUD = { storm: ['QUARK STORM', '#f0c419'], collider: ['SUPERCOLLIDER', '#5fd4ff'], hole: ['BLACK HOLE', '#ff9a3c'], gamma: ['GAMMA RAY BURST', '#7dff6a'], hyper: ['HYPERCHARGED', '#ffe14d'], vacuum: ['VACUUM', '#8aa2ff'] };
 // black hole off the right edge, drawn once per roll
 function holeLayer(W, H, dpr) {
     const R = H * 0.55;
@@ -261,9 +279,43 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
         p.y = (Math.random() - 0.5) * (H / Pp) * d * 1.25;
         p.s = 0.25 + Math.random() * 0.45;
         p.t = ELEMENTS[Math.random() * ELEMENTS.length | 0][0];
+        // gamma: plenty of radioactive ones, glowing. hypercharged: some carry a charge. vacuum: a few blink out
+        p.rad = ev === 'gamma' && Math.random() < 0.45;
+        if (p.rad) {
+            p.t = RAD_SYMS[Math.random() * RAD_SYMS.length | 0];
+        }
+        p.lab = p.t;
+        if (ev === 'hyper' && Math.random() < 0.35) {
+            const n = Math.random() < 0.8 ? 1 : 2;
+            p.lab = withIon(p.t, Math.random() < 0.7 ? n : -n);
+            p.ion = true;
+        }
+        p.fl = Math.random() * 6.3;
+        p.dk = 0;
+        // hypercharged: some come apart into loose charges that drift off and latch onto others
+        p.frag = ev === 'hyper' && !p.ion && Math.random() < 0.3 ? 3 + Math.random() * 7 : 0;
+        p.near = null;
+        p.bits = p.frag ? Array.from({ length: 5 + (Math.random() * 6 | 0) }, () => ({ a: Math.random() * 6.3, r: 0.6 + Math.random() * 1.4, plus: Math.random() < 0.5, to: Math.random() * 1e9 | 0, w: Math.random() * 6.3 })) : null;
         return p;
     };
-    const P = ev === 'collider' ? [] : Array.from({ length: lowDetail ? 90 : 150 }, () => spawn({}, 0.6 + Math.pow(Math.random(), 0.8) * 13.4, -9));
+    // a vacuum has nothing in it at all
+    const P = ev === 'collider' || ev === 'vacuum' ? [] : Array.from({ length: lowDetail ? 90 : 150 }, () => spawn({}, 0.6 + Math.pow(Math.random(), 0.8) * 13.4, -9));
+    // gamma: bursts (a flash, two jets and a shock ring) and the bits radioactive elements shed
+    const bursts = [];
+    const specks = [];
+    let nextBurst = 120 + Math.random() * 200;
+    // quark storm: dust drifting round with the storm
+    const dust = storm ? Array.from({ length: lowDetail ? 40 : 90 }, () => ({ a: Math.random() * 6.2832, r: 0.05 + Math.random() * 0.95, s: 0.6 + Math.random() * 0.9 })) : null;
+    // black hole: matter going round the disk
+    const disk = holeArt ? Array.from({ length: lowDetail ? 70 : 160 }, () => ({ r: 1.15 + Math.pow(Math.random(), 1.6) * 1.4, a: Math.random() * 6.2832, s: 0.6 + Math.random() * 0.8, l: 0.05 + Math.random() * 0.12 })) : null;
+    // where each find was last frame, so things can head for it
+    const tgAt = labels.map(() => null);
+    // hypercharged: little arcs between charged elements, and rings where a loose charge lands
+    const arcs = [];
+    const pulses = [];
+    // vacuum: where the brackets look while there's nothing to find, and what gathers into the find
+    const seek = { x: W / 2, y: H / 2, fx: W / 2, fy: H / 2, s: 20, from: 0, at: 0 };
+    const motes = ev === 'vacuum' ? labels.map(() => Array.from({ length: lowDetail ? 60 : 140 }, () => ({ a: Math.random() * 6.2832, r: 0.3 + Math.random() * 2.2, s: 0.5 + Math.random() * 0.7, d: Math.random() * 0.4 }))) : null;
     P.forEach(p => {
         p.L = 1600 + Math.random() * 1600;
         p.b = -Math.random() * p.L * 0.9;
@@ -337,6 +389,337 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             }
             const pr = (x, y, d) => [W / 2 + (x - cxw) * Pp / d, H / 2 + (y - cyw) * Pp / d];
             const hole = holeArt ? drawHole(g, holeArt, W, H, 1 - q) : null;
+            if (ev === 'vacuum') {
+                // pitch black, only letting go right at the end
+                g.globalAlpha = 1 - sm((u - 0.97) / 0.03);
+                g.fillStyle = '#000';
+                g.fillRect(0, 0, W, H);
+            }
+            if (storm) {
+                // gold dust drifting round the middle of the storm
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                g.translate(W / 2, H / 2);
+                g.rotate(t / 2600);
+                const RR = Math.hypot(W, H) * 0.55;
+                // gold dust caught up in it
+                dust.forEach(m => {
+                    const an = m.a + t / 2600 * (1 + 1.5 / m.r);
+                    const x = Math.cos(an) * m.r * RR;
+                    const y = Math.sin(an) * m.r * RR * 0.62;
+                    g.globalAlpha = (0.35 + 0.35 * Math.sin(t / 200 + m.a * 7)) * (1 - q);
+                    g.fillStyle = '#ffe28a';
+                    g.fillRect(x - m.s, y - m.s, m.s * 2, m.s * 2);
+                });
+                g.restore();
+            }
+            if (hole) {
+                // matter streaming round the disk, quicker further in; behind the hole it's hidden
+                const [bx, by, R] = hole;
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                g.translate(bx, by);
+                g.rotate(-0.12);
+                disk.forEach(m => {
+                    const sp = m.s / Math.pow(m.r, 1.5);
+                    const a0 = m.a + t / 900 * sp;
+                    g.beginPath();
+                    let vis = false;
+                    for (let j = 0; j <= 4; j++) {
+                        const an = a0 - j * m.l / 4;
+                        const X = Math.cos(an) * R * m.r;
+                        const Y = Math.sin(an) * R * m.r * 0.18;
+                        // hidden where it passes behind the shadow
+                        const hid = Math.sin(an) < 0 && Math.abs(X) < R * 1.02;
+                        if (j && !hid && vis) {
+                            g.lineTo(X, Y);
+                        } else {
+                            g.moveTo(X, Y);
+                        }
+                        vis = !hid;
+                    }
+                    // the side coming towards us is brighter
+                    const lit = 0.55 + 0.45 * -Math.cos(a0);
+                    g.globalAlpha = lit * 0.55 * (1 - q) * (m.r < 1.6 ? 1 : 0.6);
+                    g.strokeStyle = m.r < 1.5 ? '#fff1d8' : '#ffb070';
+                    g.lineWidth = m.r < 1.5 ? 1.6 : 1.1;
+                    g.stroke();
+                });
+                g.restore();
+                // at the lock the hole flares and fires jets out of its poles
+                const fk = (t - T1 + 60) / 900;
+                if (fk > 0 && fk < 1) {
+                    const f = Math.pow(1 - fk, 1.5) * (1 - q * 0.5);
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    const fr = R * (1.4 + fk * 0.6);
+                    g.globalAlpha = f * 0.35;
+                    g.drawImage(glowSprite('#ffb070'), bx - fr, by - fr, fr * 2, fr * 2);
+                    // a pulse of light rolls out from the edge of the hole
+                    g.globalAlpha = f * 0.8;
+                    g.strokeStyle = '#fff1d8';
+                    g.lineWidth = R * 0.03 * (1 - fk) + 1;
+                    g.beginPath();
+                    g.arc(bx, by, R * (1.02 + sm(fk) * 0.9), 0, 6.2832);
+                    g.stroke();
+                    g.globalAlpha = f * 0.3;
+                    g.lineWidth = R * 0.12 * (1 - fk) + 2;
+                    g.strokeStyle = '#ffb070';
+                    g.stroke();
+                    g.restore();
+                }
+                // the photon ring shimmers
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                for (let j = 0; j < 3; j++) {
+                    const a0 = t / 500 + j * 2.0944;
+                    g.globalAlpha = 0.35 * (1 - q);
+                    g.strokeStyle = '#fff3dc';
+                    g.lineWidth = R * 0.02;
+                    g.beginPath();
+                    g.arc(bx, by, R * 1.02, a0, a0 + 0.5);
+                    g.stroke();
+                }
+                g.restore();
+            }
+            if (ev === 'gamma') {
+                // a sickly green at the edges, brighter for a moment after each burst
+                const kick = bursts.reduce((m, b) => Math.max(m, 1 - (t - b.b) / 260), 0);
+                const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+                vg.addColorStop(0, 'rgba(125,255,106,0)');
+                vg.addColorStop(1, 'rgba(125,255,106,' + (0.1 + 0.12 * Math.max(0, kick)) * (1 - q) + ')');
+                g.globalAlpha = 1;
+                g.fillStyle = vg;
+                g.fillRect(0, 0, W, H);
+            }
+            // the loose charges: out from where the element broke, then over to another element and stuck there
+            const drawBits = (p, sx, sy, fz, k, a) => {
+                if (!p.near) {
+                    // each charge heads for one of the few elements closest to where it broke off
+                    p.near = P.filter(o => o !== p && !o.frag && o.sx != null)
+                        .sort((x, y) => Math.hypot(x.sx - sx, x.sy - sy) - Math.hypot(y.sx - sx, y.sy - sy)).slice(0, 4);
+                }
+                p.bits.forEach(b => {
+                    const o = p.near.length ? p.near[b.to % p.near.length] : null;
+                    const out = sm(k * 2.2);
+                    let x = sx + Math.cos(b.a + t / 900) * b.r * fz * out;
+                    let y = sy + Math.sin(b.a + t / 900) * b.r * fz * out;
+                    const m = sm((k - 0.4) / 0.8);
+                    const col = b.plus ? '#ffe68a' : '#a9c6ff';
+                    const orb = Math.max(7, fz * 0.45);
+                    if (o && m > 0) {
+                        // curves over to its new element and circles it
+                        const ox = o.sx + Math.cos(b.w + t / 260) * orb;
+                        const oy = o.sy + Math.sin(b.w + t / 260) * orb;
+                        const cx = (x + ox) / 2 - (oy - y) * 0.35;
+                        const cy = (y + oy) / 2 + (ox - x) * 0.35;
+                        const bez = f => [(1 - f) * (1 - f) * x + 2 * (1 - f) * f * cx + f * f * ox, (1 - f) * (1 - f) * y + 2 * (1 - f) * f * cy + f * f * oy];
+                        const [nx, ny] = bez(m);
+                        // the thread it leaves behind, fading once it lands
+                        g.globalAlpha = a * 0.45 * Math.min(1, m * 3) * (1 - sm((m - 0.85) / 0.15) * 0.7);
+                        g.strokeStyle = col;
+                        g.lineWidth = 0.8;
+                        g.beginPath();
+                        g.moveTo(nx, ny);
+                        g.quadraticCurveTo((nx + o.sx) / 2 - (o.sy - ny) * 0.2, (ny + o.sy) / 2 + (o.sx - nx) * 0.2, o.sx, o.sy);
+                        g.stroke();
+                        x = nx;
+                        y = ny;
+                        if (m >= 0.995 && !b.landed) {
+                            b.landed = true;
+                            pulses.push({ o, b: t, col });
+                        }
+                    }
+                    const sz = Math.max(8, Math.min(22, fz * 0.38));
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    g.globalAlpha = a * Math.min(1, k * 3) * 0.8;
+                    g.drawImage(glowSprite(b.plus ? '#ffd860' : '#7aa8ff'), x - sz * 1.4, y - sz * 1.4, sz * 2.8, sz * 2.8);
+                    g.restore();
+                    g.globalAlpha = Math.min(1, a * 1.2) * Math.min(1, k * 3);
+                    drawGlyph(g, b.plus ? '+' : '−', b.plus ? '#fff2c0' : '#d6e4ff', fam, sz, x, y);
+                });
+            };
+            const drawGamma = (t, q, u) => {
+                if (t > nextBurst && u < 0.6) {
+                    // somewhere in the field, a short-lived source fires two jets out opposite ways
+                    bursts.push({ x: W * (0.15 + Math.random() * 0.7), y: H * (0.15 + Math.random() * 0.7), a: Math.random() * 6.2832, b: t, s: 0.7 + Math.random() * 0.6 });
+                    nextBurst = t + 700 + Math.random() * 900;
+                }
+                const far = Math.hypot(W, H);
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                for (let j = bursts.length - 1; j >= 0; j--) {
+                    const B = bursts[j];
+                    const k = (t - B.b) / 900;
+                    if (k >= 1) {
+                        bursts.splice(j, 1);
+                        continue;
+                    }
+                    const f = (1 - q) * Math.pow(1 - k, 1.6);
+                    // shock ring
+                    g.globalAlpha = f * 0.5;
+                    g.strokeStyle = '#7dff6a';
+                    g.lineWidth = 2 * (1 - k) + 0.5;
+                    g.beginPath();
+                    g.arc(B.x, B.y, sm(k) * Math.min(W, H) * 0.55 * B.s, 0, 6.2832);
+                    g.stroke();
+                    // the jets: narrow cones that shoot out and fade
+                    const len = far * sm(Math.min(1, k * 4));
+                    [0, Math.PI].forEach(o => {
+                        const an = B.a + o;
+                        const ex = B.x + Math.cos(an) * len;
+                        const ey = B.y + Math.sin(an) * len;
+                        const nx = -Math.sin(an);
+                        const ny = Math.cos(an);
+                        const wid = (6 + 22 * k) * B.s;
+                        // a wider, fainter sheath round the jet
+                        const sh = g.createLinearGradient(B.x, B.y, ex, ey);
+                        sh.addColorStop(0, 'rgba(90,255,200,' + f * 0.35 + ')');
+                        sh.addColorStop(1, 'rgba(90,255,200,0)');
+                        g.globalAlpha = 1;
+                        g.fillStyle = sh;
+                        g.beginPath();
+                        g.moveTo(B.x, B.y);
+                        g.lineTo(ex + nx * wid * 2.6, ey + ny * wid * 2.6);
+                        g.lineTo(ex - nx * wid * 2.6, ey - ny * wid * 2.6);
+                        g.closePath();
+                        g.fill();
+                        const gr = g.createLinearGradient(B.x, B.y, ex, ey);
+                        gr.addColorStop(0, 'rgba(235,255,228,' + f + ')');
+                        gr.addColorStop(0.25, 'rgba(125,255,106,' + f * 0.55 + ')');
+                        gr.addColorStop(1, 'rgba(125,255,106,0)');
+                        g.globalAlpha = 1;
+                        g.fillStyle = gr;
+                        g.beginPath();
+                        g.moveTo(B.x + nx * 1.5, B.y + ny * 1.5);
+                        g.lineTo(ex + nx * wid, ey + ny * wid);
+                        g.lineTo(ex - nx * wid, ey - ny * wid);
+                        g.lineTo(B.x - nx * 1.5, B.y - ny * 1.5);
+                        g.closePath();
+                        g.fill();
+                        // bright core down the middle
+                        g.globalAlpha = f * 0.9;
+                        g.strokeStyle = '#f2fff0';
+                        g.lineWidth = 1.2;
+                        g.beginPath();
+                        g.moveTo(B.x, B.y);
+                        g.lineTo(B.x + Math.cos(an) * len * 0.7, B.y + Math.sin(an) * len * 0.7);
+                        g.stroke();
+                        // knots of light racing out along it
+                        for (let i = 0; i < 5; i++) {
+                            const f2 = ((t - B.b) / 380 + i / 5 + B.s) % 1;
+                            const d2 = far * f2;
+                            if (d2 > len) {
+                                continue;
+                            }
+                            const r2 = (3 + 5 * (1 - f2)) * B.s;
+                            g.globalAlpha = f * (1 - f2);
+                            g.drawImage(glowSprite('#eaffe4'), B.x + Math.cos(an) * d2 - r2, B.y + Math.sin(an) * d2 - r2, r2 * 2, r2 * 2);
+                        }
+                    });
+                    // the source itself, white hot then gone
+                    const fr = (18 + 40 * (1 - k)) * B.s;
+                    g.globalAlpha = (1 - q) * Math.pow(1 - k, 3);
+                    g.drawImage(glowSprite('#f2fff0'), B.x - fr, B.y - fr, fr * 2, fr * 2);
+                    g.drawImage(glowSprite('#7dff6a'), B.x - fr * 2, B.y - fr * 2, fr * 4, fr * 4);
+                    // the whole field flashes for a moment
+                    if (k < 0.12) {
+                        g.globalAlpha = (1 - k / 0.12) * 0.16 * (1 - q);
+                        g.fillStyle = '#b8ffaa';
+                        g.fillRect(0, 0, W, H);
+                    }
+                }
+                g.restore();
+                // decay particles: alpha ones short and fat, beta ones quick and thin
+                for (let j = specks.length - 1; j >= 0; j--) {
+                    const P2 = specks[j];
+                    const k = (t - P2.b) / P2.L;
+                    if (k >= 1) {
+                        specks.splice(j, 1);
+                        continue;
+                    }
+                    const sp = P2.beta ? 1.8 : 0.9;
+                    const x = P2.x + P2.vx * (t - P2.b) * sp;
+                    const y = P2.y + P2.vy * (t - P2.b) * sp;
+                    g.globalAlpha = (1 - k) * (1 - q) * 0.9;
+                    g.strokeStyle = P2.beta ? '#c9ffbd' : '#7dff6a';
+                    g.lineWidth = P2.beta ? 1 : 2.2;
+                    g.beginPath();
+                    g.moveTo(x, y);
+                    g.lineTo(x - P2.vx * (P2.beta ? 40 : 14), y - P2.vy * (P2.beta ? 40 : 14));
+                    g.stroke();
+                }
+            };
+            const drawHyper = (t, q) => {
+                // now and then a faint crackle jumps between two charged elements that are close together
+                if (Math.random() < (lowDetail ? 0.06 : 0.14) && arcs.length < 5) {
+                    const on = P.filter(p => p.ion && p.sx != null && p.sx > 0 && p.sx < W && p.sy > 0 && p.sy < H);
+                    if (on.length > 1) {
+                        const A = on[Math.random() * on.length | 0];
+                        let best = null;
+                        on.forEach(o => {
+                            const dd = Math.hypot(o.sx - A.sx, o.sy - A.sy);
+                            if (o !== A && dd < Math.min(W, H) * 0.35 && (!best || dd < best.dd)) {
+                                best = { o, dd };
+                            }
+                        });
+                        if (best) {
+                            arcs.push({ A, B: best.o, b: t, seed: Math.random() * 1000 });
+                        }
+                    }
+                }
+                for (let j = arcs.length - 1; j >= 0; j--) {
+                    const R = arcs[j];
+                    const k = (t - R.b) / 180;
+                    if (k >= 1) {
+                        arcs.splice(j, 1);
+                        continue;
+                    }
+                    const segs = 7;
+                    const dx = R.B.sx - R.A.sx;
+                    const dy = R.B.sy - R.A.sy;
+                    const L = Math.hypot(dx, dy) || 1;
+                    g.beginPath();
+                    for (let i = 0; i <= segs; i++) {
+                        const f = i / segs;
+                        const off = i === 0 || i === segs ? 0 : Math.sin(R.seed + i * 12.9898 + Math.floor(t / 45) * 3.1) * L * 0.08;
+                        const X = R.A.sx + dx * f - dy / L * off;
+                        const Y = R.A.sy + dy * f + dx / L * off;
+                        if (i) {
+                            g.lineTo(X, Y);
+                        } else {
+                            g.moveTo(X, Y);
+                        }
+                    }
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    g.strokeStyle = '#ffd860';
+                    g.globalAlpha = (1 - k) * 0.25 * (1 - q);
+                    g.lineWidth = 5;
+                    g.stroke();
+                    g.strokeStyle = '#fff6d8';
+                    g.globalAlpha = (1 - k) * 0.85 * (1 - q);
+                    g.lineWidth = 1;
+                    g.stroke();
+                    [R.A, R.B].forEach(E => g.drawImage(glowSprite('#ffd860'), E.sx - 9, E.sy - 9, 18, 18));
+                    g.restore();
+                }
+                for (let j = pulses.length - 1; j >= 0; j--) {
+                    const R = pulses[j];
+                    const k = (t - R.b) / 380;
+                    if (k >= 1) {
+                        pulses.splice(j, 1);
+                        continue;
+                    }
+                    g.globalAlpha = (1 - k) * 0.6 * (1 - q);
+                    g.strokeStyle = R.col;
+                    g.lineWidth = 1;
+                    g.beginPath();
+                    g.arc(R.o.sx, R.o.sy, 6 + k * 18, 0, 6.2832);
+                    g.stroke();
+                }
+            };
             P.forEach(p => {
                 let d = p.z - cz;
                 if (d < 0.35 || p.gone) {
@@ -362,9 +745,32 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                         p.gone = true;
                         return;
                     }
+                    p.pull = e;
+                    p.ang = Math.atan2(by - hy, bx - hx);
                 }
-                const [sx, sy] = pr(px, py, d);
+                let [sx, sy] = pr(px, py, d);
+                // about to come apart: it shivers first
+                if (p.frag && d < p.frag + 1.5 && d >= p.frag) {
+                    const sh = (1 - (d - p.frag) / 1.5) * Math.max(1, base * p.s / d * 0.08);
+                    sx += (Math.random() - 0.5) * sh * 2;
+                    sy += (Math.random() - 0.5) * sh * 2;
+                }
+                p.sx = sx;
+                p.sy = sy;
                 const a = Math.min(1, (d - 0.35) / 0.9) * (d > 10 ? (14 - d) / 4 : 1) * 0.8 * (1 - q * 0.92) * fade;
+                if (p.frag && d < p.frag) {
+                    const k0 = (p.frag - d) / 0.5;
+                    if (k0 < 1) {
+                        // the snap as it splits
+                        const fr = Math.max(8, base * p.s / d) * (1 + k0 * 1.5);
+                        g.globalAlpha = a * (1 - k0) * 0.8;
+                        g.drawImage(glowSprite('#fff4c8'), sx - fr, sy - fr, fr * 2, fr * 2);
+                    }
+                    drawBits(p, sx, sy, Math.max(5, base * p.s / d), (p.frag - d) / 2.2, a);
+                    if ((p.frag - d) / 0.6 >= 1) {
+                        return;
+                    }
+                }
                 if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60) {
                     return;
                 }
@@ -381,16 +787,65 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     g.lineTo(ex, ey);
                     g.stroke();
                 }
-                g.globalAlpha = a;
+                g.globalAlpha = p.frag && d < p.frag ? a * (1 - (p.frag - d) / 0.6) : a;
                 const fz = Math.max(5, base * p.s / d);
-                if (sk === 'holographic') {
+                if (p.rad) {
+                    const fl = 0.55 + 0.45 * Math.sin(t / 90 + p.fl) * Math.sin(t / 37 + p.fl * 2);
+                    const gr = Math.min(fz * 1.5, 46);
+                    g.globalAlpha = a * fl * 0.85;
+                    g.drawImage(glowSprite('#7dff6a'), sx - gr, sy - gr, gr * 2, gr * 2);
+                    g.globalAlpha = a;
+                    drawGlyph(g, p.t, '#d4ffc9', fam, fz, sx, sy);
+                    // every so often it decays: a few quick particles shoot off
+                    if (t > p.dk && fz > 9 && specks.length < (lowDetail ? 60 : 160)) {
+                        if (p.dk) {
+                            const n = 2 + (Math.random() * 4 | 0);
+                            for (let j = 0; j < n; j++) {
+                                const an = Math.random() * 6.2832;
+                                const v = (0.25 + Math.random() * 0.6) * Math.max(1, fz / 18);
+                                specks.push({ x: sx, y: sy, vx: Math.cos(an) * v, vy: Math.sin(an) * v, b: t, L: 260 + Math.random() * 260, beta: Math.random() < 0.6 });
+                            }
+                            g.globalAlpha = a;
+                            g.drawImage(glowSprite('#eaffe4'), sx - fz, sy - fz, fz * 2, fz * 2);
+                        }
+                        p.dk = t + 250 + Math.random() * 1400;
+                    }
+                    return;
+                }
+                if (p.ion && fz > 10) {
+                    const ang = t / 300 + p.fl;
+                    const rr = fz * 0.75;
                     g.globalAlpha = a * 0.6;
-                    drawGlyph(g, p.t, '#ff4fd8', fam, fz, sx - 1.5, sy);
-                    drawGlyph(g, p.t, '#3ff0ff', fam, fz, sx + 1.5, sy);
+                    g.drawImage(glowSprite('#ffe9a0'), sx + Math.cos(ang) * rr - 3, sy + Math.sin(ang) * rr * 0.45 - 3, 6, 6);
                     g.globalAlpha = a;
                 }
-                drawGlyph(g, p.t, SK.fg, fam, fz, sx, sy);
+                if (sk === 'holographic') {
+                    g.globalAlpha = a * 0.6;
+                    drawGlyph(g, p.lab, '#ff4fd8', fam, fz, sx - 1.5, sy);
+                    drawGlyph(g, p.lab, '#3ff0ff', fam, fz, sx + 1.5, sy);
+                    g.globalAlpha = a;
+                }
+                if (hole && p.pull > 0.3) {
+                    // stretched out towards the hole and reddening as it goes
+                    const st2 = (p.pull - 0.3) / 0.7;
+                    g.save();
+                    g.translate(sx, sy);
+                    g.rotate(p.ang);
+                    g.scale(1 + st2 * 2.2, 1 - st2 * 0.55);
+                    drawGlyph(g, p.lab, SK.fg, fam, fz, 0, 0);
+                    g.globalAlpha = a * st2;
+                    drawGlyph(g, p.lab, '#ff9a5a', fam, fz, 0, 0);
+                    g.restore();
+                    return;
+                }
+                drawGlyph(g, p.lab, p.ion ? '#efe9c4' : SK.fg, fam, fz, sx, sy);
             });
+            if (ev === 'gamma') {
+                drawGamma(t, q, u);
+            }
+            if (ev === 'hyper') {
+                drawHyper(t, q);
+            }
             let bang = 0;
             C.forEach(p => {
                 let d = p.z - cz;
@@ -454,7 +909,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             });
             if (bang > 0.05) {
                 // flash for close hits
-                g.globalAlpha = bang * 0.35;
+                g.globalAlpha = bang * 0.22;
                 g.fillStyle = '#5fd4ff';
                 g.fillRect(0, 0, W, H);
             }
@@ -467,7 +922,24 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 // swirl round the centre of the field, faster as they come close
                 const spin = p.w * (1.2 + 3 / d);
                 const ang = p.a0 + spin * t / 1000;
-                const [sx, sy] = pr(Math.cos(ang) * p.r0, Math.sin(ang) * p.r0, d);
+                let [sx, sy] = pr(Math.cos(ang) * p.r0, Math.sin(ang) * p.r0, d);
+                // at the lock, the storm pours into the find
+                const tgq = tgAt[p.c % N] || tgAt[0];
+                const pull = tgq && p.k === 0 ? sm((t - T1 + 120 - (p.sp % 1) * 260) / 420) : 0;
+                if (pull > 0) {
+                    if (pull >= 1) {
+                        return;
+                    }
+                    sx += (tgq[0] - sx) * pull * pull;
+                    sy += (tgq[1] - sy) * pull * pull;
+                    const rq = Math.max(2, base * 0.06) * (1 - pull * 0.5);
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    g.globalAlpha = 0.9;
+                    g.drawImage(qsSprite(p.c), sx - rq * 3, sy - rq * 3, rq * 6, rq * 6);
+                    g.restore();
+                    return;
+                }
                 if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) {
                     return;
                 }
@@ -477,12 +949,14 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 }
                 const r = Math.max(1.8, base * 0.085 / d);
                 const glow = r * 3.4;
-                // a short trail along the swirl
-                g.globalAlpha = a * 0.4;
+                // a trail along the swirl
+                g.save();
+                g.globalCompositeOperation = 'lighter';
+                g.globalAlpha = a * 0.45;
                 g.strokeStyle = QS_COLS[p.c];
-                g.lineWidth = Math.max(1, r * 0.7);
+                g.lineWidth = Math.max(1, r * 0.8);
                 g.beginPath();
-                for (let s = 0; s <= 6; s++) {
+                for (let s = 0; s <= 10; s++) {
                     const b2 = ang - spin * s * 0.035;
                     const [tx, ty] = pr(Math.cos(b2) * p.r0, Math.sin(b2) * p.r0, d + s * 0.05);
                     if (s) {
@@ -492,6 +966,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     }
                 }
                 g.stroke();
+                g.restore();
                 g.globalAlpha = a;
                 if (!p.k) {
                     g.drawImage(qsSprite(p.c), sx - glow, sy - glow, glow * 2, glow * 2);
@@ -528,6 +1003,32 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                 pts.forEach((A, j) => g.drawImage(qsSprite(j), A[0] - gl, A[1] - gl, gl * 2, gl * 2));
             });
             const st = 0.45 + 0.55 * sm((u - 0.55) / 0.1);
+            if (ev === 'vacuum' && t < T1 - 460) {
+                // nothing to lock onto: the brackets hunt about the dark
+                if (t > seek.at) {
+                    seek.fx = seek.x;
+                    seek.fy = seek.y;
+                    seek.x = W * (0.15 + Math.random() * 0.7);
+                    seek.y = H * (0.2 + Math.random() * 0.6);
+                    seek.s = 14 + Math.random() * 22;
+                    seek.from = t;
+                    seek.at = t + 260 + Math.random() * 260;
+                }
+                const k = sm((t - seek.from) / 140);
+                const x = seek.fx + (seek.x - seek.fx) * k;
+                const y = seek.fy + (seek.y - seek.fy) * k;
+                const h = seek.s * (1.4 - 0.4 * k);
+                g.globalAlpha = 0.3 + 0.3 * k;
+                g.strokeStyle = '#8aa2ff';
+                g.lineWidth = 1.2;
+                g.beginPath();
+                [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([a, b]) => {
+                    g.moveTo(x + a * h, y + b * h * 0.7 - b * 6);
+                    g.lineTo(x + a * h, y + b * h * 0.7);
+                    g.lineTo(x + a * h - a * 6, y + b * h * 0.7);
+                });
+                g.stroke();
+            }
             T.forEach((tg, i) => {
                 const [px, py] = pr(tg.x, tg.y, dt);
                 const sx = px + ((targets ? targets[i].x : W * (i + 0.5) / N) - px) * w2;
@@ -552,6 +1053,129 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
                     }
                 }
                 g.globalAlpha = hl ? 1 : 0.8 * Math.min(1, (dt - 0.35) / 0.9);
+                tgAt[i] = [sx, sy];
+                if (storm && t > T1 + 180) {
+                    // a gold ring as the last of the storm lands
+                    const k = (t - T1 - 180) / 600;
+                    if (k < 1) {
+                        g.save();
+                        g.globalCompositeOperation = 'lighter';
+                        g.globalAlpha = (1 - k) * 0.8;
+                        g.strokeStyle = '#f0c419';
+                        g.lineWidth = 2 * (1 - k) + 0.5;
+                        g.beginPath();
+                        g.arc(sx, sy, sz * (0.7 + k * 1.8), 0, 6.2832);
+                        g.stroke();
+                        const fr = sz * (1 + k);
+                        g.globalAlpha = (1 - k) * 0.5;
+                        g.drawImage(glowSprite('#f0c419'), sx - fr, sy - fr, fr * 2, fr * 2);
+                        g.restore();
+                    }
+                }
+                if (ev === 'collider' && t >= T1 - 40) {
+                    const k = (t - T1 + 40) / 500;
+                    if (k < 1) {
+                        g.save();
+                        g.globalCompositeOperation = 'lighter';
+                        const fr = sz * (1.2 + k * 2.5);
+                        g.globalAlpha = (1 - k) * 0.7;
+                        g.drawImage(glowSprite('#5fd4ff'), sx - fr, sy - fr, fr * 2, fr * 2);
+                        g.globalAlpha = (1 - k) * 0.85;
+                        g.strokeStyle = '#bfefff';
+                        g.lineWidth = 1.5;
+                        g.beginPath();
+                        g.arc(sx, sy, sz * (0.6 + k * 3), 0, 6.2832);
+                        g.stroke();
+                        g.restore();
+                    }
+                }
+                if (ev === 'gamma' && t >= T1 && !tg.burst) {
+                    // the find goes off like one of the bursts
+                    tg.burst = true;
+                    bursts.push({ x: sx, y: sy, a: Math.random() * 6.2832, b: t, s: 1.15 });
+                }
+                if (ev === 'hyper' && t > T1 - 200) {
+                    // loose charges gather round the find and settle into it
+                    const e = sm((t - T1 + 200) / 500);
+                    const fade = 1 - sm((u - 0.88) / 0.12);
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    for (let j = 0; j < 8; j++) {
+                        const an = j / 8 * 6.2832 + t / 520 * (j % 2 ? 1 : -1);
+                        const rr = sz * (2.6 - 1.7 * e);
+                        const cx2 = sx + Math.cos(an) * rr;
+                        const cy2 = sy + Math.sin(an) * rr * 0.6;
+                        const plus = j % 2 === 0;
+                        const s2 = Math.max(8, sz * 0.22);
+                        g.globalAlpha = e * fade * 0.75;
+                        g.drawImage(glowSprite(plus ? '#ffd860' : '#7aa8ff'), cx2 - s2 * 1.4, cy2 - s2 * 1.4, s2 * 2.8, s2 * 2.8);
+                        g.globalAlpha = e * fade;
+                        drawGlyph(g, plus ? '+' : '−', plus ? '#fff2c0' : '#d6e4ff', fam, s2, cx2, cy2);
+                    }
+                    g.restore();
+                }
+                if (ev === 'vacuum') {
+                    // locks onto nothing, then the element slowly comes up out of the dark
+                    const e = sm((t - T1 + 80) / (total - T1));
+                    if (e <= 0) {
+                        return;
+                    }
+                    // faint light drawn in from all round, spiralling into the find
+                    g.save();
+                    g.globalCompositeOperation = 'lighter';
+                    const reach = Math.min(W / N, H) * 0.45;
+                    const at = f => {
+                        const rr = (sz * 0.3 + m0.r * reach / 2.5) * (1 - f);
+                        const an = m0.a + (1 - f) * 2.4;
+                        return [sx + Math.cos(an) * rr * 1.25, sy + Math.sin(an) * rr * 0.85];
+                    };
+                    let m0 = null;
+                    motes[i].forEach(m => {
+                        m0 = m;
+                        const f = sm((e - m.d) / (1 - m.d));
+                        if (f <= 0 || f >= 1) {
+                            return;
+                        }
+                        const [x1, y1] = at(f);
+                        const [x0, y0] = at(Math.max(0, f - 0.08));
+                        g.globalAlpha = Math.sin(Math.PI * f) * 0.9;
+                        g.strokeStyle = f > 0.65 ? '#dfe5ff' : '#6f84ff';
+                        g.lineWidth = m.s * 1.6;
+                        g.beginPath();
+                        g.moveTo(x0, y0);
+                        g.lineTo(x1, y1);
+                        g.stroke();
+                    });
+                    g.restore();
+                    const hr = sz * (0.9 + e * 0.9);
+                    g.globalAlpha = e * 0.45;
+                    g.drawImage(glowSprite('#4a5cff'), sx - hr, sy - hr, hr * 2, hr * 2);
+                    // a ring of bent light once it's mostly through
+                    const lk = (e - 0.55) / 0.45;
+                    if (lk > 0 && lk < 1) {
+                        g.globalAlpha = (1 - lk) * 0.5;
+                        g.strokeStyle = '#b8c4ff';
+                        g.lineWidth = 1.5 * (1 - lk) + 0.4;
+                        g.beginPath();
+                        g.ellipse(sx, sy, sz * (0.6 + lk * 1.8), sz * (0.45 + lk * 1.3), 0, 0, 6.2832);
+                        g.stroke();
+                    }
+                    // a soft bloom the moment it's whole
+                    const bl = (e - 0.7) / 0.3;
+                    if (bl > 0 && bl < 1) {
+                        const br = sz * (1.2 + bl * 1.4);
+                        g.save();
+                        g.globalCompositeOperation = 'lighter';
+                        g.globalAlpha = Math.sin(Math.PI * bl) * 0.5;
+                        g.drawImage(glowSprite('#c8d2ff'), sx - br, sy - br, br * 2, br * 2);
+                        g.restore();
+                    }
+                    g.globalAlpha = Math.pow(e, 1.4) * 0.9;
+                    drawGlyph(g, labels[i], '#7f93ff', fam, sz, sx, sy);
+                    g.globalAlpha = sm((e - 0.45) / 0.55);
+                    drawGlyph(g, labels[i], SK.hi, fam, sz, sx, sy);
+                    return;
+                }
                 drawGlyph(g, labels[i], hl ? (u > 0.65 ? SK.hi : ac) : SK.fg, fam, sz, sx, sy);
             });
             g.globalAlpha = 0.9;
@@ -559,7 +1183,7 @@ function scanField(reel, syms, labels, scores, dur, targets, ev) {
             g.font = '600 11px ' + fam;
             g.textBaseline = 'alphabetic';
             g.textAlign = 'left';
-            g.fillText(u < 0.65 ? 'FIELD SCAN' : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
+            g.fillText(u < 0.65 ? (ev === 'vacuum' ? 'SEARCHING' + '...'.slice(0, (t / 300 | 0) % 4) : 'FIELD SCAN') : (N > 1 ? 'LOCK x' + N : 'LOCK'), 18, 26);
             g.textAlign = 'right';
             g.fillText('RNG ' + D.toFixed(1), W - 18, 26);
             if (ev) {

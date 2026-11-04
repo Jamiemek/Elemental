@@ -80,7 +80,9 @@ async function doRoll(preset, opts) {
         const press = pre || scripted ? null : acPress();
         // before it counts down
         const evNow = pre || scripted ? null : eventNow();
-        const acEv = evNow === 'collider' || evNow === 'hole' ? acEvent() : null;
+        const acEv = evNow && EVENTS[evNow] ? acEvent() : null;
+        const vacNow = !pre && !scripted && vacOn();
+        const acVac = vacNow && vacRun.s != null ? { s: vacRun.s, c: vacRun.src ? 1 : 0, src: vacRun.src || null } : null;
         const rolls = pre || Array.from({ length: rollCount }, (_, k) => {
             // the catalysts behind this roll, noted before single-roll ones are used up
             const timed = activeList().filter(x => x.a.rolls == null && x.c).map(x => x.c.name);
@@ -106,14 +108,16 @@ async function doRoll(preset, opts) {
                 const heads = (press != null && acKeys ? acDraw(acKeys.d, press, 4, 0, k) : Math.random()) < 0.5;
                 if (!first && ch.jokeNew && heads && jokesOn()) {
                     const jf = jokesFound();
-                    if (JOKES.some(j => !jf.has(j[0]))) {
+                    if (rollPool().some(e => isJoke(e[0]) && !jf.has(e[0]))) {
                         only = { k: 'j', l: rollPool().filter(e => isJoke(e[0]) && !jf.has(e[0])).map(e => e[0]) };
                         first = weightedElement(luckUp, e => isJoke(e[0]) && !jf.has(e[0]));
                     }
                 }
+                // during a Vacuum, a void element can come up instead of the whole roll
+                const voidEl = vacNow && !first ? voidPick(luckUp) : null;
                 const denom = evNow === 'collider' ? 2 : ch.chain3 ? Math.min(CHAIN_MAX, buffs.chainDenom) : buffs.chainDenom;
                 const twice = evNow === 'hole' || ch.twice;
-                const make = () => rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
+                const make = () => voidEl ? [voidEl] : rollElements(luckUp, first, { denom, linked: ch.linked, magnet: ch.magnet });
                 const elements = scripted ? [elementBySymbol[scripted]] : twice ? rollTwice(make) : make();
                 if (elements.some(e => isJoke(e[0]))) {
                     gagHit();
@@ -122,9 +126,9 @@ async function doRoll(preset, opts) {
                 const log = exactRarity(elements, 0);
                 const r = ionise({
                     elements, formula, log, rarity: rarityText(log), score: rollScore(elements), cats: timed.concat(ch.used)
-                }, rollIon());
+                }, ch.ionLens && bondBonus().ion ? ionLensRoll() : rollIon());
                 if (acStream) {
-                    r.proof = { d: acDev, n: press, k, p: acParams(buffHold, { X: luckUp, D: denom, ln: ch.linked ? 1 : 0, mg: ch.magnet ? 1 : 0, tw: twice ? 1 : 0, o: only, ch: ch.src, R: bondBonus().refund, ev: acEv }), t: acTrace };
+                    r.proof = { d: acDev, n: press, k, p: acParams(buffHold, { X: luckUp, D: denom, ln: ch.linked ? 1 : 0, mg: ch.magnet ? 1 : 0, tw: twice ? 1 : 0, o: only, ch: ch.src, R: refundPct(), ev: acEv, G: evNow === 'gamma' ? 1 : 0, vc: vacNow ? 1 : 0, vs: acVac, Vx: catBonus().voidx, il: ch.ionLens ? 1 : 0 }), t: acTrace };
                 }
                 return r;
             } finally {
@@ -133,7 +137,11 @@ async function doRoll(preset, opts) {
                 buffHold = null;
             }
         });
+        if (!pre && !scripted) {
+            eventTally(evNow, vacNow, rolls);
+        }
         const ev = pre || scripted ? null : eventsPress(rolls.length, press);
+        const vac = pre || scripted ? null : vacuumPress(press);
         const storm = ev && !ev.ev ? ev : null;
         const bestIdx = rolls.reduce((bi, r, i) => r.score > rolls[bi].score ? i : bi, 0);
         const secret = !replay && getRarityTier(rolls[bestIdx].score) >= 5 && Math.random() < secretChance();
@@ -162,7 +170,7 @@ async function doRoll(preset, opts) {
             await playCutscene(cut.sym, reel, multi ? [withIon(rolls[feat].formula, rolls[feat].ion)] : rolls.map(r => withIon(r.formula, r.ion)), multi ? 0 : cut.idx, syms);
         } else {
             playBuildup(onRoll ? Math.max(...rolls.map(r => getRarityTier(r.score))) : 0, (Math.max(120, 1350 * delay / 3000) + 1650) / 1000);
-            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, evNow);
+            await scanField(reel, syms, rolls.map(r => withIon(r.formula, r.ion)), rolls.map(r => r.score), delay, targets, evNow || (vacNow ? 'vacuum' : null));
         }
         reel.classList.remove('rolling');
         reel.classList.add('reveal');
@@ -251,6 +259,16 @@ async function doRoll(preset, opts) {
                 showAchievementToast({ kicker: 'Event over', name: E.name, flavor: 'Rolling is back to normal.' });
             }
         }
+        if (vacNow || vac) {
+            renderVacuum();
+        }
+        if (vac) {
+            if (vac.started) {
+                showAchievementToast({ kicker: 'Rare event', name: 'Vacuum', flavor: 'For the next ' + formatNumber(vacRun.left) + ' rolls, something that isn\'t on any table can turn up.' });
+            } else {
+                showAchievementToast({ kicker: 'Event over', name: 'Vacuum', flavor: 'Whatever was out there has gone quiet again.' });
+            }
+        }
         if (storm) {
             renderQStorm(storm.sum);
             if (storm.started) {
@@ -259,6 +277,7 @@ async function doRoll(preset, opts) {
                 showAchievementToast({ kicker: 'Quark Storm over', name: '+' + formatNumber(Math.round(storm.ended)) + ' quarks', flavor: 'The storm has passed. That is what it added on top of your usual quarks.' });
             }
         }
+        sillyConfetti();
         refreshViews();
         applyCosmetics();
         if (!buffs.autoUnlocked && activeBuffStats().autoUnlocked) {
@@ -383,6 +402,11 @@ function updateAutoBtn() {
     }
     b.setAttribute('aria-pressed', autoWanted && s.autoUnlocked ? 'true' : 'false');
     b.classList.toggle('auto-on', autoWanted && s.autoUnlocked);
+    const lv = $('levelBtn');
+    lv.hidden = !bondBonus().leveller;
+    lv.textContent = levellerOn ? 'Leveller on' : 'Leveller off';
+    lv.classList.toggle('on', levellerOn);
+    lv.setAttribute('aria-pressed', levellerOn ? 'true' : 'false');
     document.querySelectorAll('.js-auto').forEach(el => {
         el.textContent = status;
     });
@@ -434,6 +458,16 @@ $('autoRollBtn').addEventListener('click', () => {
         autoLoop();
     }
 });
+// the Leveller from outer ring 2, switched on and off here instead of bought
+$('levelBtn').addEventListener('click', () => {
+    levellerOn = !levellerOn;
+    try {
+        localStorage.setItem('elementalLeveller', levellerOn ? '1' : '');
+    } catch (e) { }
+    buffCache = weightCache = null;
+    uiSound('click');
+    updateAutoBtn();
+});
 setInterval(updateAutoBtn, 250);
 updateAutoBtn();
 if (autoWanted) {
@@ -451,6 +485,16 @@ $('resetBtn').addEventListener('click', () => {
             localStorage.removeItem('elementalAutoState');
             localStorage.removeItem('elementalBonds2');
             netState = {};
+            netAgents = {};
+            levellerOn = false;
+            localStorage.removeItem('elementalBondAgents');
+            localStorage.removeItem('elementalMade');
+            localStorage.removeItem('elementalSynthKnown');
+            localStorage.removeItem('elementalSynthHints');
+            syKnown = [];
+            syHints = {};
+            madeStore = {};
+            localStorage.removeItem('elementalLeveller');
             netVer++;
             localStorage.removeItem('elementalNetwork');
             localStorage.removeItem('elementalShop');
@@ -471,6 +515,8 @@ $('resetBtn').addEventListener('click', () => {
             qStormSave();
             evRun = null;
             evSave();
+            vacRun = null;
+            vacSave();
             localStorage.removeItem('elementalCosmetics');
             cosState = { owned: [], scanner: '', page: '', effects: '', badge: true };
             applyCosmetics();

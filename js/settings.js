@@ -236,7 +236,7 @@ function jokeIntroCheck() {
     try {
         localStorage.setItem('elementalJokeIntro', '1');
     } catch (e) { }
-    const w = openDialog('<h2>The joke periodic table</h2><p>' + JOKES.length + ' new elements are now in the pool, every one rarer than Uranium. Find them on the joke table in your Collection.</p>' +
+    const w = openDialog('<h2>The joke periodic table</h2><p>' + JOKES_BASE.length + ' new elements are now in the pool, every one rarer than Uranium. Find them on the joke table in your Collection.</p>' +
         '<p>Mixing is on: joke elements can chain with real ones into joke compounds. You can turn it off now, or any time in Settings.</p>' +
         '<div class="btn-row"><button class="primary" id="jokeKeep">Keep mixing on</button><button class="ghost" id="jokeOff">Turn mixing off</button></div>');
     w.querySelector('#jokeKeep').onclick = closeDialog;

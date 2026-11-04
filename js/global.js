@@ -76,7 +76,7 @@ function globalConsider(rec) {
     const st = activeBuffStats();
     const ev = eventNow();
     globalSubmit({
-        ev: ev ? (ev === 'storm' ? 'Quark Storm' : EVENTS[ev].name) : '',
+        ev: ev ? (ev === 'storm' ? 'Quark Storm' : EVENTS[ev].name) : vacOn() ? 'Vacuum' : '',
         f: rec.formula,
         ion: rec.ion || 0,
         label: rec.name || globalName(rec.formula),
@@ -94,6 +94,8 @@ async function globalSubmit(p) {
     if (!p.pf) {
         return;
     }
+    // a find made with a synthesised catalyst only counts once the server has the catalyst logged
+    await syLogFlush();
     const args = { p_formula: p.f, p_label: p.label, p_rolls: p.rolls, p_luck: p.luck, p_catalysts: p.cats, p_proof: p.pf };
     if (p.ion) {
         args.p_ion = p.ion;

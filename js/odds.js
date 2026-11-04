@@ -57,14 +57,15 @@ function computeBuffs() {
     const denom = Math.max(CHAIN_MAX, BASE_CHAIN - (BASE_CHAIN - CHAIN_MAX) / 8 * Math.min(8, chainSteps + bd.chain));
     return {
         // oddsLuck is what the odds use: catalysts can't take it past LUCK_CEILING (your own luck can)
-        found, luck: own + cb.luck, oddsLuck: Math.min(own + cb.luck, Math.max(own, LUCK_CEILING)), speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto) / 100)), extra: Math.min(3, extra + bd.extra + cb.extra), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? CHAIN_MAX : Math.max(CHAIN_MAX, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
+        found, luck: own + cb.luck, oddsLuck: Math.min(own + cb.luck, Math.max(own, LUCK_CEILING)), speed: speed + cb.speed, autoUnlocked: autoUnlock, autoSpeed: autoSpeed + bd.auto + cb.auto, autoGap: Math.max(AUTO_MIN_GAP, AUTO_BASE_GAP / (1 + (autoSpeed + bd.auto + cb.auto) / 100)), extra: Math.min(bd.bonusroll ? 4 : 3, extra + bd.extra + cb.extra + (bd.bonusroll ? 1 : 0)), chainSteps: Math.min(8, chainSteps), chainDenom: cb.chainMax ? cb.chainFloor : Math.max(cb.chainFloor, denom - cb.chain), fam: cb.fam, quark: cb.quark + bd.quark,
         // reagent/punchline add, running gag multiplies
-        jokeMult: (1 + cb.joke / 100) * (cb.gag || 1), level: cb.level, exp: catNextExpiry()
+        jokeMult: (1 + (cb.joke + bd.jokeup) / 100) * (cb.gag || 1), level: cb.level || (bd.leveller && levellerOn), exp: catNextExpiry()
     };
 }
 function weightTable(extraLuck, only) {
     const b = activeBuffStats();
-    if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.pool.length === rollPool().length) {
+    const gamma = evOn('gamma');
+    if (!extraLuck && !only && weightCache && weightCache.b === b && weightCache.gamma === gamma && weightCache.pool.length === rollPool().length) {
         return weightCache;
     }
     const luck = b.oddsLuck + (extraLuck || 0);
@@ -77,7 +78,7 @@ function weightTable(extraLuck, only) {
             flat.push(0);
             return 0;
         }
-        const m = (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1) / e[2];
+        const m = (1 + (b.fam[familyOf(e[0])] || 0) / 100) * (isJoke(e[0]) ? b.jokeMult : 1) * (gamma && RADIOACTIVE.has(e[0]) ? GAMMA_MULT : 1) / e[2];
         const v = m * Math.pow(1 + 1.5 * (Math.log10(e[2] + 1) / 3), (luck / 100) / 1.5);
         flat.push(m);
         total += v;
@@ -93,11 +94,31 @@ function weightTable(extraLuck, only) {
             total += w[i];
         }
     }
-    const t = { w, total, b, pool };
+    const t = { w, total, b, pool, gamma };
     if (!extraLuck && !only) {
         weightCache = t;
     }
     return t;
+}
+// a Vacuum adds the void elements to the first pick of each roll. One draw: under their share
+// of the weight it's a void element, otherwise the roll carries on as normal
+function voidPick(extraLuck) {
+    const t = weightTable(extraLuck);
+    const luck = t.b.oddsLuck + (extraLuck || 0);
+    const lure = catBonus().voidx;
+    const vw = VOIDS.map(v => lure * Math.pow(1 + 1.5 * (Math.log10(v[2] + 1) / 3), (luck / 100) / 1.5) / v[2]);
+    const sum = vw.reduce((a, x) => a + x, 0);
+    let r = rnd() * (t.total + sum);
+    for (let i = 0; i < VOIDS.length; i++) {
+        r -= vw[i];
+        if (r < 0) {
+            if (acTrace) {
+                acTrace.push(VOIDS[i][0]);
+            }
+            return VOIDS[i];
+        }
+    }
+    return null;
 }
 // one element, with the active buffs; extraLuck and only come from single-roll catalysts
 function weightedElement(extraLuck, only) {
@@ -123,7 +144,7 @@ try {
     jokeHide = localStorage.getItem('elementalJokeHide') === '1';
 } catch (e) { }
 const jokesOn = () => bondBonus().joke;
-const rollPool = () => jokesOn() ? ELEMENTS.concat(JOKES) : ELEMENTS;
+const rollPool = () => jokesOn() ? ELEMENTS.concat(JOKES.filter(jokeOpen)) : ELEMENTS;
 // false = chain stops (mixing off rule)
 function chainStep(elements, e) {
     if (jokeMix || !jokesOn() || isJoke(e[0]) === isJoke(elements[0][0])) {
@@ -156,11 +177,11 @@ function rollTwice(make) {
 function quarkMult(elements, buffs) {
     const cb = catBonus();
     const n = elements.length;
-    const pct = (buffs.quark || 0) + (n === 1 ? bondBonus().alone : 0) + (n > 1 ? cb.lens : 0) + cb.heavy * (n - 1);
+    const pct = (buffs.quark || 0) + (n === 1 ? bondBonus().alone : 0) + (n > 1 ? cb.lens : 0) + (cb.heavy + bondBonus().heavy) * (n - 1);
     return (1 + pct / 100) * (cb.laugh && elements.some(e => isJoke(e[0])) ? 3 : 1);
 }
 // + Redactium
-const secretChance = () => SECRET_CHANCE + bondBonus().secret / 100;
+const secretChance = () => SECRET_CHANCE + (bondBonus().secret + catBonus().secret) / 100;
 function hillFormula(elements) {
     const counts = {};
     elements.forEach(e => counts[e[0]] = (counts[e[0]] || 0) + 1);
@@ -184,6 +205,8 @@ function hillFormula(elements) {
 }
 const BASE_CHAIN = 8;
 const CHAIN_MAX = 5;
+// Legendary and up can take chain chance past the usual best, so they still matter once the bonds have it maxed
+const chainFloor = tier => tier >= 6 ? 3 : tier === 5 ? 3.5 : tier === 4 ? 4 : CHAIN_MAX;
 // Odds are always base odds: no luck, chain or other buffs are counted
 function exactRarity(elements, guaranteedExtras = 0) {
     const n = Math.max(1, elements.length - guaranteedExtras);
@@ -195,16 +218,27 @@ function exactRarity(elements, guaranteedExtras = 0) {
 const ION_PLUS = 0.01;
 const ION_MINUS = 0.001;
 const ION_MAX = 3;
+// outer ring 2 lines make every ion a little more likely, and Hypercharged a lot more
+const ionClimb = () => +(1 + bondBonus().ionstep / 100).toFixed(4);
+const ionBoost = () => (1 + (bondBonus().ionup + catBonus().ionx) / 100) * (evOn('hyper') ? HYPER_MULT : 1);
+// Ion Lens: always an ion, ² or ³ either way
+function ionLensRoll() {
+    const sign = rnd() < 0.5 ? 1 : -1;
+    return sign * (rnd() < 0.3 ? 3 : 2);
+}
 function rollIon() {
     if (!bondBonus().ion) {
         return 0;
     }
-    const plus = rnd() < ION_PLUS;
-    const minus = rnd() < ION_MINUS;
+    // the same rounded figure the server is sent
+    const k = +ionBoost().toFixed(4);
+    const plus = rnd() < ION_PLUS * k;
+    const minus = rnd() < ION_MINUS * k;
     if (!plus && !minus) {
         return 0;
     }
-    const p = minus ? ION_MINUS : ION_PLUS;
+    // outer ring 2 makes each step up a little likelier
+    const p = (minus ? ION_MINUS : ION_PLUS) * k * ionClimb();
     let n = 1;
     while (n < ION_MAX && rnd() < p) {
         n++;
@@ -294,7 +328,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.1.9.13';
+const APP_VERSION = '2.2';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -340,14 +374,14 @@ function qStormSave() {
 const qStormOn = () => !!(qStorm && qStorm.left > 0);
 // ring 1 raises these
 function qStormRange() {
-    const s = bondBonus().storm / 100;
+    const s = (bondBonus().storm + catBonus().stormx) / 100;
     return [QSTORM_MIN + Math.round(2 * s), QSTORM_MAX + Math.round(20 * s)];
 }
 const eventChanceMult = () => 1 + (bondBonus().event + catBonus().event) / 100;
 const qStormChance = () => QSTORM_CHANCE * eventChanceMult();
 // deja-vium, lightning rod, event logger
 function eventLength(base, storm) {
-    return Math.round(base * (1 + bondBonus().evlen / 100) * (storm && takeFlag('rod') ? 1.5 : 1) * (takeFlag('logger') ? 2 : 1));
+    return Math.round(base * (1 + (bondBonus().evlen + catBonus().evlen) / 100) * (storm && takeFlag('rod') ? 1.5 : 1) * (takeFlag('logger') ? 2 : 1));
 }
 function qStormStart() {
     qStorm = { left: eventLength(QSTORM_PRESSES, true), got: 0 };
@@ -375,15 +409,73 @@ function qStormPress(count) {
     return null;
 }
 // supercollider + black hole, one event at a time
+// at: newer events take a fixed draw, so they don't move the older ones' dice about
+const GAMMA_MULT = 3;
+const HYPER_MULT = 4;
 const EVENTS = {
     collider: { name: 'Supercollider', chance: 1 / 16000, presses: 30, what: 'chain chance is 1 in 2' },
-    hole: { name: 'Black Hole', chance: 1 / 12000, presses: 50, what: 'every roll is rolled twice and keeps the rarer' }
+    hole: { name: 'Black Hole', chance: 1 / 12000, presses: 50, what: 'every roll is rolled twice and keeps the rarer' },
+    gamma: { name: 'Gamma Ray Burst', chance: 1 / 16000, presses: 100, what: 'radioactive elements are 3× as common', at: 3 },
+    hyper: { name: 'Hypercharged', chance: 1 / 12000, presses: 100, what: 'ions are 4× as common', at: 4, need: 'hyper' }
 };
+// technetium, promethium and everything from polonium on
+const RADIOACTIVE = new Set(['Tc', 'Pm'].concat(ELEMENTS.slice(83).map(e => e[0])));
 let evRun = null;
 try {
     const v = JSON.parse(localStorage.getItem('elementalEvent') || 'null');
-    evRun = v && EVENTS[v.id] && v.left > 0 ? { id: v.id, left: Math.min(500, Math.floor(v.left)), s: v.s, co: v.co, src: v.src } : null;
+    evRun = v && EVENTS[v.id] && v.left > 0 ? { id: v.id, left: Math.min(EVENTS[v.id].presses * 4, Math.floor(v.left)), s: v.s, co: v.co, src: v.src, got: +v.got || 0 } : null;
 } catch (e) { }
+// the Vacuum runs alongside everything else, for a very long time
+const VACUUM_CHANCE = 1 / 250000;
+const VACUUM_PRESSES = 50000;
+let vacRun = null;
+try {
+    const v = JSON.parse(localStorage.getItem('elementalVacuum') || 'null');
+    vacRun = v && v.left > 0 ? { left: Math.min(VACUUM_PRESSES * 4, Math.floor(v.left)), s: v.s, src: v.src, got: +v.got || 0 } : null;
+} catch (e) { }
+function vacSave() {
+    try {
+        if (vacRun) {
+            localStorage.setItem('elementalVacuum', JSON.stringify(vacRun));
+        } else {
+            localStorage.removeItem('elementalVacuum');
+        }
+    } catch (e) { }
+}
+const vacOn = () => !!vacRun;
+// a Vacuum Seed starts a shorter one
+const VACUUM_SEED = 5000;
+function vacStart(s, len) {
+    vacRun = { left: Math.round((len || VACUUM_PRESSES) * (1 + bondBonus().evlen / 100)), s };
+    vacSave();
+}
+function vacuumPress(n) {
+    if (vacRun) {
+        vacRun.left--;
+        const ended = vacRun.left <= 0;
+        if (ended) {
+            vacRun = null;
+        }
+        vacSave();
+        return ended ? { ended: true } : null;
+    }
+    if (anyEventOn()) {
+        return null;
+    }
+    acOpen(n, 1);
+    try {
+        if (acStream) {
+            acStream.i = 5;
+        }
+        if (rnd() < VACUUM_CHANCE * eventChanceMult()) {
+            vacStart(n);
+            return { started: true };
+        }
+    } finally {
+        acClose();
+    }
+    return null;
+}
 function evSave() {
     try {
         if (evRun) {
@@ -412,6 +504,9 @@ function eventsPress(count, n) {
     }
 }
 function eventsRoll(count, n) {
+    if (vacOn()) {
+        return null;
+    }
     if (evOn()) {
         const id = evRun.id;
         evRun.left--;
@@ -426,17 +521,51 @@ function eventsRoll(count, n) {
         return st;
     }
     for (const id of Object.keys(EVENTS)) {
-        if (id === 'collider' && !colliderOn()) {
+        const E = EVENTS[id];
+        if ((id === 'collider' && !colliderOn()) || (E.need && !bondBonus()[E.need])) {
             continue;
         }
-        if (rnd() < EVENTS[id].chance * eventChanceMult()) {
+        if (E.at != null && acStream) {
+            acStream.i = E.at;
+        }
+        if (rnd() < E.chance * eventChanceMult()) {
             evStart(id, n == null ? {} : { s: n, co: colliderOn() });
             return { ev: id, started: true };
         }
     }
     return null;
 }
+// what each event has done so far, shown on its bar the way a Quark Storm shows its quarks
+const EV_TALLY = {
+    collider: ['1:2', n => n === 1 ? 'extra element chained' : 'extra elements chained', rolls => rolls.reduce((s, r) => s + r.elements.length - 1, 0)],
+    hole: ['×2', n => n === 1 ? 'roll doubled' : 'rolls doubled', rolls => rolls.length],
+    gamma: ['☢\uFE0E', n => n === 1 ? 'radioactive element' : 'radioactive elements', rolls => rolls.reduce((s, r) => s + r.elements.filter(e => RADIOACTIVE.has(e[0])).length, 0)],
+    hyper: ['±', n => n === 1 ? 'ion' : 'ions', rolls => rolls.filter(r => r.ion).length],
+    vacuum: ['∅', n => n === 1 ? 'void element' : 'void elements', rolls => rolls.filter(r => r.elements.some(e => isVoid(e[0]))).length]
+};
+function eventTally(evId, vac, rolls) {
+    if (evId && EV_TALLY[evId] && evRun) {
+        evRun.got = (evRun.got || 0) + EV_TALLY[evId][2](rolls);
+        evSave();
+    }
+    if (vac && vacRun) {
+        vacRun.got = (vacRun.got || 0) + EV_TALLY.vacuum[2](rolls);
+        vacSave();
+    }
+}
+const tallyHtml = (id, n) => '<span class="qs-got"><span class="ev-sym" aria-hidden="true">' + EV_TALLY[id][0] + '</span>' + formatNumber(n || 0) + ' ' + EV_TALLY[id][1](n || 0) + '</span>';
+function renderVacuum() {
+    const vb = $('vacBar');
+    if (!vb) {
+        return;
+    }
+    vb.hidden = !vacRun;
+    if (vacRun) {
+        vb.innerHTML = '<span class="qs-name">Vacuum</span><span class="qs-left"><b>' + formatNumber(vacRun.left) + '</b> ' + (vacRun.left === 1 ? 'roll' : 'rolls') + ' left</span>' + tallyHtml('vacuum', vacRun.got);
+    }
+}
 function renderQStorm(last) {
+    renderVacuum();
     const bar = $('qStormBar');
     if (!bar) {
         return;
@@ -444,7 +573,7 @@ function renderQStorm(last) {
     bar.className = 'qstorm-bar' + (evOn() ? ' ev-' + evRun.id : '');
     if (evOn()) {
         bar.hidden = false;
-        bar.innerHTML = '<span class="qs-name">' + EVENTS[evRun.id].name + '</span><span class="qs-left"><b>' + evRun.left + '</b> ' + (evRun.left === 1 ? 'roll' : 'rolls') + ' left</span><span class="qs-got">' + EVENTS[evRun.id].what + '</span>';
+        bar.innerHTML = '<span class="qs-name">' + EVENTS[evRun.id].name + '</span><span class="qs-left"><b>' + evRun.left + '</b> ' + (evRun.left === 1 ? 'roll' : 'rolls') + ' left</span>' + tallyHtml(evRun.id, evRun.got);
         return;
     }
     bar.hidden = !qStormOn();

@@ -280,6 +280,19 @@ function go(screen) {
     if (screen === 'upgrade') {
         renderUpgrade();
     }
+    if (screen === 'synth') {
+        renderSynth();
+    }
+    if (screen === 'catinv') {
+        syNavSync();
+    }
+    if (screen === 'electro') {
+        $('elxMsg').textContent = '';
+        renderElx();
+    }
+    if (screen === 'bonds') {
+        elxNavSync();
+    }
     if (screen === 'game') {
         upNavSync();
     }
@@ -390,6 +403,7 @@ function discoveredSymbols() {
     const set = new Set();
     collection.forEach(c => (c.elements || []).forEach(e => set.add(e[0])));
     JOKE_SYMS.forEach(s => set.delete(s));
+    VOID_SYMS.forEach(s => set.delete(s));
     foundCache = { col: collection, n: collection.length, set };
     return set;
 }
@@ -405,5 +419,19 @@ function jokesFound() {
         }
     }));
     jokeFoundCache = { n: collection.length, s };
+    return s;
+}
+let voidFoundCache = null;
+function voidsFound() {
+    if (voidFoundCache && voidFoundCache.n === collection.length) {
+        return voidFoundCache.s;
+    }
+    const s = new Set();
+    collection.forEach(c => (c.elements || []).forEach(e => {
+        if (isVoid(e[0])) {
+            s.add(e[0]);
+        }
+    }));
+    voidFoundCache = { n: collection.length, s };
     return s;
 }
