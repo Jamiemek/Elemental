@@ -273,6 +273,7 @@ function go(screen) {
         shopAlertSync();
         $('shopMsg').textContent = '';
         renderShop();
+        syNavSync();
     }
     if (screen === 'catinv') {
         renderCatInv();
@@ -282,9 +283,6 @@ function go(screen) {
     }
     if (screen === 'synth') {
         renderSynth();
-    }
-    if (screen === 'catinv') {
-        syNavSync();
     }
     if (screen === 'electro') {
         $('elxMsg').textContent = '';

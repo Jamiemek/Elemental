@@ -249,7 +249,7 @@
 </main>
 
 <main id="shop" class="screen">
-<div class="page-head"><div><h1>Shop</h1><p class="sub">Restocks in <b id="shopTimer">0:00</b>. Buy with quarks, use whenever you like.</p></div><div class="head-btns"><button class="ghost" id="shopBuyAll">Buy all</button><button class="ghost" id="shopCourier" hidden>Use Courier</button><button class="ghost" data-go="catinv">Inventory</button><button class="ghost" data-go="menu">Back</button></div></div>
+<div class="page-head"><div><h1>Shop</h1><p class="sub">Restocks in <b id="shopTimer">0:00</b>. Buy with quarks, use whenever you like.</p></div><div class="head-btns"><button class="ghost" id="shopBuyAll">Buy all</button><button class="ghost" id="shopCourier" hidden>Use Courier</button><button class="ghost" data-go="synth" id="shopSyBtn" hidden>Synthesis</button><button class="ghost" data-go="catinv">Inventory</button><button class="ghost" data-go="menu">Back</button></div></div>
 <div class="tabs shop-tabs" id="shopTabs" hidden><button class="tab active" data-stab="cats">Catalysts</button><button class="tab" data-stab="cos">Cosmetics</button></div>
 <section class="inventory-panel" id="shopCats">
 <div class="toolbar"><strong>In stock</strong><span class="stat" id="shopSlotsNote"></span></div>
@@ -265,7 +265,7 @@
 </main>
 
 <main id="catinv" class="screen">
-<div class="page-head"><div><h1>Inventory</h1><p class="sub">Your catalysts. Select one to see what it does and use it.</p></div><div class="head-btns"><button class="ghost" data-go="synth" id="invSyBtn" hidden>Synthesis</button><button class="ghost" data-go="upgrade" id="invUpBtn" hidden>Upgrade</button><button class="ghost" data-go="shop">Shop</button><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="menu">Back</button></div></div>
+<div class="page-head"><div><h1>Inventory</h1><p class="sub">Your catalysts. Select one to see what it does and use it.</p></div><div class="head-btns"><button class="ghost" data-go="upgrade" id="invUpBtn" hidden>Upgrade</button><button class="ghost" data-go="shop">Shop</button><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="menu">Back</button></div></div>
 <div class="inv-layout">
 <aside class="inv-detail" id="invDetail"></aside>
 <section class="inv-right">
@@ -277,7 +277,7 @@
 </main>
 
 <main id="synth" class="screen">
-<div class="page-head"><div><h1>Synthesis</h1><p class="sub">Put five elements on the table and see what they make. Turning a pattern round makes no difference; moving elements between slots does.</p></div><div class="head-btns"><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="catinv">Back</button></div></div>
+<div class="page-head"><div><h1>Synthesis</h1><p class="sub">Put five elements on the table to find new catalysts for your shop. Turning a pattern round makes no difference; moving elements between slots does.</p></div><div class="head-btns"><button class="ghost" data-go="game">Roll</button><button class="ghost" data-go="shop">Back</button></div></div>
 <section class="sy-page-wrap">
 <p class="muted" id="syLocked">Catalyst Synthesis unlocks on outer ring 2 of the bonds tree.</p>
 <div id="syBody" class="sy-layout" hidden>

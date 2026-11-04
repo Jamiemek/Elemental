@@ -418,7 +418,7 @@ $('syNextW').addEventListener('click', () => {
     renderSynth();
 });
 function syNavSync() {
-    $('invSyBtn').hidden = !syOn();
+    $('shopSyBtn').hidden = !syOn();
 }
 // the silly catalysts: a class on the page for each one running
 let sySillyOn = '';
