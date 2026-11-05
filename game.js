@@ -10417,7 +10417,7 @@ function rarityShown(rec, mode = displayMode) {
 function rarityWord(mode = displayMode) {
     return mode === 'score' ? 'Score' : 'Odds';
 }
-const APP_VERSION = '2.2.2';
+const APP_VERSION = '2.2.3';
 let quarks = 0;
 try {
     quarks = parseFloat(localStorage.getItem('elementalQuarks')) || 0;
@@ -11058,6 +11058,7 @@ async function doRoll(preset, opts) {
     const buffs = activeBuffStats();
     const rollCount = pre ? pre.length : 1 + buffs.extra;
     const delay = Math.max(300, 3000 / (1 + buffs.speed / 100));
+    paceNote(delay, buffs.autoGap, rollCount);
     const results = $('rollResults');
     results.innerHTML = '';
     results.style.gridTemplateColumns = rollCount > 1 ? '1fr' : 'repeat(1,minmax(0,1fr))';
@@ -17836,8 +17837,32 @@ function cloudApplyData(d, at) {
 const cloudDevice = acDev;
 let cloudTouched = Date.now();
 ['pointerdown', 'keydown'].forEach(e => addEventListener(e, () => cloudTouched = Date.now(), true));
+// the fastest this game could have been rolling lately: shortest roll (ms), shortest autoroll break (s)
+// and most rolls a press, kept in ten minute blocks for six hours. The server checks roll counts against it
+function paceRead() {
+    try {
+        return JSON.parse(localStorage.getItem('elementalPace') || '{}') || {};
+    } catch (e) {
+        return {};
+    }
+}
+function paceNote(ms, gap, n) {
+    const now = Math.floor(Date.now() / 600000);
+    const b = paceRead();
+    const cur = b[now] || [ms, gap, n];
+    b[now] = [Math.min(cur[0], Math.round(ms)), Math.min(cur[1], Math.round(gap * 100) / 100), Math.max(cur[2], n)];
+    Object.keys(b).forEach(k => +k < now - 36 && delete b[k]);
+    try {
+        localStorage.setItem('elementalPace', JSON.stringify(b));
+    } catch (e) { }
+}
+function paceStamp() {
+    const now = Math.floor(Date.now() / 600000);
+    const l = Object.entries(paceRead()).filter(([k]) => +k >= now - 36).map(x => x[1]);
+    return l.length ? { d: Math.min(...l.map(x => x[0])), g: Math.min(...l.map(x => x[1])), n: Math.max(...l.map(x => x[2])) } : undefined;
+}
 // r: the last reset this game knows about, so the server can turn away saves from before one
-const cloudStamp = (d, quiet) => Object.assign({ dev: cloudDevice, at: quiet ? 0 : (trustedNow() || Date.now()), r: cloudGet('elementalResetSeen') || undefined }, d);
+const cloudStamp = (d, quiet) => Object.assign({ dev: cloudDevice, at: quiet ? 0 : (trustedNow() || Date.now()), r: cloudGet('elementalResetSeen') || undefined, p: paceStamp() }, d);
 const cloudElsewhere = d => !!d.dev && d.dev !== cloudDevice && (trustedNow() || Date.now()) - (d.at || 0) < 150000;
 // finds and bonds from both, spendable stuff from whichever rolled more
 function cloudMerge(a, b) {

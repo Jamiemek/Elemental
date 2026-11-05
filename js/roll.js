@@ -57,6 +57,7 @@ async function doRoll(preset, opts) {
     const buffs = activeBuffStats();
     const rollCount = pre ? pre.length : 1 + buffs.extra;
     const delay = Math.max(300, 3000 / (1 + buffs.speed / 100));
+    paceNote(delay, buffs.autoGap, rollCount);
     const results = $('rollResults');
     results.innerHTML = '';
     results.style.gridTemplateColumns = rollCount > 1 ? '1fr' : 'repeat(1,minmax(0,1fr))';
